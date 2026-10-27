@@ -97,9 +97,13 @@ func parseVaults(value string) ([]VaultSpec, error) {
 	return vaults, nil
 }
 
-// parseExcludes reads vault:pattern,vault:pattern. Patterns are relative to
-// the vault root, so absolute patterns and ".." segments are rejected: an
-// exclude that points outside the vault could never hide what it was meant to.
+// parseExcludes reads vault:pattern,vault:pattern. A pattern is a vault-relative
+// glob matched one path segment at a time, and is stored in canonical form: one
+// trailing "/" is trimmed. A pattern that is empty, absolute, contains a
+// backslash, or has an empty, "." or ".." segment is rejected, because it could
+// never match and an exclude that silently hides nothing is worse than a
+// startup error. Keep this in step with vault.ExcludeGlobs, which must reject
+// the same patterns.
 func parseExcludes(value string, vaults []VaultSpec) (map[string][]string, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, nil
@@ -119,10 +123,16 @@ func parseExcludes(value string, vaults []VaultSpec) (map[string][]string, error
 			return nil, fmt.Errorf("exclude for vault %q has an empty pattern", name)
 		case strings.HasPrefix(pattern, "/"):
 			return nil, fmt.Errorf("exclude pattern %q must be relative to the vault", pattern)
-		case slices.Contains(strings.Split(pattern, "/"), ".."):
-			return nil, fmt.Errorf("exclude pattern %q must not contain ..", pattern)
+		case strings.Contains(pattern, `\`):
+			return nil, fmt.Errorf(`exclude pattern %q must separate folders with "/", not a backslash`, pattern)
 		}
-		excludes[name] = append(excludes[name], pattern)
+		canonical := strings.TrimSuffix(pattern, "/")
+		for _, segment := range strings.Split(canonical, "/") {
+			if segment == "" || segment == "." || segment == ".." {
+				return nil, fmt.Errorf(`exclude pattern %q must not contain empty, "." or ".." path segments`, pattern)
+			}
+		}
+		excludes[name] = append(excludes[name], canonical)
 	}
 	return excludes, nil
 }

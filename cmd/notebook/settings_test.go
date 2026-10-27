@@ -164,13 +164,13 @@ func TestParseExcludes(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	// Several vaults, spaces around entries, and dots inside a name are fine.
+	// Several vaults and spaces around entries are fine.
 	two := []VaultSpec{{"notes", "/tmp/n"}, {"work", "/tmp/w"}}
-	got, err = parseExcludes("notes:a, work:b/*.md ,notes:Q1..Q2", two)
+	got, err = parseExcludes("notes:a, work:b/*.md ,notes:c", two)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string][]string{"notes": {"a", "Q1..Q2"}, "work": {"b/*.md"}}
+	want := map[string][]string{"notes": {"a", "c"}, "work": {"b/*.md"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -183,17 +183,54 @@ func TestParseExcludes(t *testing.T) {
 		}
 	}
 
+	// A pattern is a vault-relative glob matched segment by segment. It is
+	// stored in canonical form: one trailing slash is trimmed and nothing else
+	// is rewritten.
+	for pattern, canonical := range map[string]string{
+		"transcripts":     "transcripts",
+		"transcripts/":    "transcripts",
+		" transcripts/ ":  "transcripts",
+		"Private/**":      "Private/**",
+		"Private/**/":     "Private/**",
+		"**/*.private.md": "**/*.private.md",
+		"a/*/c.md":        "a/*/c.md",
+		"a b/c?":          "a b/c?",
+		"Q1..Q2":          "Q1..Q2", // dots inside a name are not "." or ".." segments
+		"..data":          "..data",
+		".obsidian":       ".obsidian",
+	} {
+		got, err := parseExcludes("notes:"+pattern, notes)
+		want := map[string][]string{"notes": {canonical}}
+		if err != nil || !reflect.DeepEqual(got, want) {
+			t.Errorf("parseExcludes(%q) = %v, %v; want %v", "notes:"+pattern, got, err, want)
+		}
+	}
+
 	for _, value := range []string{
 		"x:a",              // unknown vault
 		"notes",            // missing colon
-		"notes:",           // empty pattern
-		"notes:a,notes:",   // empty pattern after a valid one
-		"notes:/abs",       // absolute
-		"notes:../up",      // escapes the vault
-		"notes:a/../b",     // parent segment in the middle
-		"notes:..",         // parent segment alone
-		"notes:a/..",       // parent segment at the end
 		"notes:a,,notes:b", // empty entry
+
+		// Patterns that could never match a segment-based glob would silently
+		// hide nothing from MCP, so they are rejected.
+		"notes:",              // empty
+		"notes:a,notes:",      // empty after a valid one
+		"notes:/",             // nothing but a slash
+		"notes:/abs",          // absolute
+		"notes:/abs/",         // absolute with a trailing slash
+		"notes:../x",          // escapes the vault
+		"notes:../up",         // escapes the vault
+		"notes:a/../b",        // parent segment in the middle
+		"notes:..",            // parent segment alone
+		"notes:a/..",          // parent segment at the end
+		"notes:./transcripts", // "." segment
+		"notes:a/./b",         // "." segment in the middle
+		"notes:.",             // "." segment alone
+		"notes:a/.",           // "." segment at the end
+		"notes:a//b",          // empty segment
+		"notes:a//",           // empty segment left after one trailing slash is trimmed
+		`notes:a\b`,           // backslash
+		`notes:a\`,            // trailing backslash
 	} {
 		if _, err := parseExcludes(value, notes); err == nil {
 			t.Errorf("accepted %q", value)
@@ -228,8 +265,11 @@ func TestLoadSettingsMCPExclude(t *testing.T) {
 	if !reflect.DeepEqual(s.MCPExclude, want) {
 		t.Errorf("MCPExclude = %v, want %v", s.MCPExclude, want)
 	}
-	_, err = load(t, map[string]string{"NOTEBOOK_VAULTS": vaults, "NOTEBOOK_MCP_EXCLUDE": "ghost:a"})
-	if err == nil || !strings.Contains(err.Error(), "NOTEBOOK_MCP_EXCLUDE") {
-		t.Fatalf("error = %v, want one naming NOTEBOOK_MCP_EXCLUDE", err)
+	// A bad exclude stops startup instead of silently hiding nothing.
+	for _, value := range []string{"ghost:a", "notes:./transcripts"} {
+		_, err = load(t, map[string]string{"NOTEBOOK_VAULTS": vaults, "NOTEBOOK_MCP_EXCLUDE": value})
+		if err == nil || !strings.Contains(err.Error(), "NOTEBOOK_MCP_EXCLUDE") {
+			t.Errorf("%q: error = %v, want one naming NOTEBOOK_MCP_EXCLUDE", value, err)
+		}
 	}
 }
