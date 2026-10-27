@@ -1,0 +1,21 @@
+/*
+ * The element that holds the editor (lib/editor/Editor.svelte): it takes the
+ * room its parent gives it, and the editor scrolls inside it. CodeMirror's own
+ * elements are styled from tokens by lib/editor/theme.ts and highlight.ts.
+ */
+.nb-editor {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*
+ * With reduced motion app.css cuts every animation short, which would make the
+ * blinking cursor flicker: the cursor stays still instead.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .nb-editor .cm-cursorLayer {
+    animation: none !important;
+  }
+}

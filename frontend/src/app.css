@@ -15,6 +15,7 @@
   --nb-tree-indent: 14px;
   --nb-accent: var(--accent-blue);
   --nb-selection: color-mix(in srgb, var(--nb-accent) 24%, transparent);
+  --nb-highlight: color-mix(in srgb, var(--accent-amber) 30%, transparent);
 }
 
 * {

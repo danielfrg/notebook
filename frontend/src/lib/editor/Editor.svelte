@@ -1,0 +1,185 @@
+<script lang="ts">
+  /*
+   * The note editor: CodeMirror 6 over the text of a note. The document is the
+   * text of the file, its line separator and byte order mark included, so
+   * saving writes back what was loaded plus what was typed and nothing else.
+   * Live Preview comes in through `extensions`; Source mode highlights the
+   * syntax instead.
+   *
+   * `value` is the text of the note. When it becomes something else than the
+   * document (another note, or this one reloaded from disk), the document is
+   * replaced: only what differs changes, the selection stays where its text is,
+   * the history starts anew, and `onchange` is not called. `onchange` reports
+   * edits only (typing, commands, undo), with the text as getValue() gives it.
+   * The host may pass that text back as `value` at once, which changes nothing,
+   * but not an older text later on: that would replace what was typed since.
+   * A note with mixed line breaks opens read-only (`onlineseparator` says so).
+   */
+  import { Compartment, EditorState, type Extension } from "@codemirror/state";
+  import { drawSelection, EditorView, keymap } from "@codemirror/view";
+  import { onMount, untrack } from "svelte";
+  import "../../editor.css";
+  import { editorCommands, editorKeymap, type EditorCommand } from "./commands.ts";
+  import {
+    changedByUser,
+    documentExtensions,
+    readOnlyExtension,
+    replaceDocument,
+    toDocument,
+    type LineSeparator,
+  } from "./document.ts";
+  import { sourceHighlight } from "./highlight.ts";
+  import { detectLineSeparator } from "./linesep.ts";
+  import { notebookMarkdown } from "./markdown.ts";
+  import { editorTheme } from "./theme.ts";
+
+  type Props = {
+    value: string;
+    mode: "live" | "source";
+    readOnly?: boolean;
+    /** The Live Preview extensions, on in live mode. */
+    extensions?: Extension[];
+    ariaLabel?: string;
+    onchange: (value: string) => void;
+    onsave: () => void;
+    /** The line separator of every document loaded; "mixed" is read-only, and the host says why. */
+    onlineseparator?: (separator: LineSeparator) => void;
+  };
+
+  let {
+    value,
+    mode,
+    readOnly = false,
+    extensions = [],
+    ariaLabel = "Note",
+    onchange,
+    onsave,
+    onlineseparator,
+  }: Props = $props();
+
+  let host: HTMLDivElement;
+  let view: EditorView | undefined;
+  /** The line separator of the document, and the text it was loaded from. */
+  let separator: LineSeparator = "\n";
+  let loaded = "";
+
+  const modeCompartment = new Compartment();
+  const readOnlyCompartment = new Compartment();
+  const labelCompartment = new Compartment();
+  const compartments = { separator: new Compartment(), history: new Compartment() };
+
+  const modeExtension = (): Extension => (mode === "live" ? extensions : sourceHighlight);
+  const labelExtension = (label: string): Extension => EditorView.contentAttributes.of({ "aria-label": label });
+
+  onMount(() => {
+    separator = detectLineSeparator(value);
+    loaded = value;
+    const editor = new EditorView({
+      parent: host,
+      state: EditorState.create({
+        doc: toDocument(value, separator),
+        extensions: [
+          notebookMarkdown(),
+          documentExtensions(separator, compartments),
+          drawSelection(),
+          keymap.of(editorKeymap(() => onsave())),
+          EditorView.lineWrapping,
+          editorTheme,
+          modeCompartment.of(modeExtension()),
+          readOnlyCompartment.of(readOnlyExtension(readOnly)),
+          labelCompartment.of(labelExtension(ariaLabel)),
+          EditorView.updateListener.of((update) => {
+            if (changedByUser(update.transactions)) onchange(update.state.sliceDoc(0));
+          }),
+        ],
+      }),
+    });
+    editor.scrollDOM.addEventListener("mousedown", clickInMargin);
+    view = editor;
+    onlineseparator?.(separator);
+    return () => {
+      view = undefined;
+      editor.destroy();
+    };
+  });
+
+  /** Puts content in a compartment, unless it is there already. */
+  function reconfigure(compartment: Compartment, content: Extension): void {
+    if (view && compartment.get(view.state) !== content) view.dispatch({ effects: compartment.reconfigure(content) });
+  }
+
+  $effect(() => {
+    const content = modeExtension();
+    untrack(() => reconfigure(modeCompartment, content));
+  });
+
+  $effect(() => {
+    const content = readOnlyExtension(readOnly);
+    untrack(() => reconfigure(readOnlyCompartment, content));
+  });
+
+  $effect(() => {
+    const label = ariaLabel;
+    untrack(() => {
+      if (view && view.contentDOM.getAttribute("aria-label") !== label) {
+        view.dispatch({ effects: labelCompartment.reconfigure(labelExtension(label)) });
+      }
+    });
+  });
+
+  $effect(() => {
+    const text = value;
+    untrack(() => {
+      if (view && text !== getValue()) load(view, text);
+    });
+  });
+
+  /** Makes text the document, as another version of the note, with its own line separator. */
+  function load(editor: EditorView, text: string): void {
+    const next = detectLineSeparator(text);
+    editor.dispatch(replaceDocument(editor.state, text, next, compartments));
+    separator = next;
+    loaded = text;
+    onlineseparator?.(next);
+  }
+
+  /**
+   * A press in the margins beside the column lands on the scroller, which
+   * CodeMirror does not listen to, and would only take the focus away. It goes
+   * to the text at the same height instead: the cursor goes to the nearest
+   * point of that line, and a drag selects from there. A press on the
+   * scrollbar stays the scrollbar's.
+   */
+  function clickInMargin(event: MouseEvent): void {
+    const scroller = view?.scrollDOM;
+    if (!view || event.target !== scroller || event.button !== 0) return;
+    if (event.offsetX >= scroller.clientWidth || event.offsetY >= scroller.clientHeight) return;
+    event.preventDefault();
+    view.contentDOM.dispatchEvent(new MouseEvent("mousedown", event));
+  }
+
+  /** Puts the keyboard focus in the editor. */
+  export function focus(): void {
+    view?.focus();
+  }
+
+  /** Runs a command as its key or a toolbar button would, and gives the editor the focus back. */
+  export function run(command: EditorCommand): void {
+    if (!view) return;
+    editorCommands[command](view);
+    view.focus();
+  }
+
+  /**
+   * The text of the document with its own line breaks: sliceDoc(0), which
+   * joins the lines of a CRLF note with CRLF. A note with mixed line breaks,
+   * which a state cannot keep and which cannot be edited, gives back the text
+   * it was loaded from.
+   */
+  export function getValue(): string {
+    if (!view) return value;
+    return separator === "mixed" ? loaded : view.state.sliceDoc(0);
+  }
+</script>
+
+<div class="nb-editor" bind:this={host}></div>
