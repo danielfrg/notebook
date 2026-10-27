@@ -1324,7 +1324,7 @@ func TestUnicodePaths(t *testing.T) {
 	names := []string{
 		"¿Qué es el Estoicismo?.md",
 		"100% #1.md",
-		"Dario Z - El amor - Clase 1.md",
+		"Course Z - On love - Lesson 1.md",
 		"a,b [c].md",
 		"Café ¿Qué?/a,b [c].md",
 	}

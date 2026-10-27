@@ -15,7 +15,7 @@ test("baseName is the last segment and noteTitle also drops .md", () => {
     ["Note.md", "Note.md", "Note"],
     ["100% #1.md", "100% #1.md", "100% #1"],
     ["a,b [c].md", "a,b [c].md", "a,b [c]"],
-    ["Dario Z - El amor - Clase 1.md", "Dario Z - El amor - Clase 1.md", "Dario Z - El amor - Clase 1"],
+    ["Course Z - On love - Lesson 1.md", "Course Z - On love - Lesson 1.md", "Course Z - On love - Lesson 1"],
     ["notes.d/Q1..Q2.md", "Q1..Q2.md", "Q1..Q2"],
     ["a.md.md", "a.md.md", "a.md"], // only the last extension goes
     ["x/y.MD", "y.MD", "y.MD"], // the server only calls a lower-case .md a note
@@ -69,7 +69,7 @@ test("validateEntryName gives a reason for a name the vault would refuse, and nu
     "100% #1",
     "¿Qué es el Estoicismo?",
     "a,b [c]",
-    "Dario Z - El amor - Clase 1",
+    "Course Z - On love - Lesson 1",
     "Q1..Q2",
     "trailing.",
     "日本語",

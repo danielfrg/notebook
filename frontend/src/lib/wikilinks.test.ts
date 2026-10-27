@@ -19,7 +19,7 @@ test("parseWikilink reads the target, heading, alias and embed marker", () => {
     ["![[img.png|300]]", link("img.png", { alias: "300", embed: true })],
     ["![[Note#Heading]]", link("Note", { heading: "Heading", embed: true })],
     ["[[¿Qué es el Estoicismo?]]", link("¿Qué es el Estoicismo?")],
-    ["[[Dario Z - El amor - Clase 1|Clase 1]]", link("Dario Z - El amor - Clase 1", { alias: "Clase 1" })],
+    ["[[Course Z - On love - Lesson 1|Lesson 1]]", link("Course Z - On love - Lesson 1", { alias: "Lesson 1" })],
     ["[[ Note | alias ]]", link("Note", { alias: "alias" })],
     ["[[Note#a#b]]", link("Note", { heading: "a#b" })], // a path of headings stays whole
     ["[[Note#^abc123]]", link("Note", { heading: "^abc123" })], // a block reference
@@ -88,7 +88,7 @@ test("resolveNote finds a note by path, by file name or by the end of its path",
     [["a/¿Qué es el Estoicismo?.md"], "x.md", "¿qué es el estoicismo?", "a/¿Qué es el Estoicismo?.md"],
     [["100% #1.md", "100.md"], "x.md", "100% #1", "100% #1.md"],
     [["a,b [c].md"], "x.md", "a,b [c]", "a,b [c].md"],
-    [["Dario Z - El amor - Clase 1.md"], "x.md", "Dario Z - El amor - Clase 1", "Dario Z - El amor - Clase 1.md"],
+    [["Course Z - On love - Lesson 1.md"], "x.md", "Course Z - On love - Lesson 1", "Course Z - On love - Lesson 1.md"],
     // composed and decomposed accents are the same name
     [["Cafe\u0301.md"], "x.md", "Caf\u00e9", "Cafe\u0301.md"],
     // folder/Note matches the end of a path, on whole segments

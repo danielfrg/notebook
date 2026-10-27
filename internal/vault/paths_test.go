@@ -13,7 +13,7 @@ func TestCleanPath(t *testing.T) {
 		"a/b/c.md",
 		"¿Qué es?.md",
 		"100% #1.md",
-		"Dario Z - El amor - Clase 1.md",
+		"Course Z - On love - Lesson 1.md",
 		"a,b [c].md",
 		"日本語/ノート.md",
 		"a b/c d.md",

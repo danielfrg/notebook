@@ -8,7 +8,7 @@ test("a path survives the trip through the hash, whatever its name", () => {
     "100% #1.md",
     "a/b c/d.md",
     "a,b [c].md",
-    "Dario Z - El amor - Clase 1.md",
+    "Course Z - On love - Lesson 1.md",
     "a+b.md",
     "Q1..Q2.md",
     "日本語/ノート.md",
