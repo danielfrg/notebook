@@ -16,6 +16,8 @@
    * A note with mixed line breaks opens read-only (`onlineseparator` says so).
    */
   import { Compartment, EditorState, type Extension } from "@codemirror/state";
+  import { autocompletion } from "@codemirror/autocomplete";
+  import { syntaxTree } from "@codemirror/language";
   import { drawSelection, dropCursor, EditorView, keymap } from "@codemirror/view";
   import { onMount, untrack } from "svelte";
   import "../../editor.css";
@@ -32,6 +34,8 @@
   import { detectLineSeparator } from "./linesep.ts";
   import { notebookMarkdown } from "./markdown.ts";
   import { editorTheme } from "./theme.ts";
+  import { NodeName } from "./markdown.ts";
+  import { wikilinkSource } from "./wikilink-complete.ts";
 
   type Props = {
     value: string;
@@ -42,6 +46,8 @@
     ariaLabel?: string;
     onchange: (value: string) => void;
     onsave: () => void;
+    notes?: readonly string[];
+    onwikilink?: (source: string) => void;
     /** The line separator of every document loaded; "mixed" is read-only, and the host says why. */
     onlineseparator?: (separator: LineSeparator) => void;
   };
@@ -54,6 +60,8 @@
     ariaLabel = "Note",
     onchange,
     onsave,
+    notes = [],
+    onwikilink,
     onlineseparator,
   }: Props = $props();
 
@@ -80,6 +88,7 @@
         doc: toDocument(value, separator),
         extensions: [
           notebookMarkdown(),
+          autocompletion({ override: [wikilinkSource(() => notes)] }),
           documentExtensions(separator, compartments),
           drawSelection(),
           // Where dragged text would land.
@@ -97,9 +106,13 @@
       }),
     });
     editor.scrollDOM.addEventListener("mousedown", clickInMargin);
+    editor.dom.addEventListener("notebook:wikilink", widgetWikilink as EventListener);
+    editor.contentDOM.addEventListener("mousedown", modifierClick);
     view = editor;
     onlineseparator?.(separator);
     return () => {
+      editor.dom.removeEventListener("notebook:wikilink", widgetWikilink as EventListener);
+      editor.contentDOM.removeEventListener("mousedown", modifierClick);
       view = undefined;
       editor.destroy();
     };
@@ -160,9 +173,41 @@
     view.contentDOM.dispatchEvent(new MouseEvent("mousedown", event));
   }
 
+  function widgetWikilink(event: CustomEvent<{ source: string }>): void {
+    onwikilink?.(event.detail.source);
+  }
+
+  function modifierClick(event: MouseEvent): void {
+    if (!view || event.button !== 0 || !(event.metaKey || event.ctrlKey)) return;
+    if ((event.target as Element).closest("a.nb-wikilink")) return;
+    const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (position === null) return;
+    let node = syntaxTree(view.state).resolveInner(position, -1);
+    while (node && node.name !== NodeName.Wikilink && node.name !== "Link" && node.name !== "Autolink" && node.name !== "URL") node = node.parent!;
+    if (!node) return;
+    if (node.name === NodeName.Wikilink) {
+      event.preventDefault();
+      onwikilink?.(view.state.sliceDoc(node.from, node.to));
+      return;
+    }
+    const url = node.name === "URL" ? node : node.getChild("URL");
+    if (!url) return;
+    const target = view.state.sliceDoc(url.from, url.to);
+    if (!/^https?:\/\//i.test(target)) return;
+    event.preventDefault();
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
+
   /** Puts the keyboard focus in the editor. */
   export function focus(): void {
     view?.focus();
+  }
+
+  export function revealLine(number: number): void {
+    if (!view) return;
+    const line = view.state.doc.line(Math.max(1, Math.min(number, view.state.doc.lines)));
+    view.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+    view.focus();
   }
 
   /** Runs a command as its key or a toolbar button would, and gives the editor the focus back. */

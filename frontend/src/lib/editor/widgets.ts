@@ -18,7 +18,7 @@ export function toggleTaskAt(state: EditorState, pos: number): TransactionSpec |
 
 /** Activate source-backed widgets before CodeMirror can move the selection into their replacements. */
 export function taskToggleExtension(): Extension {
-  const activate = (target: EventTarget | null, view: EditorView): boolean => {
+  const activate = (target: EventTarget | null, view: EditorView, modifier = false): boolean => {
     if (!(target instanceof Element)) return false;
     const checkbox = target.closest<HTMLElement>(".nb-task-checkbox");
     if (checkbox && view.dom.contains(checkbox)) {
@@ -40,6 +40,7 @@ export function taskToggleExtension(): Extension {
     }
     const link = target.closest<HTMLAnchorElement>("a.nb-wikilink");
     if (!link || !view.dom.contains(link)) return false;
+    if (!modifier) return false;
     const node = syntaxTree(view.state).resolveInner(view.posAtDOM(link), 1);
     if (node.name !== NodeName.Wikilink) return true;
     view.dom.dispatchEvent(new CustomEvent("notebook:wikilink", {
@@ -51,13 +52,15 @@ export function taskToggleExtension(): Extension {
   return EditorView.domEventHandlers({
     mousedown(event, view) {
       if (event.button !== 0) return false;
-      return activate(event.target, view);
+      if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest?.("a.nb-wikilink")) event.preventDefault();
+      return activate(event.target, view, event.metaKey || event.ctrlKey);
     },
     click(event, view) {
       const target = event.target;
       if (!(target instanceof Element) || !target.closest(".nb-task-checkbox, a.nb-wikilink")) return false;
+      if (target.closest("a.nb-wikilink")) event.preventDefault();
       // Pointer activation already ran on mousedown. Keyboard-generated clicks have detail 0.
-      if (event.detail === 0) activate(target, view);
+      if (event.detail === 0) activate(target, view, event.metaKey || event.ctrlKey);
       return true;
     },
   });

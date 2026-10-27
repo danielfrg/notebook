@@ -1,4 +1,4 @@
-import { ApiError, createApi, type ApiClient, type Listing, type VaultInfo } from "../api.ts";
+import { ApiError, createApi, type ApiClient, type Listing, type SearchHit, type VaultInfo } from "../api.ts";
 import { noteFileName, renameTarget, validateNoteName } from "../entry-names.ts";
 import { detectLineSeparator } from "../editor/linesep.ts";
 import { joinPath, parentFolder, validateEntryName } from "../paths.ts";
@@ -38,6 +38,11 @@ class Workspace {
   navigationBlocked = $state(false);
   focusRequest = $state(0);
   lineSeparatorIssue: string | null = $state(null);
+  searchQuery = $state("");
+  searchHits: SearchHit[] = $state([]);
+  searchLoading = $state(false);
+  searchError: string | null = $state(null);
+  searchTarget: { path: string; line: number } | null = $state(null);
   bom = "";
   controller: SaveController | null = null;
   private api: ApiClient = createApi();
@@ -56,6 +61,8 @@ class Workspace {
   private filesTimer: ReturnType<typeof setInterval> | undefined;
   private lastReturnRefresh = 0;
   private fileMutationPending = 0;
+  private searchSequence = 0;
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   get dirty(): boolean { return this.controller?.state !== "clean" && this.controller !== null; }
 
@@ -102,6 +109,8 @@ class Workspace {
     this.noteAbort?.abort();
     this.noteAbort = null;
     this.notePollInFlight = null;
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchSequence++;
     void this.controller?.flush();
   }
 
@@ -115,7 +124,38 @@ class Workspace {
   }
 
   openNote(path: string | null): void {
+    this.searchTarget = null;
     this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "note", path }, this.vaults.map((v) => v.name)));
+  }
+
+  openSearchHit(hit: SearchHit): void {
+    this.searchTarget = { path: hit.path, line: hit.snippets[0]?.line ?? 1 };
+    this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "note", path: hit.path }, this.vaults.map((v) => v.name)));
+  }
+
+  setSearchQuery(query: string): void {
+    this.searchQuery = query;
+    this.searchSequence++;
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = undefined;
+    this.searchHits = [];
+    this.searchError = null;
+    this.searchLoading = !!query.trim();
+    if (!query.trim() || !this.vault) { this.searchLoading = false; return; }
+    const sequence = this.searchSequence;
+    const vault = this.vault;
+    this.searchTimer = setTimeout(() => {
+      this.searchTimer = undefined;
+      void this.api.search(vault, query, 50).then((hits) => {
+        if (sequence !== this.searchSequence || vault !== this.vault) return;
+        this.searchHits = hits;
+        this.searchLoading = false;
+      }).catch((error: unknown) => {
+        if (sequence !== this.searchSequence || vault !== this.vault) return;
+        this.searchError = error instanceof Error ? error.message : "Search failed";
+        this.searchLoading = false;
+      });
+    }, 250);
   }
 
   assetUrl(path: string): string {
@@ -458,6 +498,7 @@ class Workspace {
     const generation = ++this.generation;
     this.pendingPath = path;
     this.vault = vault;
+    this.setSearchQuery("");
     this.path = null;
     this.listing = null;
     this.listingEtag = undefined;
@@ -537,7 +578,7 @@ class Workspace {
           if (this.controller !== controller) return;
           this.saveState = state;
           this.saveDetail = detail ?? null;
-          if (state === "clean") this.externalConflict = false;
+          if (state === "clean") { this.externalConflict = false; this.lastExternalRevision = null; }
           if (state === "conflict") this.externalConflict = true;
           if (state === "error" && detail === "missing") this.markMissing();
         },

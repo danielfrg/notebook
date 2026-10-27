@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, FlashBanner } from "@kenn-io/kit-ui";
+  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, FlashBanner, SearchInput, CommandPalette, appShortcuts, initShortcuts, getThemeMode, setThemeMode, type PaletteCommand } from "@kenn-io/kit-ui";
   import NotebookTextIcon from "@lucide/svelte/icons/notebook-text";
   import { onMount, tick } from "svelte";
   import Editor from "./lib/editor/Editor.svelte";
@@ -9,19 +9,47 @@
   import DiscardDialog from "./lib/components/DiscardDialog.svelte";
   import EntryDialog from "./lib/components/EntryDialog.svelte";
   import NoteHeader from "./lib/components/NoteHeader.svelte";
+  import Palette from "./lib/components/Palette.svelte";
+  import SearchResults from "./lib/components/SearchResults.svelte";
   import Toolbar from "./lib/components/Toolbar.svelte";
   import VaultSwitcher from "./lib/components/VaultSwitcher.svelte";
   import { workspace } from "./lib/state/workspace.svelte.ts";
-  import { noteTitle } from "./lib/paths.ts";
+  import { noteTitle, parentFolder } from "./lib/paths.ts";
+  import { uniqueNoteName } from "./lib/entry-names.ts";
+  import { parseWikilink, resolveNote } from "./lib/wikilinks.ts";
 
   let collapsed = $state(window.innerWidth < 900);
   let sidebarWidth = $state(280);
   let editor = $state<Editor>();
   let saveAsNew = $state(false);
   let discardConfirm = $state(false);
+  let quickOpen = $state(false);
+  let commandsOpen = $state(false);
+  let vaultOpen = $state(false);
+  let searchInput: HTMLInputElement | undefined = $state();
+  let entryDialog: { kind: "note" | "folder"; folder: string; initial: string } | null = $state(null);
+  const notePaths = $derived((workspace.listing?.notes ?? [])
+    .toSorted((a, b) => b.modified.localeCompare(a.modified))
+    .map((entry) => entry.path));
+  const commands = $derived<PaletteCommand[]>([
+    { id: "new-note", label: "New note", disabled: workspace.readOnly },
+    { id: "new-folder", label: "New folder", disabled: workspace.readOnly },
+    { id: "toggle-mode", label: "Toggle Live / Source", combo: "mod+e", disabled: !workspace.path },
+    { id: "toggle-theme", label: "Toggle theme" },
+    { id: "switch-vault", label: "Switch vault" },
+    { id: "open-search", label: "Open search", combo: "mod+shift+f" },
+    { id: "reload", label: "Reload from disk", disabled: !workspace.path || workspace.dirty },
+  ]);
+  const vaultCommands = $derived<PaletteCommand[]>(workspace.vaults.map(({ name }) => ({ id: name, label: name })));
 
   $effect(() => {
     if (workspace.focusRequest > 0) void tick().then(() => editor?.focus());
+  });
+  $effect(() => {
+    const target = workspace.searchTarget;
+    if (target && workspace.path === target.path && !workspace.noteLoading) {
+      void tick().then(() => { editor?.revealLine(target.line); workspace.searchTarget = null; });
+    }
   });
   const extensions = $derived([
     previewContext.of({
@@ -45,25 +73,23 @@
       event.preventDefault();
       event.returnValue = "";
     };
-    const shortcuts = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-      if (event.key.toLowerCase() === "e" && workspace.path) {
-        event.preventDefault();
-        workspace.setMode(workspace.mode === "live" ? "source" : "live");
-      } else if (event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        void workspace.saveNow();
-      }
-    };
+    const detachShortcuts = initShortcuts();
+    const unregister = [
+      appShortcuts.register("mod+o", () => { quickOpen = true; }, { description: "Quick switcher" }),
+      appShortcuts.register("mod+p", () => { commandsOpen = true; }, { description: "Command palette" }),
+      appShortcuts.register("mod+s", () => { void workspace.saveNow(); }, { description: "Save note" }),
+      appShortcuts.register("mod+e", () => { if (workspace.path) workspace.setMode(workspace.mode === "live" ? "source" : "live"); }, { description: "Toggle editor mode" }),
+      appShortcuts.register("mod+shift+f", () => { focusSearch(); }, { description: "Search notes" }),
+    ];
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("beforeunload", beforeUnload);
-    window.addEventListener("keydown", shortcuts);
     return () => {
       void workspace.saveNow();
       workspace.dispose();
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("beforeunload", beforeUnload);
-      window.removeEventListener("keydown", shortcuts);
+      unregister.forEach((remove) => remove());
+      detachShortcuts();
     };
   });
 
@@ -75,6 +101,46 @@
   function blurEditor(event: FocusEvent): void {
     const current = event.currentTarget as HTMLElement;
     if (!event.relatedTarget || !current.contains(event.relatedTarget as Node)) void workspace.saveNow();
+  }
+
+  function focusSearch(): void {
+    collapsed = false;
+    void tick().then(() => searchInput?.focus());
+  }
+
+  function openHit(hit: import("./lib/api.ts").SearchHit): void {
+    workspace.openSearchHit(hit);
+    if (window.innerWidth < 900) collapsed = true;
+  }
+
+  function runCommand(command: PaletteCommand): void {
+    const folder = parentFolder(workspace.path ?? "");
+    switch (command.id) {
+      case "new-note": entryDialog = { kind: "note", folder, initial: uniqueNoteName((workspace.listing?.notes ?? []).filter((note) => parentFolder(note.path) === folder).map((note) => noteTitle(note.path)), "Untitled") }; break;
+      case "new-folder": entryDialog = { kind: "folder", folder, initial: "" }; break;
+      case "toggle-mode": workspace.setMode(workspace.mode === "live" ? "source" : "live"); break;
+      case "toggle-theme": {
+        const mode = getThemeMode();
+        setThemeMode(mode === "dark" ? "system" : mode === "system" ? "light" : "dark");
+        break;
+      }
+      case "switch-vault": vaultOpen = true; break;
+      case "open-search": focusSearch(); break;
+      case "reload": void workspace.reloadFromDisk(); break;
+    }
+  }
+
+  function openWikilink(source: string): void {
+    const link = parseWikilink(source);
+    if (!link) return;
+    if (!link.target) return;
+    const path = resolveNote(notePaths, workspace.path ?? "", link.target);
+    if (path) { workspace.openNote(path); return; }
+    if (workspace.readOnly) return;
+    const slash = link.target.lastIndexOf("/");
+    const targetFolder = slash < 0 ? parentFolder(workspace.path ?? "") : link.target.slice(0, slash);
+    const folder = targetFolder && workspace.listing?.folders.includes(targetFolder) ? targetFolder : parentFolder(workspace.path ?? "");
+    entryDialog = { kind: "note", folder, initial: link.target.slice(slash + 1).replace(/\.md$/i, "") };
   }
 </script>
 
@@ -92,6 +158,9 @@
         <VaultSwitcher />
         <SidebarToggle onclick={() => (collapsed = true)} class="kit-sidebar-toggle--push" />
       </header>
+      <div class="sidebar-search">
+        <SearchInput value={workspace.searchQuery} oninput={(value) => workspace.setSearchQuery(value)} bind:inputEl={searchInput} block placeholder="Search notes…" ariaLabel="Search notes" onkeydown={(event) => { if (event.key === "Enter" && workspace.searchHits[0]) { event.preventDefault(); openHit(workspace.searchHits[0]); } }} />
+      </div>
       {#if workspace.loading}
         <div class="sidebar-message"><Spinner label="Loading vault" /></div>
       {:else if workspace.error}
@@ -100,7 +169,11 @@
           <Button label="Retry" onclick={() => void workspace.retry()} />
         </div>
       {:else}
-        <FileTree onOpenNote={() => { if (window.innerWidth < 900) collapsed = true; }} />
+        {#if workspace.searchQuery.trim()}
+          <SearchResults hits={workspace.searchHits} query={workspace.searchQuery} loading={workspace.searchLoading} error={workspace.searchError} onopen={openHit} />
+        {:else}
+          <FileTree onOpenNote={() => { if (window.innerWidth < 900) collapsed = true; }} />
+        {/if}
       {/if}
     {/snippet}
 
@@ -119,7 +192,7 @@
           <ConflictBanner
             missing={workspace.missingNote}
             readOnly={workspace.readOnly}
-            saveError={workspace.saveState === "error" ? workspace.saveDetail ?? "The save failed." : null}
+            saveError={workspace.saveState === "error" ? workspace.saveDetail === "missing" ? "The note reappeared on disk. Retry save to check for changes." : workspace.saveDetail ?? "The save failed." : null}
             navigationBlocked={workspace.navigationBlocked}
             dirty={workspace.dirty}
             onload={() => workspace.reloadFromDisk()}
@@ -141,6 +214,8 @@
             ariaLabel={workspace.path}
             onchange={(value) => workspace.edit(value)}
             onsave={() => void workspace.saveNow()}
+            onwikilink={openWikilink}
+            notes={notePaths}
             onlineseparator={(separator) => workspace.setLineSeparator(separator)}
           />
         </div>
@@ -153,6 +228,14 @@
   </CollapsibleSidebar>
   <FlashBanner />
 </div>
+
+{#if quickOpen}<Palette notes={notePaths} onopen={(path) => { quickOpen = false; workspace.openNote(path); }} onclose={() => quickOpen = false} />{/if}
+<CommandPalette bind:open={commandsOpen} {commands} onrun={runCommand} ariaLabel="Command palette" />
+<CommandPalette bind:open={vaultOpen} commands={vaultCommands} onrun={(command) => workspace.selectVault(command.id)} ariaLabel="Switch vault" placeholder="Choose a vault…" />
+{#if entryDialog}
+  {@const dialog = entryDialog}
+  <EntryDialog kind={dialog.kind} initial={dialog.initial} onsubmit={(name) => dialog.kind === "note" ? workspace.createNote(dialog.folder, name) : workspace.createFolder(dialog.folder, name)} onclose={() => entryDialog = null} />
+{/if}
 
 {#if saveAsNew && workspace.path}
   <EntryDialog kind="save-as-new" initial={noteTitle(workspace.path)} onsubmit={(name) => workspace.saveMissingAsNew(name)} onclose={() => saveAsNew = false} />
