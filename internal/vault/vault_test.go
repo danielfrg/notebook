@@ -24,14 +24,19 @@ func openTestVault(t *testing.T, opts Options) (*Vault, string) {
 	return v, dir
 }
 
-// writeFile creates dir/name, and any missing parent folders, with content.
-func writeFile(t *testing.T, dir, name, content string) {
-	t.Helper()
+// tryWriteFile creates dir/name, and any missing parent folders, with content.
+func tryWriteFile(dir, name, content string) error {
 	full := filepath.Join(dir, filepath.FromSlash(name))
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		t.Fatal(err)
+		return err
 	}
-	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+	return os.WriteFile(full, []byte(content), 0o644)
+}
+
+// writeFile is tryWriteFile that fails the test on error.
+func writeFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+	if err := tryWriteFile(dir, name, content); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/fs"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -22,7 +21,8 @@ type Entry struct {
 }
 
 // Listing is everything a vault shows. Paths are slash-separated, relative to
-// the vault and sorted by byte order. The slices are never nil.
+// the vault and sorted by byte order, and all of them pass CleanPath, so every
+// entry can be opened. The slices are never nil.
 type Listing struct {
 	Notes   []Entry
 	Assets  []Entry
@@ -32,9 +32,11 @@ type Listing struct {
 	Fingerprint string
 }
 
-// List walks the vault. Hidden names (a leading ".") and symlinks are never
-// listed or followed, and only regular files are listed: notes (*.md) and
-// images. Folders are listed even when empty.
+// List walks the vault and lists only what the API can serve: regular files
+// that are notes (*.md) or images, and folders, even empty ones. Hidden names,
+// other names CleanPath rejects (a backslash, control characters, invalid
+// UTF-8, a name over 255 bytes, a path over 512) and symlinks are never listed
+// or followed, and nothing is listed beneath a skipped folder.
 func (v *Vault) List(ctx context.Context) (Listing, error) {
 	// A walk of a deleted vault directory succeeds with nothing in it.
 	if err := v.Ping(); err != nil {
@@ -57,7 +59,10 @@ func (v *Vault) List(ctx context.Context) (Listing, error) {
 		if p == "." {
 			return nil
 		}
-		if strings.HasPrefix(d.Name(), ".") {
+		// Hidden names, and names the API could not serve, are not listed, and
+		// neither is anything beneath a folder that has one. A file must return
+		// nil: SkipDir for a file would skip its siblings.
+		if _, cerr := CleanPath(p); cerr != nil {
 			if d.IsDir() {
 				return fs.SkipDir
 			}

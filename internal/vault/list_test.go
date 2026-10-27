@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -15,13 +16,30 @@ import (
 
 var fingerprintPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
+// listVault lists the vault and checks the invariant every listing has: each
+// path in it passes CleanPath, so everything listed can be opened.
 func listVault(t *testing.T, v *Vault) Listing {
 	t.Helper()
 	l, err := v.List(context.Background())
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
+	for _, p := range slices.Concat(entryPaths(l.Notes), entryPaths(l.Assets), l.Folders) {
+		if _, err := CleanPath(p); err != nil {
+			t.Errorf("List returned %s, which CleanPath rejects", describe(p))
+		}
+	}
 	return l
+}
+
+// short describes paths for failure messages; the paths of the tests that
+// probe the length limits are too long to read otherwise.
+func short(paths []string) []string {
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		out[i] = describe(p)
+	}
+	return out
 }
 
 func entryPaths(entries []Entry) []string {
@@ -190,6 +208,133 @@ func TestListDirectoriesNamedLikeFiles(t *testing.T) {
 	}
 	if want := []string{"shots.png", "weird.md"}; !slices.Equal(got.Folders, want) {
 		t.Errorf("Folders = %v, want %v", got.Folders, want)
+	}
+}
+
+// createOrSkip creates dir/name with its parents. If the filesystem refuses the
+// name (too long, not valid UTF-8, characters it does not allow) the test is
+// skipped and says why: such a name cannot show up in a listing either. Any
+// other error is a fault in the test.
+func createOrSkip(t *testing.T, dir, name string) {
+	t.Helper()
+	err := tryWriteFile(dir, name, "x")
+	if err == nil {
+		return
+	}
+	if errors.Is(err, syscall.ENAMETOOLONG) || errors.Is(err, syscall.EILSEQ) || errors.Is(err, syscall.EINVAL) {
+		t.Skipf("this filesystem refuses to create %s: %v", describe(name), errors.Unwrap(err))
+	}
+	t.Fatal(err)
+}
+
+// List never advertises what the API cannot serve: a file or folder whose path
+// CleanPath rejects is skipped, and with a folder everything beneath it. A
+// sub-case is skipped, and says so, when the filesystem refuses to create the
+// name at all (macOS refuses invalid UTF-8, most filesystems refuse components
+// over 255 bytes), in which case it cannot show up in a listing either.
+func TestListSkipsNamesThatCannotBeOpened(t *testing.T) {
+	for _, tc := range []struct {
+		what  string
+		files []string // created with their parents; none of them may be listed
+	}{
+		{"backslash in a file name", []string{`a\b.md`, `a\b.png`}},
+		{"backslash in a file name in a folder", []string{`sub/a\b.md`}},
+		{"backslash in a folder name", []string{`dir\x/inner.md`, `dir\x/pic.png`}},
+		{"tab in a file name", []string{"tab\tname.md"}},
+		{"newline in a file name", []string{"line\nbreak.md"}},
+		{"DEL in a file name", []string{"del\x7fname.md"}},
+		{"C1 control character in a file name", []string{"nel\u0085name.md"}},
+		{"control character in a folder name", []string{"bell\x07dir/inner.md"}},
+		{"invalid UTF-8 in a file name", []string{"bad\xffname.md"}},
+		{"invalid UTF-8 in a folder name", []string{"bad\xffdir/inner.md"}},
+		{"file name of 256 bytes", []string{strings.Repeat("a", 253) + ".md"}},
+		{"folder name of 256 bytes", []string{strings.Repeat("b", 256) + "/inner.md"}},
+		{"file name of 259 bytes in 131 characters", []string{strings.Repeat("é", 128) + ".md"}},
+	} {
+		t.Run(tc.what, func(t *testing.T) {
+			v, dir := openTestVault(t, Options{})
+			writeFile(t, dir, "ok.md", "ok")
+			writeFile(t, dir, "sub/ok.md", "ok")
+			writeFile(t, dir, "pic.png", "png")
+			before := listVault(t, v)
+
+			for _, name := range tc.files {
+				createOrSkip(t, dir, name)
+			}
+
+			got := listVault(t, v)
+			if want := []string{"ok.md", "sub/ok.md"}; !slices.Equal(entryPaths(got.Notes), want) {
+				t.Errorf("Notes = %q, want %q", entryPaths(got.Notes), want)
+			}
+			if want := []string{"pic.png"}; !slices.Equal(entryPaths(got.Assets), want) {
+				t.Errorf("Assets = %q, want %q", entryPaths(got.Assets), want)
+			}
+			if want := []string{"sub"}; !slices.Equal(got.Folders, want) {
+				t.Errorf("Folders = %q, want %q", got.Folders, want)
+			}
+			if got.Fingerprint != before.Fingerprint {
+				t.Error("Fingerprint changed, but it covers only what is listed and nothing listed changed")
+			}
+		})
+	}
+}
+
+// The path limit is on the whole path, not on a component: every component
+// here is short enough, the path is not.
+func TestListSkipsPathsOver512Bytes(t *testing.T) {
+	a, b, c := strings.Repeat("a", 200), strings.Repeat("b", 200), strings.Repeat("c", 110)
+	atLimit := a + "/" + b + "/" + c // exactly 512 bytes
+	if len(atLimit) != 512 {
+		t.Fatalf("test fixture: %d bytes, want 512", len(atLimit))
+	}
+	v, dir := openTestVault(t, Options{})
+	for _, name := range []string{
+		"ok.md",
+		a + "/" + b + "/ok.md", // 407 bytes
+		atLimit + "/x.md",      // 517 bytes: a note beneath a folder that is itself fine
+		atLimit + "/d/y.md",    // beneath a folder of 514 bytes
+		atLimit + "/d/e/p.png", // and an image deeper still
+	} {
+		createOrSkip(t, dir, name)
+	}
+
+	got := listVault(t, v)
+	if want := []string{a + "/" + b + "/ok.md", "ok.md"}; !slices.Equal(entryPaths(got.Notes), want) {
+		t.Errorf("Notes = %q, want %q", short(entryPaths(got.Notes)), short(want))
+	}
+	if len(got.Assets) != 0 {
+		t.Errorf("Assets = %q, want none", short(entryPaths(got.Assets)))
+	}
+	if want := []string{a, a + "/" + b, atLimit}; !slices.Equal(got.Folders, want) {
+		t.Errorf("Folders = %q, want %q: the folders up to the 512-byte limit", short(got.Folders), short(want))
+	}
+}
+
+// Skipped folders are not walked at all: a .git folder, or one with a name the
+// API cannot serve, may hold thousands of files.
+func TestListDoesNotWalkSkippedFolders(t *testing.T) {
+	v, dir := openTestVault(t, Options{})
+	writeFile(t, dir, "ok.md", "ok")
+	for i := range 30 {
+		writeFile(t, dir, fmt.Sprintf(".git/objects/%02d.md", i), "x")
+		writeFile(t, dir, fmt.Sprintf(`bad\dir/%02d.md`, i), "x")
+	}
+
+	ctx := &hookContext{Context: context.Background(), onErr: func(int) error { return nil }}
+	got, err := v.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"ok.md"}; !slices.Equal(entryPaths(got.Notes), want) {
+		t.Errorf("Notes = %q, want %q", entryPaths(got.Notes), want)
+	}
+	if len(got.Folders) != 0 {
+		t.Errorf("Folders = %q, want none", got.Folders)
+	}
+	// The vault folder, .git, bad\dir and ok.md are visited; 60 files lie beneath
+	// the two skipped folders.
+	if ctx.calls > 10 {
+		t.Errorf("List visited %d entries, want 4: it walked into a skipped folder", ctx.calls)
 	}
 }
 
