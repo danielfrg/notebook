@@ -7,6 +7,7 @@ import {
   EditorSelection,
   EditorState,
   Prec,
+  StateEffect,
   Text,
   type Extension,
   type Transaction,
@@ -138,6 +139,27 @@ test("a document with mixed line breaks is read-only, whatever else is configure
   assert.deepEqual(editable(load("a\nb", [readOnlyExtension(true)]).state), [true, false]);
   assert.deepEqual(editable(load("a\rb", [readOnlyExtension(false)]).state), [true, false]);
   assert.deepEqual(editable(load("a\nb", [readOnlyExtension(false)]).state), [false, true]);
+});
+
+test("a document with mixed line breaks takes no change but a replacement", () => {
+  let { state, compartments } = load("a\r\nb\nc");
+  // A change dispatched without a look at readOnly, as an extension might dispatch one, is dropped.
+  const edit = state.update({ changes: { from: 0, insert: "x" }, selection: { anchor: 1 } });
+  assert.equal(edit.docChanged, false);
+  assert.deepEqual(edit.state.doc.toJSON(), ["a", "b", "c"]);
+  assert.equal(changedByUser([edit]), false);
+  // A selection or an effect alone goes through.
+  assert.equal(state.update({ selection: { anchor: 2 } }).state.selection.main.head, 2);
+  const marker = StateEffect.define<number>();
+  assert.ok(state.update({ effects: marker.of(1) }).effects.some((effect) => effect.is(marker)));
+  // A replacement still replaces it: with another mixed text, with an LF text, and back to mixed.
+  state = reload(state, "a\r\nb\nc\nd", compartments);
+  assert.deepEqual([state.doc.toJSON(), state.readOnly], [["a", "b", "c", "d"], true]);
+  state = reload(state, "p\nq", compartments);
+  assert.deepEqual([state.sliceDoc(0), state.readOnly], ["p\nq", false]);
+  assert.equal(state.update({ changes: { from: 0, insert: "x" } }).state.sliceDoc(0), "xp\nq", "an LF document takes changes");
+  state = reload(state, "m\r\nn\no", compartments);
+  assert.deepEqual([state.doc.toJSON(), state.readOnly], [["m", "n", "o"], true]);
 });
 
 test("replacing the document changes only what differs, and keeps the selection where its text is", () => {

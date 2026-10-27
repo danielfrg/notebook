@@ -34,8 +34,17 @@ const crlf: Extension = [
   EditorView.clipboardInputFilter.of((text) => text.replace(/\r\n?|\n/g, "\r\n")),
 ];
 
-/** Before anything that says otherwise: a document whose line breaks a state cannot keep is not edited. */
-const mixed: Extension = Prec.highest([EditorState.readOnly.of(true), EditorView.editable.of(false)]);
+/**
+ * A document whose line breaks a state cannot keep is not edited, whatever
+ * else is configured. Read-only stops the commands and the keyboard; the change
+ * filter also drops any change that some extension dispatches without looking
+ * at it (keeping its selection and effects). Only a replacement gets through.
+ */
+const mixed: Extension = Prec.highest([
+  EditorState.readOnly.of(true),
+  EditorView.editable.of(false),
+  EditorState.changeFilter.of((transaction) => !transaction.docChanged || transaction.annotation(replacement) === true),
+]);
 
 /**
  * What a document with that line separator needs. CRLF becomes the separator,
