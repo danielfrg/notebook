@@ -318,6 +318,16 @@ test("Obsidian comments: their lines get a class of their own and nothing else",
   assert.deepEqual(decorate("---\nk: '%% a %%'\n---\n", 5).filter((spec) => spec.includes("comment")), []);
 });
 
+test("a dense note with a comment keeps its Markdown decorations below the size limit", () => {
+  const doc = "%% hidden %%\n" + "*x* ".repeat(100_000);
+  assert.ok(doc.length < MAX_DECORATED_LENGTH);
+
+  const specs = collectDecorations(stateOf(doc, 0));
+  assert.ok(specs.length > 125_000, "enough decorations to exercise a large comment filter");
+  assert.deepEqual(specs[0], { type: "line", from: 0, class: "nb-comment-line" });
+  assert.ok(specs.some((spec) => spec.type === "mark" && spec.class === "nb-em"));
+});
+
 test("a document over the size limit gets no decorations", () => {
   assert.equal(MAX_DECORATED_LENGTH, 500_000);
   const line = "# Heading with **bold** and [[Known]]\n";

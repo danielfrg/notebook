@@ -357,9 +357,11 @@ class Collector {
       }
     }
     if (commented.size === 0) return;
-    const kept = this.specs.filter((spec) => !commented.has(doc.lineAt(spec.from).from));
-    this.specs.length = 0;
-    this.specs.push(...kept);
+    let kept = 0;
+    for (const spec of this.specs) {
+      if (!commented.has(doc.lineAt(spec.from).from)) this.specs[kept++] = spec;
+    }
+    this.specs.length = kept;
     for (const from of commented) this.specs.push({ type: "line", from, class: "nb-comment-line" });
   }
 }
