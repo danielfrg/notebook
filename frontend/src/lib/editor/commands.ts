@@ -45,9 +45,24 @@ const FORMAT = "input.format";
 /**
  * An inline mark, and how to read the runs of its character on either side of
  * a text: how many of them to take away, or 0 when the text is not wrapped in
- * the mark.
+ * the mark. `around` gives the marks that wrap a text, when they depend on it.
  */
-type Wrapper = { mark: string; taken(before: number, after: number): number };
+type Wrapper = {
+  mark: string;
+  taken(before: number, after: number): number;
+  around?(text: string): [open: string, close: string];
+};
+
+/** The length of the longest run of char in text. */
+const longestRun = (text: string, char: string): number => {
+  let longest = 0;
+  let run = 0;
+  for (const each of text) {
+    run = each === char ? run + 1 : 0;
+    longest = Math.max(longest, run);
+  }
+  return longest;
+};
 
 const wrappers: Record<"bold" | "italic" | "strike" | "code", Wrapper> = {
   // "*" is italic and "**" bold, so that "***" is both: a run of two or more
@@ -55,8 +70,19 @@ const wrappers: Record<"bold" | "italic" | "strike" | "code", Wrapper> = {
   bold: { mark: "**", taken: (before, after) => (Math.min(before, after) >= 2 ? 2 : 0) },
   italic: { mark: "*", taken: (before, after) => (Math.min(before, after) % 2 === 1 ? 1 : 0) },
   strike: { mark: "~~", taken: (before, after) => (Math.min(before, after) >= 2 ? 2 : 0) },
-  // A code span opens and closes with a run of backticks of any length.
-  code: { mark: "`", taken: (before, after) => Math.min(before, after) },
+  // A code span opens and closes with a run of backticks of any length. To
+  // wrap a text with backticks in it, the run is one longer than any of
+  // theirs, with a space inside it when the text starts or ends with a
+  // backtick (CommonMark strips one space at either end).
+  code: {
+    mark: "`",
+    taken: (before, after) => Math.min(before, after),
+    around(text) {
+      const fence = "`".repeat(longestRun(text, "`") + 1);
+      const space = text.startsWith("`") || text.endsWith("`") ? " " : "";
+      return [fence + space, space + fence];
+    },
+  },
 };
 
 /** How far outside a range to look for the run of a mark. */
@@ -104,7 +130,7 @@ function content(doc: Text, range: SelectionRange): { from: number; to: number; 
  * pair for a cursor. The text stays selected, without the white space that
  * was around it.
  */
-function toggleWrapper({ mark, taken }: Wrapper): StateCommand {
+function toggleWrapper({ mark, taken, around = () => [mark, mark] }: Wrapper): StateCommand {
   const char = mark[0];
   return ({ state, dispatch }) => {
     if (state.readOnly) return false;
@@ -134,12 +160,13 @@ function toggleWrapper({ mark, taken }: Wrapper): StateCommand {
           range: facing(range, from - outside, to - outside),
         };
       }
+      const [open, close] = around(text);
       return {
         changes: [
-          { from, insert: mark },
-          { from: to, insert: mark },
+          { from, insert: open },
+          { from: to, insert: close },
         ],
-        range: facing(range, from + mark.length, to + mark.length),
+        range: facing(range, from + open.length, to + open.length),
       };
     });
     dispatch(state.update(spec, { scrollIntoView: true, userEvent: FORMAT }));

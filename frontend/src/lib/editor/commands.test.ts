@@ -119,6 +119,12 @@ const cases: [command: FormatCommand, before: string, after: string][] = [
   ["code", "a {`b`} c", "a {b} c"],
   ["code", "|", "`|`"],
   ["code", "``|``", "|"],
+  // A fence longer than any backtick run inside, padded when the text starts or ends with a backtick.
+  ["code", "{use `x` here}", "``{use `x` here}``"],
+  ["code", "{a ``b`` c}", "```{a ``b`` c}```"],
+  ["code", "{`a` b}", "`` {`a` b} ``"],
+  ["code", "{a`}", "`` {a`} ``"],
+  ["code", "{`a`}", "{a}"], // a whole span selected unwraps, as before
   // The marks go around the text of a range, not the white space or line break at its ends
   // (a triple click selects a line with its line break); white space alone is a cursor.
   ["bold", "{a\n}- b", "**{a}**\n- b"],
@@ -224,6 +230,20 @@ test("format commands edit the Markdown of every selected range or line, in one 
       assert.equal(undone.handled, true, label);
       assert.equal(mark(undone.state), before, label);
     }
+  }
+});
+
+test("code wraps a text with backticks in it in one code span, as the parser reads it", () => {
+  const parser = notebookMarkdown().language.parser;
+  for (const text of ["plain", "use `x` here", "a ``b`` c", "`a` b", "a`", "`"]) {
+    const doc = run(formatCommands.code, stateOf(`{${text}}`, false)).state.doc.toString();
+    const spans: string[] = [];
+    parser.parse(doc).iterate({
+      enter(node) {
+        if (node.name === "InlineCode") spans.push(doc.slice(node.from, node.to));
+      },
+    });
+    assert.deepEqual(spans, [doc], `${text} -> ${doc}`);
   }
 });
 
