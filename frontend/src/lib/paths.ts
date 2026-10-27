@@ -44,6 +44,7 @@ export const validateEntryName = (name: string): string | null => {
   // Covers "." and ".." too: a name that starts with a dot is hidden.
   if (name.startsWith(".")) return "A name cannot start with a dot";
   if (/\p{Cc}/u.test(name)) return "A name cannot contain control characters";
+  if (!name.isWellFormed()) return "A name cannot contain invalid Unicode";
   if (new TextEncoder().encode(name).length > MAX_NAME_BYTES) return "That name is too long";
   return null;
 };

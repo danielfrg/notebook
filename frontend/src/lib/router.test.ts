@@ -67,3 +67,10 @@ test("a malformed percent escape does not throw: the path (or the whole route) i
     assert.deepEqual(parseRoute(hash), want, hash);
   }
 });
+
+test("decoded routes reject unsafe vaults and path components", () => {
+  assert.deepEqual(parseRoute("#/BAD/a.md"), { vault: null, path: null });
+  assert.deepEqual(parseRoute("#/notes/%2Ehidden/a.md"), { vault: "notes", path: null });
+  assert.deepEqual(parseRoute("#/notes/a%2Fb.md"), { vault: "notes", path: null });
+  assert.deepEqual(parseRoute(formatRoute("notes", ["é".repeat(120), "é".repeat(120), "é".repeat(20) + ".md"].join("/"))), { vault: "notes", path: null });
+});

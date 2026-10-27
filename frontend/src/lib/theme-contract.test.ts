@@ -160,6 +160,10 @@ test("theme.css is the only file with palette values", () => {
       ({ line, literal }) => `${file}:${line}: ${literal}`,
     ),
   );
+  const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
+  for (const style of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
+    findings.push(...findColorLiterals(style[1]).map(({ line, literal }) => `index.html:<style>+${line}: ${literal}`));
+  }
   assert.equal(
     findings.length,
     0,

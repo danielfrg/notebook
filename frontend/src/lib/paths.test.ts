@@ -90,6 +90,7 @@ test("validateEntryName gives a reason for a name the vault would refuse, and nu
     "a\nb",
     "a\tb",
     "a\x7fb",
+    "bad\ud800",
     "a".repeat(256),
     "é".repeat(128), // 256 bytes
   ];

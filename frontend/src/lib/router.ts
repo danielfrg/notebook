@@ -1,8 +1,11 @@
 /*
  * Hash routes: #/<vault>/<seg1>/<seg2>..., each segment percent-encoded on its
  * own so that a name with a "?", "#", "%" or a space stays one segment and one
- * piece of the hash. The browser history is the back stack.
+ * piece of the hash. Parsed vaults and path parts are checked against the same
+ * user-facing name rules before they can reach the API. Browser history is the back stack.
  */
+
+import { validateEntryName } from "./paths.ts";
 
 export type Route = { vault: string | null; path: string | null };
 
@@ -26,13 +29,13 @@ export function parseRoute(hash: string): Route {
 
   const [first, ...segments] = rest.slice(1).split("/");
   const vault = decode(first);
-  if (!vault) return { vault: null, path: null };
+  if (!vault || !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(vault)) return { vault: null, path: null };
   // "#/notes" and "#/notes/" name the vault alone.
   if (segments.length === 0 || (segments.length === 1 && segments[0] === "")) {
     return { vault, path: null };
   }
   const parts = segments.map(decode);
-  if (parts.some((part) => !part)) return { vault, path: null };
+  if (new TextEncoder().encode(parts.join("/")).length > 512 || parts.some((part) => !part || validateEntryName(part) !== null)) return { vault, path: null };
   return { vault, path: parts.join("/") };
 }
 

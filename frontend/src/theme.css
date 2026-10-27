@@ -14,7 +14,9 @@
  * https://www.apache.org/licenses/LICENSE-2.0). Changes from the original:
  * Inter and IBM Plex Mono replace the system font stacks, controls are flat
  * (no depth shadows, no press movement), and the docbank-only tokens (folders,
- * navigation and panel widths) are left out.
+ * navigation and panel widths) are left out. The header height is set to 48px
+ * for this shell, and selection uses an app token rather than docbank's
+ * --selection-bg.
  */
 :root {
   color-scheme: light;
