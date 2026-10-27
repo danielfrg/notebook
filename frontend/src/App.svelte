@@ -1,18 +1,26 @@
 <script lang="ts">
-  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button } from "@kenn-io/kit-ui";
+  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, FlashBanner } from "@kenn-io/kit-ui";
   import NotebookTextIcon from "@lucide/svelte/icons/notebook-text";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import Editor from "./lib/editor/Editor.svelte";
   import { livePreview, previewContext } from "./lib/editor/livePreview.ts";
   import FileTree from "./lib/components/FileTree.svelte";
+  import ConflictBanner from "./lib/components/ConflictBanner.svelte";
+  import EntryDialog from "./lib/components/EntryDialog.svelte";
   import NoteHeader from "./lib/components/NoteHeader.svelte";
   import Toolbar from "./lib/components/Toolbar.svelte";
   import VaultSwitcher from "./lib/components/VaultSwitcher.svelte";
   import { workspace } from "./lib/state/workspace.svelte.ts";
+  import { noteTitle } from "./lib/paths.ts";
 
   let collapsed = $state(window.innerWidth < 900);
   let sidebarWidth = $state(280);
   let editor = $state<Editor>();
+  let saveAsNew = $state(false);
+
+  $effect(() => {
+    if (workspace.focusRequest > 0) void tick().then(() => editor?.focus());
+  });
   const extensions = $derived([
     previewContext.of({
       notes: workspace.listing?.notes.map((note) => note.path) ?? [],
@@ -89,8 +97,6 @@
           <p>{workspace.error}</p>
           <Button label="Retry" onclick={() => void workspace.retry()} />
         </div>
-      {:else if !workspace.listing || (workspace.listing.notes.length === 0 && workspace.listing.folders.length === 0)}
-        <EmptyState title="Empty vault" description="No notes here yet." />
       {:else}
         <FileTree onOpenNote={() => { if (window.innerWidth < 900) collapsed = true; }} />
       {/if}
@@ -107,6 +113,15 @@
       {:else if workspace.noteError}
         <div class="content-message" role="alert">{workspace.noteError}</div>
       {:else if workspace.path}
+        {#if workspace.missingNote || workspace.externalConflict || workspace.saveState === "conflict"}
+          <ConflictBanner
+            missing={workspace.missingNote}
+            readOnly={workspace.readOnly}
+            onload={() => workspace.reloadFromDisk()}
+            onoverwrite={() => workspace.overwriteDisk()}
+            onsaveasnew={() => saveAsNew = true}
+          />
+        {/if}
         <Toolbar run={(command) => editor?.run(command)} disabled={workspace.readOnly || !!workspace.lineSeparatorIssue} />
         {#if workspace.lineSeparatorIssue}<p class="note-reason" role="status">{workspace.lineSeparatorIssue}</p>{/if}
         <div class="editor-host" onfocusout={blurEditor}>
@@ -129,4 +144,9 @@
       {/if}
     </main>
   </CollapsibleSidebar>
+  <FlashBanner />
 </div>
+
+{#if saveAsNew && workspace.path}
+  <EntryDialog kind="save-as-new" initial={noteTitle(workspace.path)} onsubmit={(name) => workspace.saveMissingAsNew(name)} onclose={() => saveAsNew = false} />
+{/if}

@@ -47,6 +47,11 @@ to Source mode. Changes save automatically, and a note that changed on disk in t
 meantime shows a conflict instead of being overwritten. API documentation is at
 `/api/docs`.
 
+Use **New** in the sidebar to create a note or folder. A note or folder's actions
+menu offers rename and delete; delete moves it to the vault's hidden `.trash`.
+If a note changes on disk, choose **Load disk version** or **Overwrite**. If it
+disappears, **Save as new note** keeps the editor text under a name you choose.
+
 ### MCP
 
 Agents can read notes through the MCP endpoint at `/mcp` (Streamable HTTP).

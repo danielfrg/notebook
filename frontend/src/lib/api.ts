@@ -62,9 +62,9 @@ export interface ApiClient {
     vault: string,
     etag?: string,
   ): Promise<{ notModified: true } | { notModified: false; listing: Listing; etag: string }>;
-  note(vault: string, path: string): Promise<Note>;
+  note(vault: string, path: string, signal?: AbortSignal): Promise<Note>;
   /** null when the note is gone (404); any other failure throws. */
-  revision(vault: string, path: string): Promise<{ revision: string; modified: string } | null>;
+  revision(vault: string, path: string, signal?: AbortSignal): Promise<{ revision: string; modified: string } | null>;
   /** Throws a ConflictError when the note changed on disk since `revision` was loaded. */
   save(vault: string, path: string, content: string, revision: string): Promise<Note>;
   create(vault: string, path: string, content?: string): Promise<Note>;
@@ -80,6 +80,7 @@ export interface ApiClient {
 type Options = {
   body?: unknown;
   headers?: Record<string, string>;
+  signal?: AbortSignal;
   /** Statuses outside 2xx that are answers and not failures. */
   allow?: number[];
   /** Whether a 409 that names the revision on disk is a ConflictError. */
@@ -149,7 +150,7 @@ export function createApi(fetchImpl: typeof fetch = fetch, base = ""): ApiClient
   async function send(
     method: string,
     url: string,
-    { body, headers, allow = [], conflicts = false }: Options = {},
+    { body, headers, signal, allow = [], conflicts = false }: Options = {},
   ): Promise<Response> {
     const sent: Record<string, string> = { ...headers };
     // What the guard of the server asks of a request that changes something: the
@@ -162,6 +163,7 @@ export function createApi(fetchImpl: typeof fetch = fetch, base = ""): ApiClient
       response = await fetchImpl(url, {
         method,
         headers: sent,
+        signal,
         // JSON.stringify writes a lone surrogate as an escape, so the body is always valid UTF-8.
         body: body === undefined ? undefined : JSON.stringify(body),
       });
@@ -191,10 +193,10 @@ export function createApi(fetchImpl: typeof fetch = fetch, base = ""): ApiClient
       };
     },
 
-    note: async (vault, path) => json<Note>(await send("GET", entryUrl(vault, "note", path))),
+    note: async (vault, path, signal) => json<Note>(await send("GET", entryUrl(vault, "note", path), { signal })),
 
-    revision: async (vault, path) => {
-      const response = await send("GET", entryUrl(vault, "revision", path), { allow: [404] });
+    revision: async (vault, path, signal) => {
+      const response = await send("GET", entryUrl(vault, "revision", path), { allow: [404], signal });
       return response.status === 404
         ? null
         : json<{ revision: string; modified: string }>(response);

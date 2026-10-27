@@ -29,9 +29,10 @@ test("disposed workspace can initialize again and restore its route listener", a
     workspace.dispose();
     await workspace.init();
     assert.equal(calls.filter((url) => url.endsWith("/api/vaults")).length, 2);
-    assert.deepEqual(listeners, ["add:hashchange", "remove:hashchange", "add:hashchange"]);
+    assert.deepEqual(listeners, ["add:hashchange", "add:focus", "remove:hashchange", "remove:focus", "add:hashchange", "add:focus"]);
     workspace.dispose();
   } finally {
+    (await import("./workspace.svelte.ts")).workspace.dispose();
     for (const [key, descriptor] of previous) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else Reflect.deleteProperty(globalThis, key);
