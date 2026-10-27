@@ -147,8 +147,14 @@ function toggleWrapper({ mark, taken }: Wrapper): StateCommand {
   };
 }
 
-/** Where the text of a line starts for a heading or a list item: after its indentation and quote marks. */
+/** Where the text of a line starts for a list marker: after its indentation and quote marks. */
 const LEAD = /^(?:[ \t]*>)*[ \t]*/;
+/**
+ * Where the text of a line starts for a heading: after its indentation, quote
+ * marks and one list marker with its task box, so that a list item gets its
+ * heading inside it ("- # item") instead of losing its marker.
+ */
+const HEADING_LEAD = /^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?)?/;
 const HEADING = /^#{1,6}(?:[ \t]+|$)/;
 const TASK = /^(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\](?:[ \t]+|$)/;
 const BULLET = /^[-*+](?:[ \t]+|$)/;
@@ -194,13 +200,13 @@ function editLines(state: EditorState, dispatch: (transaction: Transaction) => v
 /**
  * Cycles the heading of the selected lines: none, #, ##, ###, then none
  * again (as also from a deeper heading). The first line sets the level that
- * every line gets.
+ * every line gets. In a list item the heading goes after the marker.
  */
 const heading: StateCommand = ({ state, dispatch }) => {
   if (state.readOnly) return false;
   const lines = withText(
     selectedLines(state).map((line) => {
-      const lead = LEAD.exec(line.text)?.[0].length ?? 0;
+      const lead = HEADING_LEAD.exec(line.text)?.[0].length ?? 0;
       const rest = line.text.slice(lead);
       const found = HEADING.exec(rest)?.[0] ?? "";
       const from = line.from + lead;

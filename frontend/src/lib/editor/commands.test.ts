@@ -144,6 +144,19 @@ const cases: [command: FormatCommand, before: string, after: string][] = [
   ["heading", "> a|", "> # a|"], // inside a quote
   ["heading", "{a\n# b}", "# {a\n# b}"], // the first line sets the level of all
   ["heading", "{a\n\nb}", "# {a\n\n# b}"],
+  // In a list item the # goes after the marker (and task box), and cycles there.
+  ["heading", "- item|", "- # item|"],
+  ["heading", "* item|", "* # item|"],
+  ["heading", "1. x|", "1. # x|"],
+  ["heading", "2) x|", "2) # x|"],
+  ["heading", "- [ ] t|", "- [ ] # t|"],
+  ["heading", "- [x] t|", "- [x] # t|"],
+  ["heading", "> - q|", "> - # q|"],
+  ["heading", "  - nested|", "  - # nested|"],
+  ["heading", "- # item|", "- ## item|"],
+  ["heading", "- ## item|", "- ### item|"],
+  ["heading", "- ### item|", "- item|"],
+  ["heading", "*emphasis*|", "# *emphasis*|"], // no list marker without a space after it
 
   // List and quote prefixes toggle on every line the selection touches.
   ["bullet", "a|", "- a|"],
