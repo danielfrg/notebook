@@ -1,9 +1,10 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { Facet, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
-import { Decoration, EditorView, WidgetType, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { parseWikilink, resolveAsset, resolveNote, type Wikilink } from "../wikilinks.ts";
 import { NodeName } from "./markdown.ts";
+import { LivePreviewWidget, taskToggleExtension } from "./widgets.ts";
 
 /*
  * Live Preview, as Obsidian has it: the Markdown of a note stays its text, and
@@ -16,7 +17,7 @@ import { NodeName } from "./markdown.ts";
  * tests can compare; livePreview turns them into CodeMirror decorations.
  */
 
-/** What the widgets of Live Preview show. Task 12 emits the wikilink kind; the others come with their widgets. */
+/** What the widgets of Live Preview show. */
 export type WidgetKind =
   | { kind: "bullet" }
   | { kind: "task"; checked: boolean }
@@ -136,6 +137,10 @@ class Collector {
     if (from < to) this.specs.push({ type: "replace", from, to });
   }
 
+  widget(from: number, to: number, widget: WidgetKind): void {
+    this.specs.push({ type: "widget", from, to, widget });
+  }
+
   /** Gives the line at pos a class, once. */
   line(pos: number, cls: string, indent?: number): void {
     const from = this.#state.doc.lineAt(pos).from;
@@ -168,7 +173,7 @@ class Collector {
       case "Link":
         return this.link(node);
       case "Image":
-        // Task 13's: an image widget, or a link for one that is not shown.
+        this.image(node);
         return false;
       case "Autolink":
         return this.autolink(node);
@@ -191,6 +196,12 @@ class Collector {
       case "ListMark":
         this.listMark(node);
         return false;
+      case "Task":
+        this.task(node);
+        return false;
+      case "HorizontalRule":
+        if (!this.linesTouched(node.from, node.to)) this.widget(node.from, node.to, { kind: "rule" });
+        return false;
       case "FencedCode":
       case "CodeBlock":
         this.rawBlocks.push({ from: node.from, to: node.to });
@@ -201,9 +212,14 @@ class Collector {
         this.lines(node.from, node.to, "nb-table");
         return false;
       case NodeName.Frontmatter:
-        // With the selection elsewhere Task 13 shows a Properties widget instead.
         this.rawBlocks.push({ from: node.from, to: node.to });
-        this.lines(node.from, node.to, "nb-frontmatter");
+        if (this.touched(node.from, node.to)) this.lines(node.from, node.to, "nb-frontmatter");
+        else {
+          const first = this.#state.doc.lineAt(node.from);
+          const last = this.#state.doc.lineAt(node.to);
+          const yaml = this.#state.sliceDoc(first.to + 1, last.from - 1);
+          this.widget(node.from, node.to, { kind: "properties", yaml });
+        }
         return false;
       default:
         return true;
@@ -279,6 +295,25 @@ class Collector {
     return false;
   }
 
+  image(node: SyntaxNode): void {
+    const url = children(node, "URL")[0];
+    const target = url && this.#state.sliceDoc(url.from, url.to);
+    const path = target && this.imageAsset(target);
+    if (path && !this.touched(node.from, node.to)) {
+      const open = children(node, "LinkMark")[0];
+      const alt = open ? this.#state.sliceDoc(open.to, children(node, "LinkMark")[1]?.from ?? open.to) : "";
+      this.widget(node.from, node.to, { kind: "image", src: this.#context.assetUrl(path), alt });
+    } else this.mark(node.from, node.to, "nb-link");
+  }
+
+  imageAsset(target: string): string | null {
+    if (!/^[^:#?]+\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(target) || target.startsWith("//")) return null;
+    const path = resolveAsset(this.#context.assets, this.#context.path, target);
+    if (path === null) return null;
+    const src = this.#context.assetUrl(path);
+    return /^(?:\/|\.\/|\.\.\/|https?:\/\/)/i.test(src) ? path : null;
+  }
+
   /**
    * [[link]] and ![[embed]]: untouched, a widget with the label; touched, the
    * raw text with the class. A link inside the note itself resolves (to this
@@ -287,11 +322,17 @@ class Collector {
   wikilink(node: SyntaxNode): void {
     const link = parseWikilink(this.#state.sliceDoc(node.from, node.to));
     if (link === null) return;
+    if (link.embed) {
+      const path = this.imageAsset(link.target);
+      if (path && !this.touched(node.from, node.to)) this.widget(node.from, node.to, { kind: "image", src: this.#context.assetUrl(path), alt: link.target });
+      else this.mark(node.from, node.to, "nb-link");
+      return;
+    }
     const resolved = this.resolves(link);
     if (this.touched(node.from, node.to)) {
       this.mark(node.from, node.to, resolved ? "nb-wikilink" : "nb-wikilink nb-wikilink-unresolved");
     } else {
-      this.specs.push({ type: "widget", from: node.from, to: node.to, widget: { kind: "wikilink", label: wikilinkLabel(link), resolved } });
+      this.widget(node.from, node.to, { kind: "wikilink", label: wikilinkLabel(link), resolved });
     }
   }
 
@@ -322,7 +363,27 @@ class Collector {
     const line = this.#state.doc.lineAt(node.from);
     const rest = line.text.slice(node.to - line.from);
     const space = /^[ \t]*/.exec(rest)?.[0] ?? "";
+    const taskMarker = node.parent.getChild("Task")?.getChild("TaskMarker");
+    if (taskMarker) {
+      const taskRest = line.text.slice(taskMarker.to - line.from);
+      const taskSpace = /^[ \t]*/.exec(taskRest)?.[0] ?? "";
+      this.line(line.from, "nb-list", columns(line.text.slice(0, taskMarker.to - line.from) + taskSpace));
+      return;
+    }
     this.line(line.from, "nb-list", columns(line.text.slice(0, node.to - line.from) + space));
+    const mark = this.#state.sliceDoc(node.from, node.to);
+    if (/^[-*+]$/.test(mark)) {
+      if (!this.touched(node.from, node.to)) this.widget(node.from, node.to, { kind: "bullet" });
+    } else this.mark(node.from, node.to, "nb-list-number");
+  }
+
+  task(node: SyntaxNode): void {
+    const marker = children(node, "TaskMarker")[0];
+    const listMark = node.parent?.getChild("ListMark");
+    if (!marker || !listMark) return;
+    const checked = /\[[xX]\]/.test(this.#state.sliceDoc(marker.from, marker.to));
+    if (checked) this.mark(marker.to + 1, Math.min(node.to, this.#state.doc.lineAt(marker.from).to), "nb-task-done");
+    if (!this.touched(listMark.from, marker.to)) this.widget(listMark.from, marker.to, { kind: "task", checked });
   }
 
   /**
@@ -381,32 +442,6 @@ export function collectDecorations(state: EditorState): DecoSpec[] {
   return collector.specs.sort((a, b) => a.from - b.from);
 }
 
-/**
- * A stand-in for the widgets that Task 13 draws: a wikilink's label in a span
- * with its classes, so that a link reads as one. The other kinds draw nothing yet.
- */
-class PlaceholderWidget extends WidgetType {
-  readonly kind: WidgetKind;
-
-  constructor(kind: WidgetKind) {
-    super();
-    this.kind = kind;
-  }
-
-  eq(other: PlaceholderWidget): boolean {
-    return JSON.stringify(other.kind) === JSON.stringify(this.kind);
-  }
-
-  toDOM(): HTMLElement {
-    const span = document.createElement("span");
-    if (this.kind.kind === "wikilink") {
-      span.className = this.kind.resolved ? "nb-wikilink" : "nb-wikilink nb-wikilink-unresolved";
-      span.textContent = this.kind.label;
-    }
-    return span;
-  }
-}
-
 /** CodeMirror decorations for specs. A list item's indent goes to CSS as --nb-list-indent. */
 function toRangeSet(specs: readonly DecoSpec[]): DecorationSet {
   const ranges: Range<Decoration>[] = specs.map((spec) => {
@@ -422,7 +457,7 @@ function toRangeSet(specs: readonly DecoSpec[]): DecorationSet {
       case "replace":
         return Decoration.replace({}).range(spec.from, spec.to);
       case "widget":
-        return Decoration.replace({ widget: new PlaceholderWidget(spec.widget) }).range(spec.from, spec.to);
+        return Decoration.replace({ widget: new LivePreviewWidget(spec.widget, spec.from, spec.to), block: spec.widget.kind === "properties" }).range(spec.from, spec.to);
     }
   });
   // A set takes its ranges by from, then by startSide (a line before a mark at the same position).
@@ -451,5 +486,5 @@ const decorations = StateField.define<DecorationSet>({
 
 /** Live Preview: the decorations of collectDecorations on the editor, for documents up to MAX_DECORATED_LENGTH. */
 export function livePreview(): Extension {
-  return decorations;
+  return [decorations, taskToggleExtension()];
 }

@@ -11,6 +11,7 @@ import {
   type PreviewContext,
 } from "./livePreview.ts";
 import { notebookMarkdown } from "./markdown.ts";
+import { toggleTaskAt, LivePreviewWidget } from "./widgets.ts";
 
 const BOM = "\uFEFF";
 
@@ -163,8 +164,7 @@ test("links show their text as a link, and hide the rest unless touched; bare UR
   assert.deepEqual(decorate("see https://e.com", 10), ["mark nb-url 4-17"]);
   assert.deepEqual(decorate("a <https://e.com> b", 19), sorted(["mark nb-url 3-16", "replace 2-3", "replace 16-17"]));
   assert.deepEqual(decorate("a <https://e.com> b", 5), ["mark nb-url 3-16"]);
-  // An image is Task 13's: nothing yet, and its URL is no bare URL.
-  assert.deepEqual(decorate("![a](https://e.com/a.png) z", 27), []);
+  assert.deepEqual(decorate("![a](https://e.com/a.png) z", 27), ["mark nb-link 0-25"]);
 });
 
 test("wikilinks collapse to a widget with their label unless touched, then they show raw", () => {
@@ -182,9 +182,9 @@ test("wikilinks collapse to a widget with their label unless touched, then they 
   // Touched: the raw text with the class.
   assert.deepEqual(decorate("[[Known]] z", 9), ["mark nb-wikilink 0-9"]);
   assert.deepEqual(decorate("[[Nope|Alias]] z", 3), ["mark nb-wikilink nb-wikilink-unresolved 0-14"]);
-  // An embed gets the same widget for now (Task 13 renders images); its alias is a size, not a label.
-  assert.deepEqual(decorate("![[pic.png|300]] z", 18), [widget(0, 16, "pic.png", true)]);
-  assert.deepEqual(decorate("![[Nope]] z", 11), [widget(0, 9, "Nope", false)]);
+  // An embed shows a local image, or stays readable as text when it cannot show one.
+  assert.deepEqual(decorate("![[pic.png|300]] z", 18), ['widget 0-16 {"kind":"image","src":"/raw/img/pic.png","alt":"pic.png"}']);
+  assert.deepEqual(decorate("![[Nope]] z", 11), ["mark nb-link 0-9"]);
   // The context decides what resolves.
   const empty: PreviewContext = { notes: [], assets: [], path: "", assetUrl: () => "" };
   assert.deepEqual(decorate("[[Known]] z", 11, { ctx: empty }), [widget(0, 9, "Known", false)]);
@@ -223,17 +223,17 @@ test("quotes get a line class on each line, and their marker is hidden on lines 
 
 test("list items get a line class with the columns before their text, more when nested", () => {
   assert.deepEqual(decorate("- item", 0), ["line nb-list 0 indent=2"]);
-  assert.deepEqual(decorate("- item\n    - x", 0), sorted(["line nb-list 0 indent=2", "line nb-list 7 indent=6"]));
-  assert.deepEqual(decorate("1. one\n2. two", 0), sorted(["line nb-list 0 indent=3", "line nb-list 7 indent=3"]));
-  assert.deepEqual(decorate("10)  ten", 0), ["line nb-list 0 indent=5"]);
+  assert.deepEqual(decorate("- item\n    - x", 0), sorted(["line nb-list 0 indent=2", "line nb-list 7 indent=6", 'widget 11-12 {"kind":"bullet"}']));
+  assert.deepEqual(decorate("1. one\n2. two", 0), sorted(["line nb-list 0 indent=3", "line nb-list 7 indent=3", "mark nb-list-number 0-2", "mark nb-list-number 7-9"]));
+  assert.deepEqual(decorate("10)  ten", 0), sorted(["line nb-list 0 indent=5", "mark nb-list-number 0-3"]));
   assert.deepEqual(
     decorate("- a\n\t- tab", 0),
-    sorted(["line nb-list 0 indent=2", "line nb-list 4 indent=6"]),
+    sorted(["line nb-list 0 indent=2", "line nb-list 4 indent=6", 'widget 5-6 {"kind":"bullet"}']),
     "a tab goes to the next stop of 4",
   );
-  assert.deepEqual(decorate("- [ ] task", 0), ["line nb-list 0 indent=2"]);
+  assert.deepEqual(decorate("- [ ] task", 0), ["line nb-list 0 indent=6"]);
   // In a quote, the columns count from the start of the line.
-  assert.deepEqual(decorate("> - a\n\nx", 7), sorted(["line nb-quote 0", "line nb-list 0 indent=4", "replace 0-2"]));
+  assert.deepEqual(decorate("> - a\n\nx", 7), sorted(["line nb-quote 0", "line nb-list 0 indent=4", "replace 0-2", 'widget 2-3 {"kind":"bullet"}']));
 });
 
 test("a fenced code block gets a class on every line, its markers stay, and nothing inside is decorated", () => {
@@ -376,12 +376,13 @@ test("livePreview decorates the editor with the collected specs, and follows the
       "replace 10-12",
       "widget 13-22",
       "line nb-list 23-23 --nb-list-indent: 2",
+      "widget 23-24",
     ]),
   );
   state = state.update({ selection: { anchor: 9 } }).state;
   assert.deepEqual(
     rendered(state).ranges.sort(),
-    sorted(["line nb-h1 0-0", "replace 0-2", "mark nb-strong 9-10", "widget 13-22", "line nb-list 23-23 --nb-list-indent: 2"]),
+    sorted(["line nb-h1 0-0", "replace 0-2", "mark nb-strong 9-10", "widget 13-22", "line nb-list 23-23 --nb-list-indent: 2", "widget 23-24"]),
   );
   // An edit: the text moves and the decorations with it, from the new tree.
   state = state.update({ changes: { from: 5, insert: "zz " }, selection: { anchor: 0 } }).state;
@@ -391,8 +392,8 @@ test("livePreview decorates the editor with the collected specs, and follows the
   rendered(state).set.between(0, state.doc.length, (_from, _to, deco) => {
     if (deco.spec.widget) widgets.push(deco.spec.widget);
   });
-  assert.equal(widgets.length, 1);
-  assert.ok(widgets[0].eq(widgets[0]));
+  assert.equal(widgets.length, 2);
+  assert.ok(widgets.every((widget) => widget.eq(widget)));
 });
 
 test("livePreview recomputes on a new context or a new tree, and keeps its set otherwise", () => {
@@ -431,4 +432,63 @@ test("the default context resolves nothing", () => {
   assert.deepEqual(collectDecorations(state).map(show), [
     `widget 0-9 ${JSON.stringify({ kind: "wikilink", label: "Known", resolved: false })}`,
   ]);
+});
+
+test("off-cursor bullets, task markers, and rules become widgets", () => {
+  assert.deepEqual(decorate("- item\nnext", 7), sorted([
+    "line nb-list 0 indent=2", 'widget 0-1 {"kind":"bullet"}',
+  ]));
+  assert.deepEqual(decorate("- item", 0), ["line nb-list 0 indent=2"]);
+  assert.deepEqual(decorate("1. item\nnext", 9), sorted(["line nb-list 0 indent=3", "mark nb-list-number 0-2"]));
+  assert.deepEqual(decorate("- [ ] task\n- [x] done\nnext", 22), sorted([
+    "line nb-list 0 indent=6", "line nb-list 11 indent=6",
+    'widget 0-5 {"kind":"task","checked":false}',
+    'widget 11-16 {"kind":"task","checked":true}',
+    "mark nb-task-done 17-21",
+  ]));
+  assert.deepEqual(decorate("---\n\nx", 6), ['widget 0-3 {"kind":"rule"}']);
+  assert.deepEqual(decorate("---\n\nx", 1), []);
+});
+
+test("local images render; remote, unresolved, and non-image targets stay as links", () => {
+  assert.deepEqual(decorate("![[pic.png]] z", 14), ['widget 0-12 {"kind":"image","src":"/raw/img/pic.png","alt":"pic.png"}']);
+  assert.deepEqual(decorate("![x](img/pic.png) z", 19), ['widget 0-17 {"kind":"image","src":"/raw/img/pic.png","alt":"x"}']);
+  for (const source of ["![x](https://e.com/a.png)", "![x](missing.png)", "![[Known]]", "![[missing.txt]]"]) {
+    const specs = decorate(`${source} z`, source.length + 2);
+    assert.ok(!specs.some((spec) => spec.includes('"kind":"image"')), source);
+    assert.ok(specs.some((spec) => spec.startsWith("mark nb-link")), source);
+  }
+});
+
+test("frontmatter collapses only when the selection is elsewhere", () => {
+  const doc = "---\ntags: [a, b]\ntitle: Hi\n---\nbody";
+  assert.deepEqual(decorate(doc, doc.length), ['widget 0-30 {"kind":"properties","yaml":"tags: [a, b]\\ntitle: Hi"}']);
+  assert.deepEqual(decorate(doc, 7), sorted([
+    "line nb-frontmatter 0", "line nb-frontmatter 4", "line nb-frontmatter 17", "line nb-frontmatter 27",
+  ]));
+  const state = stateOf(doc, doc.length, { extensions: livePreview() });
+  let block = false;
+  rendered(state).set.between(0, doc.length, (_from, _to, deco) => {
+    if ((deco.spec.widget as { kind?: { kind?: string } } | undefined)?.kind?.kind === "properties") block = deco.spec.block;
+  });
+  assert.equal(block, true, "properties is a block replacement from the StateField");
+});
+
+test("toggleTaskAt changes only the checkbox character, including CRLF documents", () => {
+  for (const [input, expected] of [["- [ ] a\nother", "- [x] a\nother"], ["- [x] a\nother", "- [ ] a\nother"]]) {
+    const state = stateOf(input, input.length);
+    const change = toggleTaskAt(state, 3);
+    assert.ok(change);
+    assert.equal(state.update(change).state.sliceDoc(0), expected);
+  }
+  const crlf = stateOf("- [ ] a\r\nnext", 0, { crlf: true });
+  assert.equal(crlf.update(toggleTaskAt(crlf, 3)!).state.sliceDoc(0), "- [x] a\r\nnext");
+  assert.equal(toggleTaskAt(crlf, 10), null);
+});
+
+test("widgets compare payloads and expose interactive task and wikilink events", () => {
+  assert.ok(new LivePreviewWidget({ kind: "bullet" }).eq(new LivePreviewWidget({ kind: "bullet" })));
+  assert.ok(!new LivePreviewWidget({ kind: "task", checked: false }).eq(new LivePreviewWidget({ kind: "task", checked: true })));
+  assert.equal(new LivePreviewWidget({ kind: "task", checked: false }).ignoreEvent(), false);
+  assert.equal(new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }).ignoreEvent(), false);
 });
