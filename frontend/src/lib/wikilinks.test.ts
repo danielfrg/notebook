@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWikilink, resolveAsset, resolveNote, type Wikilink } from "./wikilinks.ts";
+import { parseWikilink, resolveAsset, resolveNote, wikilinkCreation, type Wikilink } from "./wikilinks.ts";
+
+test("unresolved nested wikilink creation retains its vault-relative folder", () => {
+  assert.deepEqual(wikilinkCreation("Home.md", "Projects/New"), { folder: "Projects", initial: "New" });
+  assert.deepEqual(wikilinkCreation("Notes/Home.md", "Missing/Deep/New.md"), { folder: "Missing/Deep", initial: "New" });
+  assert.deepEqual(wikilinkCreation("Notes/Home.md", "New"), { folder: "Notes", initial: "New" });
+});
 
 const link = (target: string, rest: Partial<Wikilink> = {}): Wikilink => ({
   target,

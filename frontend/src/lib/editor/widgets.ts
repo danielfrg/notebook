@@ -60,7 +60,7 @@ export function taskToggleExtension(): Extension {
       if (!(target instanceof Element) || !target.closest(".nb-task-checkbox, a.nb-wikilink")) return false;
       if (target.closest("a.nb-wikilink")) event.preventDefault();
       // Pointer activation already ran on mousedown. Keyboard-generated clicks have detail 0.
-      if (event.detail === 0) activate(target, view, event.metaKey || event.ctrlKey);
+      if (event.detail === 0) activate(target, view, true);
       return true;
     },
   });
@@ -123,6 +123,12 @@ export class LivePreviewWidget extends WidgetType {
         link.className = this.kind.resolved ? "nb-wikilink" : "nb-wikilink nb-wikilink-unresolved";
         link.href = "#";
         link.textContent = this.kind.label;
+        link.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          link.click();
+        });
         return link;
       }
       case "properties": {

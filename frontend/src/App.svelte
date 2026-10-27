@@ -16,7 +16,7 @@
   import { workspace } from "./lib/state/workspace.svelte.ts";
   import { noteTitle, parentFolder } from "./lib/paths.ts";
   import { uniqueNoteName } from "./lib/entry-names.ts";
-  import { parseWikilink, resolveNote } from "./lib/wikilinks.ts";
+  import { parseWikilink, resolveNote, wikilinkCreation } from "./lib/wikilinks.ts";
 
   let collapsed = $state(window.innerWidth < 900);
   let sidebarWidth = $state(280);
@@ -137,10 +137,7 @@
     const path = resolveNote(notePaths, workspace.path ?? "", link.target);
     if (path) { workspace.openNote(path); return; }
     if (workspace.readOnly) return;
-    const slash = link.target.lastIndexOf("/");
-    const targetFolder = slash < 0 ? parentFolder(workspace.path ?? "") : link.target.slice(0, slash);
-    const folder = targetFolder && workspace.listing?.folders.includes(targetFolder) ? targetFolder : parentFolder(workspace.path ?? "");
-    entryDialog = { kind: "note", folder, initial: link.target.slice(slash + 1).replace(/\.md$/i, "") };
+    entryDialog = { kind: "note", ...wikilinkCreation(workspace.path ?? "", link.target) };
   }
 </script>
 

@@ -1,5 +1,14 @@
 import { parentFolder } from "./paths.ts";
 
+/** Creation target for an unresolved wikilink. The create API makes missing parent folders. */
+export function wikilinkCreation(from: string, target: string): { folder: string; initial: string } {
+  const slash = target.lastIndexOf("/");
+  return {
+    folder: slash < 0 ? parentFolder(from) : target.slice(0, slash),
+    initial: target.slice(slash + 1).replace(/\.md$/i, ""),
+  };
+}
+
 /**
  * An Obsidian wikilink. For an embed (![[img.png|300]]) the alias is what is
  * after the pipe, here the size, and not a label.

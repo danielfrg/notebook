@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fuzzyNotes } from "./fuzzy.ts";
+import { fuzzyNotes, titleSegments } from "./fuzzy.ts";
+
+test("highlight segments reconstruct the exact visible title", () => {
+  const parts = titleSegments("Fuzzy Notes", [[0, 3], [6, 8]]);
+  assert.deepEqual(parts, [
+    { text: "Fuz", match: true },
+    { text: "zy ", match: false },
+    { text: "No", match: true },
+    { text: "tes", match: false },
+  ]);
+  assert.equal(parts.map((part) => part.text).join(""), "Fuzzy Notes");
+});
 
 test("subsequence matches a title and exposes title character ranges", () => {
   const [hit] = fuzzyNotes(["Fuzzy Notes.md"], "fuz");
@@ -12,6 +23,17 @@ test("matching folds accents and case while ranges point into the original title
   const [hit] = fuzzyNotes(["¿Qué es el Estoicismo?.md"], "ESTOICO");
   assert.equal(hit?.title, "¿Qué es el Estoicismo?");
   assert.deepEqual(hit?.ranges, [[11, 17], [20, 21]]);
+});
+
+test("decomposed accents stay within their original UTF-16 highlight spans", () => {
+  const [hit] = fuzzyNotes(["Pen\u0303a Notes.md"], "PEÑA");
+  assert.equal(hit?.title, "Pen\u0303a Notes");
+  assert.deepEqual(hit?.ranges, [[0, 5]]);
+});
+
+test("a decomposed accent does not make the following letter a word start", () => {
+  const hits = fuzzyNotes(["Pena.md", "Pen\u0303a.md"], "a");
+  assert.deepEqual(hits.map((hit) => hit.path), ["Pena.md", "Pen\u0303a.md"]);
 });
 
 test("contiguous and word-start matches rank before scattered matches", () => {

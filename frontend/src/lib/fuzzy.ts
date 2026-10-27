@@ -1,17 +1,29 @@
 export type FuzzyHit = { path: string; title: string; score: number; ranges: [number, number][] };
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+export function titleSegments(title: string, ranges: readonly [number, number][]): { text: string; match: boolean }[] {
+  const parts: { text: string; match: boolean }[] = [];
+  let end = 0;
+  for (const [from, to] of ranges) {
+    if (from > end) parts.push({ text: title.slice(end, from), match: false });
+    parts.push({ text: title.slice(from, to), match: true });
+    end = to;
+  }
+  if (end < title.length) parts.push({ text: title.slice(end), match: false });
+  return parts;
+}
+
 /** Fold displayed characters while retaining their UTF-16 spans for highlighting. */
 function indexed(text: string): { chars: string[]; spans: [number, number][] } {
   const chars: string[] = [];
   const spans: [number, number][] = [];
-  let offset = 0;
-  for (const char of text) {
-    const folded = char.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
+  for (const { segment, index } of graphemes.segment(text)) {
+    const folded = segment.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase();
     for (const letter of folded) {
       chars.push(letter);
-      spans.push([offset, offset + char.length]);
+      spans.push([index, index + segment.length]);
     }
-    offset += char.length;
   }
   return { chars, spans };
 }
@@ -28,8 +40,7 @@ function match(text: string, query: string): { score: number; ranges: [number, n
       const preceding = previous.get(i - 1);
       if (preceding && (!bestEarlier || preceding.score > bestEarlier.score)) bestEarlier = preceding;
       if (chars[i] !== letters[q]) continue;
-      const start = spans[i]![0];
-      const wordStart = start === 0 || /[^\p{L}\p{N}]/u.test(text[start - 1] ?? "");
+      const wordStart = i === 0 || !/[\p{L}\p{N}]/u.test(chars[i - 1]!);
       const base = 1 + (wordStart ? 5 : 0) - i * 0.01;
       if (q === 0) next.set(i, { score: base, indexes: [i] });
       else {
