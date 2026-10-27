@@ -67,6 +67,7 @@ jobs:
           cache-from: type=gha,scope=smoke-${{ matrix.arch }}
           cache-to: type=gha,scope=smoke-${{ matrix.arch }},mode=max
       - name: Verify container and persistent data
+        # The MCP compatibility client runs on the host against the container.
         run: bash scripts/container-smoke.sh notebook:smoke
 
   publish:

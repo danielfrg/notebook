@@ -48,10 +48,16 @@ to Source mode. Changes save automatically, and a note that changed on disk in t
 meantime shows a conflict instead of being overwritten. API documentation is at
 `/api/docs`.
 
-Use **New** in the sidebar to create a note or folder. A note or folder's actions
+Use the **+** menu beside search to create a note or folder. A note or folder's actions
 menu offers rename and delete; delete moves it to the vault's hidden `.trash`.
 If a note changes on disk, choose **Load disk version** or **Overwrite**. If it
 disappears, **Save as new note** keeps the editor text under a name you choose.
+
+Search the current vault from the sidebar. `Mod-o` opens the quick switcher,
+`Mod-p` opens commands, `Mod-Shift-f` focuses search, and `Mod-s` saves now
+(`Mod` is Command on macOS or Control elsewhere). `[[wikilinks]]` resolve across
+the vault; Command/Control-click follows a link. Local image embeds render in
+Live Preview; remote images remain links. Tables remain Markdown text.
 
 ### MCP
 
@@ -69,6 +75,8 @@ MCP only accepts requests addressed to localhost. Behind a proxy, set
 
 There is no authentication: anyone who can reach the service can read and edit every
 vault, so run it on a trusted network or behind an authenticated proxy.
+Hidden paths and symlinks are inaccessible. MCP sees every visible note unless
+excluded with `NOTEBOOK_MCP_EXCLUDE`; exclusions apply only to MCP.
 
 ## Configuration
 
@@ -119,3 +127,12 @@ just build
 ```zsh
 just image-check
 ```
+
+The image check uses a temporary synthetic vault to verify embedded assets,
+API writes and revision conflicts, exact BOM/CRLF preservation, MCP exclusions,
+restart persistence, and trash. It requires Docker, Go, Python 3, and curl;
+Linux bind-mount cleanup may require sudo. GitHub Actions runs this check on
+AMD64 and ARM64 before publishing to GHCR.
+
+The private homelab deployment is managed in
+[`homelab/manifests/notebook`](https://github.com/danielfrg/homelab/tree/main/manifests/notebook).
