@@ -32,6 +32,7 @@
   } from "./document.ts";
   import { sourceHighlight } from "./highlight.ts";
   import { detectLineSeparator } from "./linesep.ts";
+  import { previewSelectionActive } from "./livePreview.ts";
   import { notebookMarkdown } from "./markdown.ts";
   import { editorTheme } from "./theme.ts";
   import { NodeName } from "./markdown.ts";
@@ -74,6 +75,7 @@
   const modeCompartment = new Compartment();
   const readOnlyCompartment = new Compartment();
   const labelCompartment = new Compartment();
+  const previewFocusCompartment = new Compartment();
   const compartments = { separator: new Compartment(), history: new Compartment() };
 
   const modeExtension = (): Extension => (mode === "live" ? extensions : sourceHighlight);
@@ -97,6 +99,9 @@
           EditorView.lineWrapping,
           editorTheme,
           modeCompartment.of(modeExtension()),
+          previewFocusCompartment.of(previewSelectionActive.of(false)),
+          EditorView.focusChangeEffect.of((_state, focusing) =>
+            previewFocusCompartment.reconfigure(previewSelectionActive.of(focusing))),
           readOnlyCompartment.of(readOnlyExtension(readOnly)),
           labelCompartment.of(labelExtension(ariaLabel)),
           EditorView.updateListener.of((update) => {

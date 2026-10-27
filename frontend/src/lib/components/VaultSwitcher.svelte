@@ -6,5 +6,5 @@
 </script>
 
 {#if workspace.vault}
-  <SelectDropdown value={workspace.vault} {options} title="Vault" onchange={(name) => workspace.selectVault(name)} />
+  <SelectDropdown class="vault-switcher" value={workspace.vault} {options} title="Vault" onchange={(name) => workspace.selectVault(name)} />
 {/if}

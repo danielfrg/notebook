@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, FlashBanner, SearchInput, CommandPalette, appShortcuts, initShortcuts, getThemeMode, setThemeMode, type PaletteCommand } from "@kenn-io/kit-ui";
+  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, FlashBanner, SearchInput, CommandPalette, Menu, MenuTrigger, MenuContent, MenuItem, appShortcuts, initShortcuts, getThemeMode, setThemeMode, type PaletteCommand } from "@kenn-io/kit-ui";
   import NotebookTextIcon from "@lucide/svelte/icons/notebook-text";
+  import PlusIcon from "@lucide/svelte/icons/plus";
   import { onMount, tick } from "svelte";
   import Editor from "./lib/editor/Editor.svelte";
   import { livePreview, previewContext } from "./lib/editor/livePreview.ts";
@@ -19,7 +20,7 @@
   import { parseWikilink, resolveNote, wikilinkCreation } from "./lib/wikilinks.ts";
 
   let collapsed = $state(window.innerWidth < 900);
-  let sidebarWidth = $state(280);
+  let sidebarWidth = $state(264);
   let editor = $state<Editor>();
   let saveAsNew = $state(false);
   let discardConfirm = $state(false);
@@ -151,12 +152,18 @@
     onExpand={() => (collapsed = false)}
   >
     {#snippet sidebar()}
-      <header class="app-sidebar-header">
-        <VaultSwitcher />
-        <SidebarToggle onclick={() => (collapsed = true)} class="kit-sidebar-toggle--push" />
-      </header>
       <div class="sidebar-search">
         <SearchInput value={workspace.searchQuery} oninput={(value) => workspace.setSearchQuery(value)} bind:inputEl={searchInput} block placeholder="Search notes…" ariaLabel="Search notes" onkeydown={(event) => { if (event.key === "Enter" && workspace.searchHits[0]) { event.preventDefault(); openHit(workspace.searchHits[0]); } }} />
+        {#if !workspace.readOnly && !workspace.loading && !workspace.error}
+          <Menu align="end">
+            <MenuTrigger ariaLabel="New entry" title="New entry" class="sidebar-action"><PlusIcon size={14} strokeWidth={1.5} aria-hidden="true" /></MenuTrigger>
+            <MenuContent ariaLabel="New entry">
+              <MenuItem onselect={() => entryDialog = { kind: "note", folder: "", initial: uniqueNoteName((workspace.listing?.notes ?? []).filter((note) => parentFolder(note.path) === "").map((note) => noteTitle(note.path)), "Untitled") }}>New note</MenuItem>
+              <MenuItem onselect={() => entryDialog = { kind: "folder", folder: "", initial: "" }}>New folder</MenuItem>
+            </MenuContent>
+          </Menu>
+        {/if}
+        <SidebarToggle onclick={() => (collapsed = true)} class="sidebar-action" />
       </div>
       {#if workspace.loading}
         <div class="sidebar-message"><Spinner label="Loading vault" /></div>
@@ -172,6 +179,9 @@
           <FileTree onOpenNote={() => { if (window.innerWidth < 900) collapsed = true; }} />
         {/if}
       {/if}
+      <footer class="sidebar-footer">
+        <VaultSwitcher />
+      </footer>
     {/snippet}
 
     <NoteHeader {collapsed} onOpenSidebar={() => (collapsed = false)} />

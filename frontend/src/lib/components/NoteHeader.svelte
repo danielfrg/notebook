@@ -1,8 +1,9 @@
 <script lang="ts">
   import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, SegmentedControl, SidebarToggle, ThemeToggle, TopBar, copyToClipboard, showFlash } from "@kenn-io/kit-ui";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import { onMount } from "svelte";
-  import { noteTitle } from "../paths.ts";
+  import { noteTitle, parentFolder } from "../paths.ts";
   import { workspace } from "../state/workspace.svelte.ts";
   import EntryDialog from "./EntryDialog.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
@@ -12,6 +13,7 @@
   let narrow = $state(window.matchMedia("(max-width: 640px)").matches);
   const modeOptions = $derived([{ value: "live", label: narrow ? "Live" : "Live Preview" }, { value: "source", label: "Source" }]);
   const notePath = $derived(workspace.path?.endsWith(".md") ? workspace.path.slice(0, -3) : workspace.path);
+  const parentPath = $derived(workspace.path ? parentFolder(workspace.path) : "");
   let renamePath = $state<string | null>(null);
   let confirmPath = $state<string | null>(null);
 
@@ -28,16 +30,23 @@
   });
 </script>
 
-<TopBar>
+<TopBar class="note-header">
   {#snippet left()}
     {#if collapsed}<SidebarToggle state="collapsed" onclick={onOpenSidebar} />{/if}
-    <h1 class="app-title" class:app-title--with-note={!!workspace.path}>Notebook</h1>
-    {#if workspace.path}<span class="note-breadcrumb" title={workspace.path}>{workspace.vault} / {notePath}</span>{/if}
+    {#if workspace.path}
+      <div class="note-location" title={workspace.path}>
+        {#if parentPath}
+          <span class="note-breadcrumb">{parentPath}</span>
+          <ChevronRightIcon class="note-location-divider" size={13} aria-hidden="true" />
+        {/if}
+        <h1 class="app-title app-title--with-note">{noteTitle(workspace.path)}</h1>
+      </div>
+    {/if}
   {/snippet}
   {#snippet right()}
     {#if workspace.path && !workspace.noteError}
-      <SegmentedControl options={modeOptions} value={workspace.mode} ariaLabel="Editor mode" onchange={(value) => workspace.setMode(value as "live" | "source")} />
       <StatusPill />
+      <SegmentedControl options={modeOptions} value={workspace.mode} ariaLabel="Editor mode" onchange={(value) => workspace.setMode(value as "live" | "source")} />
     {/if}
     {#if workspace.path}
       <Menu align="end">
@@ -56,7 +65,7 @@
   {/snippet}
 </TopBar>
 {#if workspace.path}
-  <div class="mobile-note-context"><h1 title={workspace.path}>{workspace.vault} / {notePath}</h1></div>
+  <div class="mobile-note-context"><h1 title={workspace.path}>{notePath}</h1></div>
 {/if}
 
 {#if renamePath}

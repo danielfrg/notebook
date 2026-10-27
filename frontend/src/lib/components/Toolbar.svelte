@@ -14,12 +14,17 @@
 </script>
 
 <div class="note-toolbar" role="toolbar" aria-label="Formatting">
+  <div class="toolbar-group">
   <IconButton ariaLabel="Bold" {disabled} onclick={() => run("bold")}><BoldIcon size={15} /></IconButton>
   <IconButton ariaLabel="Italic" {disabled} onclick={() => run("italic")}><ItalicIcon size={15} /></IconButton>
   <IconButton ariaLabel="Heading" {disabled} onclick={() => run("heading")}><HeadingIcon size={15} /></IconButton>
+  </div>
+  <span class="toolbar-divider" aria-hidden="true"></span>
+  <div class="toolbar-group">
   <IconButton ariaLabel="Bulleted list" {disabled} onclick={() => run("bullet")}><ListIcon size={15} /></IconButton>
   <IconButton ariaLabel="Task list" {disabled} onclick={() => run("task")}><ListChecksIcon size={15} /></IconButton>
   <IconButton ariaLabel="Link" {disabled} onclick={() => run("link")}><LinkIcon size={15} /></IconButton>
+  </div>
   <span class="toolbar-spacer"></span>
   <IconButton ariaLabel="Undo" {disabled} onclick={() => run("undo")}><UndoIcon size={15} /></IconButton>
   <IconButton ariaLabel="Redo" {disabled} onclick={() => run("redo")}><RedoIcon size={15} /></IconButton>

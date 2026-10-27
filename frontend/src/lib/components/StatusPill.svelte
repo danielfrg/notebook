@@ -8,4 +8,4 @@
   );
 </script>
 
-<span class="status-pill" class:status-pill-alert={workspace.saveState === "conflict" || workspace.saveState === "error"} role={workspace.saveState === "conflict" || workspace.saveState === "error" ? "status" : undefined} title={workspace.saveDetail ?? label}>{label}</span>
+<span class="status-pill" data-state={workspace.saveState} class:status-pill-alert={workspace.saveState === "conflict" || workspace.saveState === "error"} role={workspace.saveState === "conflict" || workspace.saveState === "error" ? "status" : undefined} title={workspace.saveDetail ?? label}><span class="status-dot" aria-hidden="true"></span><span class="status-label">{label}</span></span>

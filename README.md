@@ -42,7 +42,8 @@ A vault is a folder of Markdown notes. List one or more in `NOTEBOOK_VAULTS` as
 `name=/path`, separated by commas. A name starts with a lowercase letter or digit,
 may also contain `_` and `-`, and is at most 32 characters.
 
-Live Preview hides Markdown markers except where the cursor is; `Mod-e` switches
+Live Preview renders notes immediately when opened and reveals Markdown markers
+at the cursor while the editor is focused; `Mod-e` switches
 to Source mode. Changes save automatically, and a note that changed on disk in the
 meantime shows a conflict instead of being overwritten. API documentation is at
 `/api/docs`.

@@ -11,7 +11,7 @@
   --nb-editor-font: var(--font-sans);
   --nb-editor-mono: var(--font-mono);
   --nb-editor-size: 1rem;
-  --nb-editor-line: 1.65;
+  --nb-editor-line: 1.7;
   --nb-tree-indent: 14px;
   --nb-accent: var(--accent-blue);
   --nb-selection: color-mix(in srgb, var(--nb-accent) 24%, transparent);
@@ -27,7 +27,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: var(--font-size-root);
+  font-size: var(--font-size-md);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -78,19 +78,44 @@ pre {
   height: 100vh;
   height: 100dvh;
   min-width: 0;
+  background: var(--bg-primary);
 }
 
-/* The sidebar header is as tall and as ruled as kit-ui's TopBar, so the two
- * bands line up across the divider. */
-.app-sidebar-header {
+.app-shell .kit-sidebar-layout > .kit-sidebar-layout__sidebar {
+  background: var(--bg-primary);
+  border-right: 0;
+}
+
+.app-shell .kit-sidebar-layout > .kit-sidebar-layout__main {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-primary);
+}
+
+.app-shell .kit-split-resize-handle {
+  --split-handle-size: 1px;
+  background: var(--border-muted);
+}
+.app-shell .kit-split-resize-handle:hover,
+.app-shell .kit-split-resize-handle:focus-visible {
+  background: var(--border-default);
+}
+
+.sidebar-footer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: var(--space-4);
-  height: var(--header-height);
-  padding-inline: var(--space-6);
-  border-bottom: var(--border-width) solid var(--border-default);
+  min-height: var(--header-height);
+  margin-top: auto;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-muted);
 }
+
+.sidebar-footer .vault-switcher { min-width: 0; max-width: 100%; }
+.sidebar-footer .vault-switcher .kit-select-dropdown__trigger { padding-inline: var(--space-2); border-color: transparent; background: transparent; font-weight: var(--font-weight-medium); font-size: var(--font-size-md); }
+.sidebar-footer .vault-switcher .kit-select-dropdown__trigger:hover,
+.sidebar-footer .vault-switcher .kit-select-dropdown__trigger[aria-expanded="true"] { background: var(--bg-surface-hover); }
 
 .app-title {
   margin: 0;
@@ -98,12 +123,12 @@ pre {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 1rem;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
   line-height: 1.25;
   font-weight: var(--font-weight-medium);
   letter-spacing: normal;
-  text-transform: uppercase;
+  text-transform: none;
 }
 .mobile-note-context { display: none; }
 
@@ -116,11 +141,13 @@ pre {
   overflow: hidden;
 }
 
-.app-sidebar-header { justify-content: space-between; }
-.app-sidebar-header .kit-select-dropdown { min-width: 0; }
-
-.sidebar-search { flex-shrink: 0; padding: var(--space-3) var(--space-4); border-bottom: var(--border-width) solid var(--border-default); }
-.search-results { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; padding: var(--space-2); }
+.sidebar-search { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; min-height: var(--header-height); padding: var(--space-4) var(--space-5); }
+.sidebar-search .kit-text-input { flex: 1; min-width: 0; background: color-mix(in srgb, var(--bg-surface-hover) 35%, transparent); border-color: var(--border-default); }
+.sidebar-search .kit-text-input:focus-within { border-color: var(--accent-blue); outline: none; }
+.sidebar-search .kit-text-input:has(.kit-text-input__control:focus-visible) { outline: none; }
+.sidebar-search .kit-text-input .kit-text-input__control,
+.sidebar-search .kit-text-input .kit-text-input__control:focus-visible { appearance: none; border: 0; box-shadow: none; outline: none; }
+.search-results { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; padding: var(--space-2) var(--space-5); }
 .search-results-message { margin: 0; padding: var(--space-5) var(--space-3); color: var(--text-muted); font-size: var(--font-size-sm); text-align: center; }
 .search-results-list { display: grid; gap: var(--space-1); }
 .search-result { display: grid; gap: var(--space-1); width: 100%; padding: var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); text-align: left; }
@@ -147,14 +174,8 @@ pre {
   flex: 1;
   overflow: auto;
   scrollbar-gutter: stable;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-5) var(--space-4);
 }
-.file-tree-tools {
-  display: flex;
-  justify-content: flex-end;
-  padding: var(--space-1) var(--space-2) var(--space-2);
-}
-.file-tree-new,
 .file-tree-actions,
 .note-actions-trigger {
   display: inline-flex;
@@ -169,16 +190,35 @@ pre {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
-.file-tree-new:hover,
 .file-tree-actions:hover,
 .note-actions-trigger:hover,
-.file-tree-new[aria-expanded="true"],
 .file-tree-actions[aria-expanded="true"],
 .note-actions-trigger[aria-expanded="true"] {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
 }
 .file-tree-actions { width: 28px; padding: 0; opacity: 0; }
+.sidebar-search .sidebar-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  transition: color var(--transition-fast) var(--transition-ease, ease), background var(--transition-fast) var(--transition-ease, ease);
+}
+.sidebar-search .sidebar-action:hover:not(:disabled),
+.sidebar-search .sidebar-action[aria-expanded="true"] {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
 .file-tree-row:hover .file-tree-actions,
 .file-tree-row:focus-within .file-tree-actions,
 .file-tree-actions[aria-expanded="true"] { opacity: 1; }
@@ -194,14 +234,17 @@ pre {
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  min-height: 32px;
   padding: var(--space-2) var(--space-3);
   padding-left: calc(var(--space-3) + var(--depth) * var(--nb-tree-indent));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   color: var(--text-secondary);
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
-.file-tree-row:hover,
+.file-tree-row:hover { background: color-mix(in srgb, var(--bg-surface-hover) 60%, transparent); color: var(--text-primary); }
 .file-tree-row.is-current { background: var(--bg-surface-hover); color: var(--text-primary); }
+.file-tree-row > svg { flex: none; color: var(--text-muted); }
 .file-tree-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .file-tree-row .tree-open { transform: rotate(90deg); }
 .file-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -250,21 +293,43 @@ pre {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
 }
+.app-shell .note-header { background: var(--bg-primary); border-bottom-color: var(--border-muted); padding-inline: var(--space-5); }
+.app-shell .note-header .kit-top-bar__left { flex: 1; min-width: 0; overflow: hidden; }
+.note-location { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.note-location .note-breadcrumb { flex: 0 1 auto; }
+.note-location-divider { color: var(--text-muted); flex: none; }
+.note-location .app-title { flex: 0 1 auto; }
+.app-shell .note-header .kit-top-bar__right { gap: var(--space-3); }
+.app-shell .note-header .kit-segmented { border: 1px solid var(--border-muted); background: var(--bg-inset); }
+.app-shell .note-header .kit-segmented__btn.active { background: var(--bg-surface-hover); }
 .note-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   flex-shrink: 0;
-  padding: var(--space-2) var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-default);
+  width: min(100%, var(--nb-editor-width));
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-6) 0;
 }
+.toolbar-group { display: flex; align-items: center; gap: 2px; }
+.toolbar-divider { width: 1px; height: 15px; margin-inline: var(--space-1); background: var(--border-default); }
 .toolbar-spacer { flex: 1; }
 .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 116px;
+  flex-shrink: 0;
+  justify-content: flex-end;
   white-space: nowrap;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
-.status-pill-alert { color: var(--text-primary); }
+.status-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--text-muted); }
+.status-pill[data-state="dirty"] .status-dot { background: var(--accent-amber); }
+.status-pill[data-state="saving"] .status-dot { background: var(--nb-accent); }
+.status-pill-alert { color: var(--accent-amber); }
+.status-pill-alert .status-dot { background: currentColor; }
 .note-reason {
   margin: 0;
   padding: var(--space-2) var(--space-5);
@@ -278,9 +343,17 @@ pre {
   min-width: 0;
   overflow: hidden;
 }
+/* The writing surface is identified by its caret; a pane-sized ring competes
+ * with the document. Buttons and other controls retain their own focus rings. */
+.app-content .editor-host .nb-editor .cm-editor.cm-focused { outline: none; }
 
 @media (max-width: 640px) {
-  .app-title--with-note, .note-breadcrumb { display: none; }
+  .note-location { display: none; }
+  .app-shell .kit-sidebar-layout > .kit-sidebar-layout__main { margin: 0; border: 0; border-radius: 0; }
+  .app-shell .note-header { padding-inline: var(--space-3); }
+  .app-shell .note-header .kit-top-bar__right { gap: var(--space-2); }
+  .status-pill { inline-size: 12px; }
+  .status-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .mobile-note-context {
     display: block;
     padding: var(--space-2) var(--space-4);
@@ -296,18 +369,20 @@ pre {
     font-weight: var(--font-weight-medium);
   }
   .app-title { font-size: 0.875rem; }
-  .note-toolbar { padding-inline: var(--space-2); }
+  .note-toolbar { padding-inline: var(--space-3); }
   .conflict-banner { flex-wrap: wrap; padding-inline: var(--space-4); }
   .file-tree-actions { opacity: 1; }
 }
 
-@media (max-width: 640px) {
+@media (min-width: 641px) and (max-width: 1100px) {
+  .note-location .note-breadcrumb, .note-location-divider { display: none; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .file-tree-row { min-height: 40px; }
+  .file-tree-actions { opacity: 1; }
   .app-sidebar-header {
     padding-inline: var(--space-5);
-  }
-
-  .app-title {
-    font-size: 0.875rem;
   }
 }
 

@@ -1,9 +1,6 @@
 <script lang="ts">
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
-  import FileTextIcon from "@lucide/svelte/icons/file-text";
-  import FolderIcon from "@lucide/svelte/icons/folder";
   import EllipsisIcon from "@lucide/svelte/icons/ellipsis";
-  import PlusIcon from "@lucide/svelte/icons/plus";
   import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@kenn-io/kit-ui";
   import { uniqueNoteName } from "../entry-names.ts";
   import { baseName, noteTitle, parentFolder } from "../paths.ts";
@@ -94,17 +91,6 @@
 </script>
 
 <div class="file-tree">
-  {#if !workspace.readOnly}
-    <div class="file-tree-tools">
-      <Menu>
-        <MenuTrigger ariaLabel="New entry" class="file-tree-new"><PlusIcon size={15} aria-hidden="true" /> New</MenuTrigger>
-        <MenuContent ariaLabel="New entry">
-          <MenuItem onselect={() => newNote("")}>New note</MenuItem>
-          <MenuItem onselect={() => newFolder("")}>New folder</MenuItem>
-        </MenuContent>
-      </Menu>
-    </div>
-  {/if}
   {#if rows.length === 0}<p class="file-tree-empty"><strong>Empty vault</strong><br />No notes here yet.</p>{/if}
   <div role="tree" aria-label="Files" tabindex="-1" bind:this={tree}>
   {#each rows as row (row.node.path)}
@@ -125,9 +111,6 @@
     >
       {#if node.kind === "folder"}
         <ChevronRightIcon size={14} class={workspace.expanded.has(node.path) ? "tree-open" : ""} aria-hidden="true" />
-        <FolderIcon size={15} aria-hidden="true" />
-      {:else}
-        <FileTextIcon size={15} aria-hidden="true" />
       {/if}
       <span class="file-tree-name">{node.name}</span>
       {#if !workspace.readOnly}

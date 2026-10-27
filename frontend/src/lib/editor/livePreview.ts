@@ -54,6 +54,11 @@ export const previewContext = Facet.define<PreviewContext, PreviewContext>({
   combine: (values) => values[0] ?? EMPTY_CONTEXT,
 });
 
+/** Only an active editor selection reveals source; an unfocused note stays rendered. */
+export const previewSelectionActive = Facet.define<boolean, boolean>({
+  combine: (values) => values[0] ?? true,
+});
+
 /**
  * Over this many characters a document gets no decorations: they are rebuilt
  * over the whole document on every change and every move of the cursor.
@@ -121,7 +126,8 @@ class Collector {
 
   /** Whether a selection range overlaps from..to, its ends included. */
   touched(from: number, to: number): boolean {
-    return this.#state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+    return this.#state.facet(previewSelectionActive) &&
+      this.#state.selection.ranges.some((range) => range.from <= to && range.to >= from);
   }
 
   /** Whether a selection range lies on a line of from..to. */
