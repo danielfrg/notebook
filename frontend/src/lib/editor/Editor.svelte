@@ -16,7 +16,7 @@
    * A note with mixed line breaks opens read-only (`onlineseparator` says so).
    */
   import { Compartment, EditorState, type Extension } from "@codemirror/state";
-  import { drawSelection, EditorView, keymap } from "@codemirror/view";
+  import { drawSelection, dropCursor, EditorView, keymap } from "@codemirror/view";
   import { onMount, untrack } from "svelte";
   import "../../editor.css";
   import { editorCommands, editorKeymap, type EditorCommand } from "./commands.ts";
@@ -82,6 +82,8 @@
           notebookMarkdown(),
           documentExtensions(separator, compartments),
           drawSelection(),
+          // Where dragged text would land.
+          dropCursor(),
           keymap.of(editorKeymap(() => onsave())),
           EditorView.lineWrapping,
           editorTheme,
