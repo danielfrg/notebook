@@ -46,6 +46,7 @@ const OPEN = code("[");
 const CLOSE = code("]");
 const NEWLINE = code("\n");
 const RETURN = code("\r");
+const SLASH = code("/");
 const BOM = "\uFEFF";
 
 // The fences of frontmatter. The first line of the text opens it: "---", after
@@ -130,7 +131,11 @@ const tag: InlineParser = {
   parse(cx, next, pos) {
     if (next !== HASH || (pos > cx.offset && !BEFORE_TAG.test(cx.slice(pos - 1, pos)))) return -1;
     TAG_CHARACTERS.lastIndex = pos + 1 - cx.offset;
-    const name = (TAG_CHARACTERS.exec(cx.text)?.[0] ?? "").replace(/\/+$/, "");
+    const characters = TAG_CHARACTERS.exec(cx.text)?.[0] ?? "";
+    // Not /\/+$/, which takes quadratic time over a long run of "/" in a name.
+    let length = characters.length;
+    while (length > 0 && characters.charCodeAt(length - 1) === SLASH) length--;
+    const name = characters.slice(0, length);
     if (name.startsWith("/") || !/\P{Nd}/u.test(name)) return -1;
     return cx.addElement(cx.elt(NodeName.Tag, pos, pos + 1 + name.length));
   },

@@ -162,6 +162,8 @@ test("a tag is a # after white space or an opening mark, then letters, digits, _
     ["(#tag)", ["#tag"]],
     ["**#tag**", ["#tag"]],
     ["#a/ b", ["#a"]], // a trailing slash is no part of it
+    ["#a//b/", ["#a//b"]],
+    ["#a///", ["#a"]],
     ["- [ ] #todo", ["#todo"]],
     ["## Heading #tag", ["#tag"]],
     // none
@@ -178,6 +180,15 @@ test("a tag is a # after white space or an opening mark, then letters, digits, _
     ["[[a#h]]", []],
   ];
   for (const [text, want] of cases) assert.deepEqual(spans(text, NodeName.Tag), want, JSON.stringify(text));
+});
+
+test("a tag with a long run of slashes in it takes linear time", () => {
+  const tag = `#a${"/".repeat(100_000)}b`;
+  const started = performance.now();
+  const found = spans(`${tag} c`, NodeName.Tag);
+  const elapsed = performance.now() - started;
+  assert.deepEqual(found, [tag]);
+  assert.ok(elapsed < 1000, `${Math.round(elapsed)} ms`);
 });
 
 test("==text== is a highlight, with no white space just inside its marks", () => {
