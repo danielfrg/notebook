@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/danielfrg/notebook/internal/vault"
 )
 
 // isolate blanks every NOTEBOOK_* variable so a developer's shell or .env
@@ -234,6 +236,41 @@ func TestParseExcludes(t *testing.T) {
 	} {
 		if _, err := parseExcludes(value, notes); err == nil {
 			t.Errorf("accepted %q", value)
+		}
+	}
+}
+
+// A rejected exclude says which vault it was for and which pattern it was, so
+// that the entry to fix is easy to find among several.
+func TestParseExcludesErrorsNameTheVaultAndThePattern(t *testing.T) {
+	two := []VaultSpec{{"notes", "/tmp/n"}, {"work", "/tmp/w"}}
+	_, err := parseExcludes("notes:fine,work:a/../b", two)
+	for _, want := range []string{`vault "work"`, `"a/../b"`} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %v, want one that contains %s", err, want)
+		}
+	}
+}
+
+// What a pattern may be is decided by vault.NormalizeGlob alone, which is also
+// what vault.ExcludeGlobs applies, so the settings can neither accept a pattern
+// that the MCP tools then cannot use nor store one in another form than the one
+// that is matched. These patterns include the odd ones around white space.
+func TestParseExcludesFollowsNormalizeGlob(t *testing.T) {
+	notes := []VaultSpec{{"notes", "/tmp/n"}}
+	for _, pattern := range []string{
+		"transcripts", "transcripts/", " transcripts/ ", "Private/**", "Private/**/", "a b/c?", "Q1..Q2", "..data", ".obsidian",
+		"", " ", "/", "/abs", "../x", "a/../b", "./a", "a/./b", "a//b", "a//", `a\b`,
+		"a /", ".  /", "a/ /", "ÉCOLE/",
+	} {
+		canonical, normalizeErr := vault.NormalizeGlob(pattern)
+		got, err := parseExcludes("notes:"+pattern, notes)
+		if (err == nil) != (normalizeErr == nil) {
+			t.Errorf("parseExcludes(%q) error = %v, but NormalizeGlob error = %v", "notes:"+pattern, err, normalizeErr)
+			continue
+		}
+		if err == nil && !reflect.DeepEqual(got, map[string][]string{"notes": {canonical}}) {
+			t.Errorf("parseExcludes(%q) = %v, want the form NormalizeGlob gives, %q", "notes:"+pattern, got, canonical)
 		}
 	}
 }

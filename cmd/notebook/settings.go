@@ -12,18 +12,22 @@ import (
 	"strings"
 
 	"github.com/danielfrg/notebook/internal/mcp"
+	"github.com/danielfrg/notebook/internal/vault"
 )
 
 // VaultSpec is one configured vault: its unique name and the directory behind it.
 type VaultSpec struct{ Name, Path string }
 
 type Settings struct {
-	Addr            string
-	Vaults          []VaultSpec
-	ReadOnly        bool
+	Addr     string
+	Vaults   []VaultSpec
+	ReadOnly bool
+	// MCPWrite is the raw value of NOTEBOOK_MCP_WRITE. It is effective only when
+	// ReadOnly is false: the MCP write tools exist when both say so, and the code
+	// that mounts MCP combines them.
 	MCPWrite        bool
 	MCPAllowedHosts []string
-	MCPExclude      map[string][]string // vault name -> glob patterns
+	MCPExclude      map[string][]string // vault name -> glob patterns, in the canonical form of vault.NormalizeGlob
 }
 
 var vaultNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
@@ -97,13 +101,11 @@ func parseVaults(value string) ([]VaultSpec, error) {
 	return vaults, nil
 }
 
-// parseExcludes reads vault:pattern,vault:pattern. A pattern is a vault-relative
-// glob matched one path segment at a time, and is stored in canonical form: one
-// trailing "/" is trimmed. A pattern that is empty, absolute, contains a
-// backslash, or has an empty, "." or ".." segment is rejected, because it could
-// never match and an exclude that silently hides nothing is worse than a
-// startup error. Keep this in step with vault.ExcludeGlobs, which must reject
-// the same patterns.
+// parseExcludes reads vault:pattern,vault:pattern. What a pattern may be, and the
+// canonical form it is stored in, is decided by vault.NormalizeGlob and nothing
+// else, so that the settings and vault.ExcludeGlobs (which the MCP tools apply)
+// cannot disagree: an exclude that silently hides nothing is worse than a
+// startup error. The error of a rejected pattern names its vault.
 func parseExcludes(value string, vaults []VaultSpec) (map[string][]string, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, nil
@@ -111,26 +113,16 @@ func parseExcludes(value string, vaults []VaultSpec) (map[string][]string, error
 	excludes := map[string][]string{}
 	for _, entry := range strings.Split(value, ",") {
 		name, pattern, ok := strings.Cut(entry, ":")
-		name, pattern = strings.TrimSpace(name), strings.TrimSpace(pattern)
+		name = strings.TrimSpace(name)
 		if !ok {
 			return nil, fmt.Errorf("exclude %q must look like vault:pattern", strings.TrimSpace(entry))
 		}
 		if !slices.ContainsFunc(vaults, func(v VaultSpec) bool { return v.Name == name }) {
 			return nil, fmt.Errorf("exclude %q names an unknown vault", strings.TrimSpace(entry))
 		}
-		switch {
-		case pattern == "":
-			return nil, fmt.Errorf("exclude for vault %q has an empty pattern", name)
-		case strings.HasPrefix(pattern, "/"):
-			return nil, fmt.Errorf("exclude pattern %q must be relative to the vault", pattern)
-		case strings.Contains(pattern, `\`):
-			return nil, fmt.Errorf(`exclude pattern %q must separate folders with "/", not a backslash`, pattern)
-		}
-		canonical := strings.TrimSuffix(pattern, "/")
-		for _, segment := range strings.Split(canonical, "/") {
-			if segment == "" || segment == "." || segment == ".." {
-				return nil, fmt.Errorf(`exclude pattern %q must not contain empty, "." or ".." path segments`, pattern)
-			}
+		canonical, err := vault.NormalizeGlob(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("vault %q: %w", name, err)
 		}
 		excludes[name] = append(excludes[name], canonical)
 	}

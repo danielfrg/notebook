@@ -96,9 +96,9 @@ func TestMatchGlob(t *testing.T) {
 // What an exclude pattern may be is decided in one place, NormalizeGlob, and
 // ExcludeGlobs uses it, so that a pattern accepted by one of them cannot be
 // rejected by the other: such a pattern would hide nothing, without a word, and
-// a recorded conversation would reach third-party models. These are the patterns
-// of TestParseExcludes in cmd/notebook, which still has a copy of the rule of its
-// own until it calls NormalizeGlob; keep the two tables in step.
+// a recorded conversation would reach third-party models. cmd/notebook reads the
+// patterns of the settings with NormalizeGlob, and its TestParseExcludes covers
+// the same ones.
 var (
 	// Accepted: the form that is matched, which is the pattern with white space
 	// around it and one trailing "/" trimmed and nothing else rewritten, and a
