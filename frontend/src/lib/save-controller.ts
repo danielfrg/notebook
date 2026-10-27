@@ -145,6 +145,13 @@ export class SaveController {
     this.#set("clean");
   }
 
+  /** The disk returned to our base revision; keep local text and resume autosave. */
+  reconcileRevision(): void {
+    if (this.#state !== "conflict") return;
+    this.#set("dirty");
+    this.edit(this.#content);
+  }
+
   /**
    * Saves the current text over currentRevision, the revision that is on disk now,
    * whatever the state: the text wins. It saves even text that is saved already,

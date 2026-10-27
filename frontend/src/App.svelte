@@ -6,6 +6,7 @@
   import { livePreview, previewContext } from "./lib/editor/livePreview.ts";
   import FileTree from "./lib/components/FileTree.svelte";
   import ConflictBanner from "./lib/components/ConflictBanner.svelte";
+  import DiscardDialog from "./lib/components/DiscardDialog.svelte";
   import EntryDialog from "./lib/components/EntryDialog.svelte";
   import NoteHeader from "./lib/components/NoteHeader.svelte";
   import Toolbar from "./lib/components/Toolbar.svelte";
@@ -17,6 +18,7 @@
   let sidebarWidth = $state(280);
   let editor = $state<Editor>();
   let saveAsNew = $state(false);
+  let discardConfirm = $state(false);
 
   $effect(() => {
     if (workspace.focusRequest > 0) void tick().then(() => editor?.focus());
@@ -113,13 +115,18 @@
       {:else if workspace.noteError}
         <div class="content-message" role="alert">{workspace.noteError}</div>
       {:else if workspace.path}
-        {#if workspace.missingNote || workspace.externalConflict || workspace.saveState === "conflict"}
+        {#if workspace.missingNote || workspace.externalConflict || workspace.saveState === "conflict" || workspace.saveState === "error"}
           <ConflictBanner
             missing={workspace.missingNote}
             readOnly={workspace.readOnly}
+            saveError={workspace.saveState === "error" ? workspace.saveDetail ?? "The save failed." : null}
+            navigationBlocked={workspace.navigationBlocked}
+            dirty={workspace.dirty}
             onload={() => workspace.reloadFromDisk()}
             onoverwrite={() => workspace.overwriteDisk()}
             onsaveasnew={() => saveAsNew = true}
+            onretry={() => workspace.saveNow()}
+            ondiscard={() => discardConfirm = true}
           />
         {/if}
         <Toolbar run={(command) => editor?.run(command)} disabled={workspace.readOnly || !!workspace.lineSeparatorIssue} />
@@ -149,4 +156,7 @@
 
 {#if saveAsNew && workspace.path}
   <EntryDialog kind="save-as-new" initial={noteTitle(workspace.path)} onsubmit={(name) => workspace.saveMissingAsNew(name)} onclose={() => saveAsNew = false} />
+{/if}
+{#if discardConfirm}
+  <DiscardDialog onconfirm={() => workspace.discardLocalEdits()} onclose={() => discardConfirm = false} />
 {/if}

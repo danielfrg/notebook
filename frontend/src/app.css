@@ -201,7 +201,7 @@ pre {
 .conflict-banner-copy { display: flex; flex-direction: column; min-width: 0; font-size: var(--font-size-sm); }
 .conflict-banner-copy strong { font-weight: var(--font-weight-medium); }
 .conflict-banner-copy span { color: var(--text-secondary); }
-.conflict-banner-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.conflict-banner-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); max-width: 100%; }
 
 .sidebar-message,
 .content-message {

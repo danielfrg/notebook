@@ -4,15 +4,25 @@
   let {
     missing,
     readOnly,
+    saveError,
+    navigationBlocked,
+    dirty,
     onload,
     onoverwrite,
     onsaveasnew,
+    onretry,
+    ondiscard,
   }: {
     missing: boolean;
     readOnly: boolean;
+    saveError: string | null;
+    navigationBlocked: boolean;
+    dirty: boolean;
     onload: () => Promise<void>;
     onoverwrite: () => Promise<void>;
     onsaveasnew: () => void;
+    onretry: () => Promise<void>;
+    ondiscard: () => void;
   } = $props();
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -29,16 +39,20 @@
 
 <div class="conflict-banner" role="alert">
   <div class="conflict-banner-copy">
-    <strong>{missing ? "This note no longer exists on disk" : "This note changed on disk"}</strong>
-    {#if !missing}<span>Choose which version to keep.</span>{/if}
+    <strong>{missing ? "This note no longer exists on disk" : saveError ? "Could not save this note" : "This note changed on disk"}</strong>
+    {#if saveError && !missing}<span>{saveError}</span>{:else if !missing}<span>Choose which version to keep.</span>{/if}
+    {#if navigationBlocked}<span>Navigation was blocked to keep your unsaved edits. Save or discard them to leave.</span>{/if}
     {#if error}<span class="dialog-error">{error}</span>{/if}
   </div>
   <div class="conflict-banner-actions">
     {#if missing}
       {#if !readOnly}<Button label="Save as new note" onclick={onsaveasnew} disabled={busy} />{/if}
+    {:else if saveError}
+      {#if !readOnly}<Button label="Retry save" onclick={() => void run(onretry)} disabled={busy} />{/if}
     {:else}
       <Button label="Load disk version" onclick={() => void run(onload)} disabled={busy} />
       {#if !readOnly}<Button label="Overwrite" surface="solid" onclick={() => void run(onoverwrite)} disabled={busy} />{/if}
     {/if}
+    {#if dirty}<Button label="Discard local edits" onclick={ondiscard} disabled={busy} />{/if}
   </div>
 </div>

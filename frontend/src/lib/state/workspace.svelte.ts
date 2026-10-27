@@ -35,6 +35,7 @@ class Workspace {
   saveDetail: string | null = $state(null);
   externalConflict = $state(false);
   missingNote = $state(false);
+  navigationBlocked = $state(false);
   focusRequest = $state(0);
   lineSeparatorIssue: string | null = $state(null);
   bom = "";
@@ -43,13 +44,18 @@ class Workspace {
   private generation = 0;
   private started = false;
   private pendingPath: string | null = null;
+  private pendingExit: { vault: string | null; path: string | null } | null = null;
   private noteAbort: AbortController | null = null;
   private notePollSequence = 0;
+  private notePollInFlight: Promise<void> | null = null;
+  private lastExternalRevision: string | null = null;
   private filesSequence = 0;
   private listingEtag: string | undefined;
   private saveCompletion = 0;
   private noteTimer: ReturnType<typeof setInterval> | undefined;
   private filesTimer: ReturnType<typeof setInterval> | undefined;
+  private lastReturnRefresh = 0;
+  private fileMutationPending = 0;
 
   get dirty(): boolean { return this.controller?.state !== "clean" && this.controller !== null; }
 
@@ -73,6 +79,7 @@ class Workspace {
       await this.followRoute(route.vault, route.path);
       if (!this.started) return;
       window.addEventListener("focus", this.handleFocus);
+      if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.handleVisibilityChange);
       this.noteTimer = setInterval(() => { if (this.visible()) void this.pollNote(); }, 5000);
       this.filesTimer = setInterval(() => { if (this.visible()) void this.refreshFiles().catch(() => {}); }, 15000);
     } catch (error) {
@@ -87,18 +94,20 @@ class Workspace {
     this.generation++;
     window.removeEventListener("hashchange", this.handleHashChange);
     window.removeEventListener("focus", this.handleFocus);
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     if (this.noteTimer !== undefined) clearInterval(this.noteTimer);
     if (this.filesTimer !== undefined) clearInterval(this.filesTimer);
     this.noteTimer = undefined;
     this.filesTimer = undefined;
     this.noteAbort?.abort();
     this.noteAbort = null;
+    this.notePollInFlight = null;
     void this.controller?.flush();
   }
 
   async retry(): Promise<void> {
     if (this.vault) await this.loadVault(this.vault, parseRoute(location.hash).path);
-    else { this.started = false; await this.init(); }
+    else { this.dispose(); await this.init(); }
   }
 
   selectVault(name: string): void {
@@ -149,6 +158,7 @@ class Workspace {
 
   async createFolder(parent: string, name: string): Promise<void> {
     this.requireWritable();
+    name = name.trim();
     const reason = validateEntryName(name);
     if (reason) throw new Error(reason);
     const path = joinPath(parent, name);
@@ -160,6 +170,7 @@ class Workspace {
 
   async renameEntry(path: string, newName: string): Promise<void> {
     this.requireWritable();
+    newName = newName.trim();
     const isFolder = this.listing?.folders.includes(path) ?? false;
     const reason = isFolder ? validateEntryName(newName) : null;
     if (reason) throw new Error(reason);
@@ -167,27 +178,46 @@ class Workspace {
     if (to === path) return;
     const vault = this.requireVault();
     const open = this.path === path || this.path?.startsWith(`${path}/`);
-    if (open) await this.ensureSafeMutation();
-    await this.api.move(vault, path, to);
-    await this.refreshAfterMutation();
-    if (open && this.path) {
-      const next = to + this.path.slice(path.length);
-      this.navigate({ vault, path: next });
-      await this.loadNote(next);
+    const openPath = this.path;
+    const openController = this.controller;
+    this.beginFileMutation();
+    try {
+      if (open) await this.ensureSafeMutation();
+      await this.api.move(vault, path, to);
+      await this.refreshAfterMutation();
+      if (this.vault !== vault) return;
+      if (isFolder) {
+        this.expanded = new Set([...this.expanded].map((entry) =>
+          entry === path || entry.startsWith(`${path}/`) ? to + entry.slice(path.length) : entry));
+      }
+      if (open && openPath && this.path === openPath && this.controller === openController) {
+        const next = to + openPath.slice(path.length);
+        this.navigate({ vault, path: next });
+        await this.loadNote(next);
+      }
+      this.expandTo(to);
+    } finally {
+      this.fileMutationPending--;
     }
-    this.expandTo(to);
   }
 
   async trashEntry(path: string): Promise<void> {
     this.requireWritable();
     const vault = this.requireVault();
     const open = this.path === path || this.path?.startsWith(`${path}/`);
-    if (open) await this.ensureSafeMutation();
-    await this.api.remove(vault, path);
-    await this.refreshAfterMutation();
-    if (open) {
-      this.navigate({ vault, path: null });
-      await this.loadNote(null);
+    const openPath = this.path;
+    const openController = this.controller;
+    this.beginFileMutation();
+    try {
+      if (open) await this.ensureSafeMutation();
+      await this.api.remove(vault, path);
+      await this.refreshAfterMutation();
+      if (this.vault === vault && open && this.path === openPath && this.controller === openController) {
+        this.navigate({ vault, path: null });
+        await this.loadNote(null);
+      }
+    } finally {
+      this.fileMutationPending--;
     }
   }
 
@@ -201,6 +231,9 @@ class Workspace {
       this.adoptContent(note.content);
       this.externalConflict = false;
       this.missingNote = false;
+      this.navigationBlocked = false;
+      this.pendingExit = null;
+      this.lastExternalRevision = null;
     } catch (error) {
       if (this.sameOpen(vault, path, controller, noteAbort) && error instanceof ApiError && error.status === 404) this.markMissing();
       else if (!noteAbort.signal.aborted) throw error;
@@ -208,6 +241,7 @@ class Workspace {
   }
 
   async overwriteDisk(): Promise<void> {
+    this.requireWritable();
     const { vault, path, controller, noteAbort } = this.openContext();
     if (controller.state === "saving") await controller.flush();
     const current = await this.api.revision(vault, path, noteAbort.signal);
@@ -228,6 +262,18 @@ class Workspace {
     this.navigate({ vault, path: newPath });
     await this.loadNote(newPath);
     this.focusRequest++;
+  }
+
+  /** Called only after the user confirms that unsaved text may be lost. */
+  discardLocalEdits(): void {
+    if (!this.controller || !this.vault) return;
+    const destination = this.pendingExit ?? { vault: this.vault, path: null };
+    this.controller.reload(this.controller.content, this.controller.revision);
+    this.externalConflict = false;
+    this.missingNote = false;
+    this.navigationBlocked = false;
+    this.pendingExit = null;
+    this.navigate(destination);
   }
 
   edit(value: string): void {
@@ -255,7 +301,14 @@ class Workspace {
     void this.followRoute(route.vault, route.path);
   };
 
-  private handleFocus = (): void => { void this.pollNow(); };
+  private refreshOnReturn(): void {
+    if (!this.visible() || Date.now() - this.lastReturnRefresh < 250) return;
+    this.lastReturnRefresh = Date.now();
+    void this.pollNow();
+  }
+
+  private handleFocus = (): void => { this.refreshOnReturn(); };
+  private handleVisibilityChange = (): void => { this.refreshOnReturn(); };
 
   private visible(): boolean {
     return typeof document === "undefined" || document.visibilityState === "visible";
@@ -303,27 +356,59 @@ class Workspace {
     this.externalConflict = false;
   }
 
-  private async pollNote(): Promise<void> {
-    if (!this.visible() || !this.vault || !this.path || !this.controller || !this.noteAbort) return;
+  private beginFileMutation(): void {
+    this.fileMutationPending++;
+    this.notePollSequence++;
+    this.notePollInFlight = null;
+  }
+
+  private pollNote(): Promise<void> {
+    if (this.notePollInFlight) return this.notePollInFlight;
+    const running = this.pollNoteOnce();
+    this.notePollInFlight = running;
+    void running.finally(() => {
+      if (this.notePollInFlight === running) this.notePollInFlight = null;
+    });
+    return running;
+  }
+
+  private async pollNoteOnce(): Promise<void> {
+    if (!this.visible() || this.fileMutationPending > 0 || !this.vault || !this.path || !this.controller || !this.noteAbort || this.controller.state === "saving") return;
     const { vault, path, controller, noteAbort } = this.openContext();
     const sequence = ++this.notePollSequence;
     const saveCompletion = this.saveCompletion;
     const current = () => this.sameOpen(vault, path, controller, noteAbort) &&
       sequence === this.notePollSequence && saveCompletion === this.saveCompletion;
+    const saving = () => controller.state === "saving";
     try {
       const revision = await this.api.revision(vault, path, noteAbort.signal);
-      if (!current()) return;
+      if (!current() || saving()) return;
       if (!revision) { this.markMissing(); return; }
+      this.missingNote = false;
       // This is the usual result of our own save; external() must not run for it.
-      if (revision.revision === controller.revision) return;
+      if (revision.revision === controller.revision) {
+        this.externalConflict = false;
+        this.lastExternalRevision = null;
+        controller.reconcileRevision();
+        return;
+      }
+      if (revision.revision === this.lastExternalRevision) return;
       const note = await this.api.note(vault, path, noteAbort.signal);
-      if (!current() || note.revision === controller.revision) return;
+      if (!current() || saving()) return;
+      if (note.revision === controller.revision) {
+        this.missingNote = false;
+        this.externalConflict = false;
+        this.lastExternalRevision = null;
+        controller.reconcileRevision();
+        return;
+      }
       if (controller.external(note.content, note.revision) === "applied") {
         this.adoptContent(note.content);
         this.externalConflict = false;
         this.missingNote = false;
       } else {
         this.externalConflict = true;
+        this.lastExternalRevision = note.revision;
       }
     } catch (error) {
       if (!current()) return;
@@ -358,9 +443,13 @@ class Workspace {
     if (this.vault === vault && this.path === path && !this.error) return;
     if (this.controller && this.controller.state !== "clean") await this.controller.flush();
     if (this.controller && this.controller.state !== "clean") {
+      this.navigationBlocked = true;
+      this.pendingExit = { vault, path };
       if (this.vault) location.replace(formatRoute(this.vault, this.path));
       return;
     }
+    this.navigationBlocked = false;
+    this.pendingExit = null;
     if (vault !== this.vault) await this.loadVault(vault, path);
     else await this.loadNote(path);
   }
@@ -378,6 +467,8 @@ class Workspace {
     this.controller = null;
     this.noteAbort?.abort();
     this.noteAbort = null;
+    this.notePollInFlight = null;
+    this.lastExternalRevision = null;
     this.value = "";
     this.noteError = null;
     this.error = null;
@@ -406,6 +497,8 @@ class Workspace {
     this.noteAbort?.abort();
     this.noteAbort = path ? new AbortController() : null;
     this.notePollSequence++;
+    this.notePollInFlight = null;
+    this.lastExternalRevision = null;
     this.path = path;
     this.value = "";
     this.bom = "";
@@ -414,6 +507,8 @@ class Workspace {
     this.saveDetail = null;
     this.externalConflict = false;
     this.missingNote = false;
+    this.navigationBlocked = false;
+    this.pendingExit = null;
     this.noteError = null;
     this.lineSeparatorIssue = null;
     if (!path || !this.vault) { this.noteLoading = false; return; }
@@ -429,6 +524,13 @@ class Workspace {
         save: async (content, revision) => {
           const result = await this.api.save(vault, path, content, revision);
           this.saveCompletion++;
+          if (this.controller === controller) {
+            this.missingNote = false;
+            this.externalConflict = false;
+            this.navigationBlocked = false;
+            this.pendingExit = null;
+            this.lastExternalRevision = null;
+          }
           return result;
         },
         onstate: (state, detail) => {

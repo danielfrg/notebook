@@ -36,11 +36,12 @@
   }
 
   async function submit(name: string): Promise<void> {
-    if (!dialog) return;
-    if (dialog.kind === "note") await workspace.createNote(dialog.folder, name);
-    else if (dialog.kind === "folder") await workspace.createFolder(dialog.folder, name);
-    else await workspace.renameEntry(dialog.path, name);
-    if (window.innerWidth < 900 && dialog.kind === "note") onOpenNote();
+    const context = dialog;
+    if (!context) return;
+    if (context.kind === "note") await workspace.createNote(context.folder, name);
+    else if (context.kind === "folder") await workspace.createFolder(context.folder, name);
+    else await workspace.renameEntry(context.path, name);
+    if (window.innerWidth < 900 && context.kind === "note") onOpenNote();
   }
 
   function focusRow(index: number): void {
@@ -135,9 +136,11 @@
           <MenuContent ariaLabel={`Actions for ${node.name}`}>
             <MenuItem onselect={() => newNote(node.kind === "folder" ? node.path : parentFolder(node.path))}>New note</MenuItem>
             <MenuItem onselect={() => newFolder(node.kind === "folder" ? node.path : parentFolder(node.path))}>New folder</MenuItem>
-            <MenuSeparator />
-            <MenuItem onselect={() => rename(node.path, node.kind === "note")}>Rename</MenuItem>
-            <MenuItem tone="danger" onselect={() => confirmPath = node.path}>Delete</MenuItem>
+            {#if !(node.kind === "note" && workspace.path === node.path && workspace.missingNote)}
+              <MenuSeparator />
+              <MenuItem onselect={() => rename(node.path, node.kind === "note")}>Rename</MenuItem>
+              <MenuItem tone="danger" onselect={() => confirmPath = node.path}>Delete</MenuItem>
+            {/if}
           </MenuContent>
         </Menu>
       {/if}
@@ -150,5 +153,6 @@
   <EntryDialog kind={dialog.kind} initial={dialog.initial} onsubmit={submit} onclose={() => dialog = null} />
 {/if}
 {#if confirmPath}
-  <ConfirmDialog path={confirmPath} onconfirm={() => workspace.trashEntry(confirmPath!)} onclose={() => confirmPath = null} />
+  {@const path = confirmPath}
+  <ConfirmDialog {path} onconfirm={() => workspace.trashEntry(path)} onclose={() => confirmPath = null} />
 {/if}

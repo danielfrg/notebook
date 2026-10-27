@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { uniqueNoteName, renameTarget, validateNoteName } from "./entry-names.ts";
+import { noteFileName, uniqueNoteName, renameTarget, validateNoteName } from "./entry-names.ts";
 
 test("unique note names ignore .md and case, and fill numeric gaps", () => {
   assert.equal(uniqueNoteName([], "Untitled"), "Untitled");
@@ -21,4 +21,10 @@ test("note validation counts the final .md bytes", () => {
   assert.match(validateNoteName("x".repeat(253)) ?? "", /too long/);
   assert.match(validateNoteName("bad/name") ?? "", /cannot contain/);
   assert.match(validateNoteName(".") ?? "", /cannot start/);
+});
+
+test("entry names trim only surrounding whitespace before filesystem use", () => {
+  assert.equal(noteFileName("  two words  "), "two words.md");
+  assert.equal(renameTarget("a/b.md", "  two words  "), "a/two words.md");
+  assert.equal(renameTarget("a/folder", "  two words  "), "a/two words");
 });

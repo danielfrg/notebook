@@ -20,7 +20,7 @@
   }
 </script>
 
-<Modal title="Move to .trash?" tone="danger" {onclose} width="min(420px, calc(100vw - 32px))">
+<Modal title="Move to .trash?" tone="danger" onclose={() => { if (!busy) onclose(); }} width="min(420px, calc(100vw - 32px))">
   <p class="dialog-description">{path} will be moved to .trash.</p>
   {#if error}<p class="dialog-error" role="alert">{error}</p>{/if}
   {#snippet footer()}

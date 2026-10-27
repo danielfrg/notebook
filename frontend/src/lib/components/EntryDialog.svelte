@@ -28,11 +28,12 @@
 
   async function submit(): Promise<void> {
     if (busy) return;
-    error = (isNote ? validateNoteName(name) : validateEntryName(name));
+    const normalized = name.trim();
+    error = (isNote ? validateNoteName(normalized) : validateEntryName(normalized));
     if (error) return;
     busy = true;
     try {
-      await onsubmit(name);
+      await onsubmit(normalized);
       onclose();
     } catch (failure) {
       error = failure instanceof Error ? failure.message : "The operation failed";
@@ -42,7 +43,7 @@
   }
 </script>
 
-<Modal {title} {onclose} width="min(420px, calc(100vw - 32px))">
+<Modal {title} onclose={() => { if (!busy) onclose(); }} width="min(420px, calc(100vw - 32px))">
   <form class="entry-form" onsubmit={(event) => { event.preventDefault(); void submit(); }}>
     <label for="entry-name">Name</label>
     <TextInput id="entry-name" bind:value={name} block autofocus invalid={!!error} oninput={() => (error = null)} />
