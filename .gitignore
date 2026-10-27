@@ -1,0 +1,38 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Dependencies and generated assets
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.vite/
+/internal/web/dist/*
+!/internal/web/dist/.keep
+.pnpm-store/
+
+# Local agent work and design tooling
+.impeccable/
+.superpowers/
+.worktrees/
+/docs/superpowers/
+/docs/plans/
+/docs/specs/
+/docs/*report*.md
+
+# Test and OS artifacts
+/frontend/test-results/
+/frontend/playwright-report/
+*.test
+*.out
+*.coverprofile
+coverage.*
+!coverage.go
+.DS_Store
+
+# Application files
+/notebook
+/vaults/
