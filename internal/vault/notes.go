@@ -141,10 +141,7 @@ func (v *Vault) Create(p, content string) (Note, error) {
 		return Note{}, err
 	}
 	if dir := path.Dir(p); dir != "." {
-		if err := v.root.MkdirAll(dir, 0o755); err != nil {
-			if errors.Is(err, fs.ErrExist) || errors.Is(err, syscall.ENOTDIR) {
-				return Note{}, ErrExists // a file is where a folder has to go
-			}
+		if err := v.makeFolders(dir); err != nil {
 			return Note{}, err
 		}
 	}

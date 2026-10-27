@@ -310,8 +310,10 @@ func TestConflictError(t *testing.T) {
 		t.Errorf("errors.As on a wrapped conflict = %v, want Current abc123", conflict)
 	}
 
-	// An empty Current means the note was deleted; it is still a conflict.
+	// Matching ErrConflict does not depend on Current. Write never leaves it
+	// empty (a note deleted since it was loaded is ErrNotFound), but the zero
+	// value must still match.
 	if !errors.Is(&ConflictError{}, ErrConflict) {
-		t.Error("errors.Is(deleted conflict, ErrConflict) = false")
+		t.Error("errors.Is(zero ConflictError, ErrConflict) = false")
 	}
 }

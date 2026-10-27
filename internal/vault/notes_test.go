@@ -781,6 +781,43 @@ func TestWriteAndCreateStoreExactBytes(t *testing.T) {
 	}
 }
 
+// Write skips a save only when the text is byte for byte what is on disk. Text
+// that differs by nothing but the line endings, a BOM or a trailing space is an
+// edit and must replace the file: a comparison that normalizes any of them
+// would drop it and still report success.
+func TestWriteReplacesNoteThatDiffersOnlyInInvisibleCharacters(t *testing.T) {
+	v, dir := openTestVault(t, Options{})
+	for i, tc := range []struct{ what, disk, content string }{
+		{"LF to CRLF", "a\nb\n", "a\r\nb\r\n"},
+		{"CRLF to LF", "a\r\nb\r\n", "a\nb\n"},
+		{"a BOM added", "a\nb\n", utf8BOM + "a\nb\n"},
+		{"a BOM removed", utf8BOM + "a\nb\n", "a\nb\n"},
+		{"a trailing space added to a line", "a\nb\n", "a\nb \n"},
+		{"a trailing space removed from a line", "a\nb \n", "a\nb\n"},
+		{"a trailing space added to the text", "a\nb", "a\nb "},
+		{"a trailing space removed from the text", "a\nb ", "a\nb"},
+	} {
+		name := fmt.Sprintf("n%d.md", i)
+		writeFile(t, dir, name, tc.disk)
+		loaded := mustRead(t, v, name)
+
+		saved, err := v.Write(name, tc.content, loaded.Revision)
+		if err != nil {
+			t.Errorf("%s: Write: %v", tc.what, err)
+			continue
+		}
+		if got := readDisk(t, dir, name); got != tc.content {
+			t.Errorf("%s: file = %q, want %q: the edit was dropped", tc.what, got, tc.content)
+		}
+		if saved.Content != tc.content || saved.Revision != sha256Hex(tc.content) || saved.Revision == loaded.Revision {
+			t.Errorf("%s: Write returned %+v, want the note as written, with a new revision", tc.what, saved)
+		}
+		if again := mustRead(t, v, name); !equalNotes(again, saved) {
+			t.Errorf("%s: Read after Write = %+v, want what Write returned, %+v", tc.what, again, saved)
+		}
+	}
+}
+
 func TestCreate(t *testing.T) {
 	setUmask(t, 0o022)
 	v, dir := openTestVault(t, Options{})
