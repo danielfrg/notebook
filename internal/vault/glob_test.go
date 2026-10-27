@@ -2,8 +2,12 @@ package vault
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 )
 
 func TestMatchGlob(t *testing.T) {
@@ -77,6 +81,8 @@ func TestMatchGlob(t *testing.T) {
 		// transcripts (macOS and Windows do not, by default), and an exclude that
 		// hid nothing there would show what it was meant to hide. Where the
 		// filesystem does tell them apart, hiding both is the safe way to be wrong.
+		// What it does not tell apart is more than lower and upper case, see the
+		// full case folding below.
 		{"transcripts", "TRANSCRIPTS/a.md", true},
 		{"TRANSCRIPTS", "transcripts/a.md", true},
 		{"transcripts", "Transcripts", true},
@@ -86,6 +92,46 @@ func TestMatchGlob(t *testing.T) {
 		{"Reflexión", "REFLEXIÓN/a.md", true},
 		{"Reflexio" + combiningAcute + "n", "REFLEXIÓN/a.md", true}, // together with the other spelling of an accent
 		{"transcripts", "transcripts2/A.md", false},
+
+		// The case that a filesystem ignores is the full Unicode case folding, and not
+		// only lower-casing: APFS tells these spellings apart as little as it does
+		// Transcripts from transcripts. An exclude for one of them has to hide the
+		// others, or the folder it is for opens under another spelling.
+		{"transcripts", "tranſcripts/a.md", true}, // the long s is an s
+		{"tranſcripts", "transcripts/a.md", true},
+		{"TRANſCRIPTS", "Transcripts/a.md", true},
+		{"σοφία", "ςοφία/a.md", true}, // the final sigma is a sigma
+		{"ςοφία", "σοφία/a.md", true},
+		{"σοφία", "ΣΟΦΊΑ/a.md", true},
+		{"ΣΟΦΊΑ", "ςοφία/a.md", true},
+		{"strasse", "straße/a.md", true}, // ß is ss
+		{"straße", "strasse/a.md", true},
+		{"STRASSE", "Straße/a.md", true},
+		{"strasse", "straẞe/a.md", true}, // and so is the capital ẞ
+		{"file", "ﬁle/a.md", true},       // the ligature ﬁ is fi
+		{"ﬁle", "FILE/a.md", true},
+		{"offline", "oﬄine/a.md", true},                         // ﬄ is ffl
+		{"Μ", "µ/a.md", true},                                   // the micro sign is a mu
+		{"i" + combiningDot + "stanbul", "İstanbul/a.md", true}, // İ is an i with a dot above
+		{"istanbul", "İstanbul/a.md", false},                    // which is not an i
+		{"Ꭰ", "ꭰ/a.md", true},                                   // Cherokee has its two cases, which Unicode folds to one
+		{"ꭰ", "Ꭰ/a.md", true},
+		{cherokeeCapitals, cherokeeSmall + "/a.md", true},
+		{cherokeeSmall, cherokeeCapitals + "/a.md", true},
+
+		// A folded spelling is a whole name like any other, and other names stay shown.
+		{"file", "files/a.md", false},
+		{"file", "ﬁles/a.md", false},
+		{"strasse", "straßen/a.md", false},
+		{"transcripts", "tranſcripts2/a.md", false},
+		{"σοφία", "σοφίας/a.md", false},
+
+		// ? is one character of the folded name, and ß is two of them.
+		{"stra??e", "straße/a.md", true},
+		{"stra?e", "straße/a.md", false},
+		{"stra?e", "strase/a.md", true},
+		{"*ss*", "straße/a.md", true},
+		{"*ß*", "strasse/a.md", true},
 	} {
 		if got := MatchGlob(tc.pattern, tc.path); got != tc.want {
 			t.Errorf("MatchGlob(%q, %q) = %v, want %v", tc.pattern, tc.path, got, tc.want)
@@ -229,4 +275,104 @@ func TestExcludeGlobsWithNothingToExclude(t *testing.T) {
 			t.Errorf("ExcludeGlobs(%v) hides something", patterns)
 		}
 	}
+}
+
+// combiningDot is U+0307, the dot above that İ is made of.
+const combiningDot = "\xcc\x87"
+
+// The word Tsalagi in Cherokee, in capitals and in small letters, which are other
+// characters (U+13E3 is U+ABB3 in small): it is one name.
+const (
+	cherokeeCapitals = "\u13e3\u13b3\u13a9"
+	cherokeeSmall    = "\uabb3\uab83\uab79"
+)
+
+// An exclude is for the folder as a filesystem sees it. Where case is folded in
+// full, as APFS does, the folder opens under every spelling that folds to its
+// name, so a filter that told them apart would leave it open to whoever asks for it
+// by another spelling.
+func TestExcludeGlobsFoldCaseInFull(t *testing.T) {
+	for _, tc := range []struct {
+		patterns  []string
+		spellings []string // all one name, and all of them hidden
+		other     string   // a longer name, which is another and shown
+	}{
+		{[]string{"transcripts", "TRANSCRIPTS", "tranſcripts", "TRANſCRIPTS"}, []string{"transcripts", "Transcripts", "tranſcripts", "TRANSCRIPTS"}, "transcripts2"},
+		{[]string{"σοφία", "ςοφία", "ΣΟΦΊΑ", "Σοφία"}, []string{"σοφία", "ςοφία", "ΣΟΦΊΑ", "Σοφία"}, "σοφίας"},
+		{[]string{"strasse", "straße", "STRASSE", "straẞe"}, []string{"strasse", "straße", "Straße", "STRASSE", "straẞe"}, "strassen"},
+		{[]string{"file", "ﬁle", "FILE", "ﬁLE"}, []string{"file", "ﬁle", "FILE", "File"}, "files"},
+		{[]string{cherokeeCapitals, cherokeeSmall}, []string{cherokeeCapitals, cherokeeSmall}, cherokeeCapitals + "\u13a0"},
+	} {
+		for _, pattern := range tc.patterns {
+			visible, err := ExcludeGlobs([]string{pattern})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range tc.spellings {
+				for _, path := range []string{name, name + "/a.md", name + "/deep/er/a.md"} {
+					if visible(path) {
+						t.Errorf("ExcludeGlobs(%q) shows %q, want it hidden: it is the same name", pattern, path)
+					}
+				}
+			}
+			if !visible(tc.other+"/a.md") || !visible("x/"+tc.spellings[0]+"/a.md") {
+				t.Errorf("ExcludeGlobs(%q) hides %q or a folder below another one, want them shown", pattern, tc.other)
+			}
+		}
+	}
+}
+
+// Every spelling in the case orbit of a character is one name, for every
+// character there is. The orbits are those of unicode.SimpleFold, the simple case
+// foldings; the foldings of one character to several (ß to ss) are in the rows of
+// TestMatchGlob. It is what keeps a script that the folding gets wrong from
+// letting a folder open under another spelling: cases.Fold alone takes the two
+// cases of the Cherokee letters for two names.
+func TestFoldNameFoldsEveryCaseOrbit(t *testing.T) {
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		if !utf8.ValidRune(r) {
+			continue
+		}
+		want := foldName(string(r))
+		for q := unicode.SimpleFold(r); q != r; q = unicode.SimpleFold(q) {
+			if got := foldName(string(q)); got != want {
+				t.Fatalf("%q (U+%04X) folds to %+q and %q (U+%04X) to %+q, want one name for the two", r, r, want, q, q, got)
+			}
+		}
+	}
+}
+
+// Whatever the filesystem that the tests run on takes for one name, an exclude for
+// one spelling hides the other. On macOS that is what it was written for; on a
+// filesystem that tells the spellings apart there is nothing to check but the
+// table above.
+func TestExcludeGlobsHideWhatTheFilesystemTakesForOneName(t *testing.T) {
+	same := 0
+	for _, pair := range [][2]string{
+		{"Transcripts", "transcripts"},
+		{"transcripts", "tranſcripts"},
+		{"σοφία", "ςοφία"},
+		{"strasse", "straße"},
+		{"file", "ﬁle"},
+		{"Reflexión", "Reflexio" + combiningAcute + "n"},
+	} {
+		dir := t.TempDir()
+		if err := os.Mkdir(filepath.Join(dir, pair[0]), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, pair[1])); err != nil {
+			continue // this filesystem tells them apart
+		}
+		same++
+		for i := range pair {
+			visible, err := ExcludeGlobs([]string{pair[i]})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if visible(pair[1-i] + "/a.md") {
+				t.Errorf("the filesystem opens %q as %q, and ExcludeGlobs(%q) shows it", pair[1-i], pair[i], pair[i])
+			}
+		}
+	}
+	t.Logf("%d of the pairs are one name on this filesystem", same)
 }

@@ -606,10 +606,13 @@ func testPaging(t *testing.T) {
 
 func TestExcludeHidesPaths(t *testing.T) {
 	a := newAgent(t, Options{Write: true, Exclude: map[string][]string{
-		// The patterns are not in the case of the folders they are for. Matching
-		// ignores case, as a file system may: there, Transcripts and transcripts are
-		// one folder, and so are the two paths of a note.
-		"notes": {"Transcripts", "journal", "**/private", "**/*.secret.md"},
+		// The patterns are not spelled as the folders they are for. Matching folds
+		// case in full, as a file system may (APFS does): there, Transcripts and
+		// transcripts are one folder, and so are tranſcripts (long s), ςοφία and σοφία
+		// (final sigma), straße and strasse, ﬁle (ligature) and file, and so are the
+		// paths of a note. A folder that is excluded must not open under another of
+		// its spellings.
+		"notes": {"Transcripts", "journal", "**/private", "**/*.secret.md", "session", "σοφία", "strasse", "file"},
 		"work":  {"**"},
 	}})
 	a.seed("notes", "inbox.md", "# Inbox\nBudget review #public\n", 1)
@@ -622,6 +625,12 @@ func TestExcludeHidesPaths(t *testing.T) {
 		{"notes", "Journal/entry.md", "zebrafish diary\n"},
 		{"notes", "projects/Private/draft.md", "zebrafish draft\n"},
 		{"notes", "projects/old.secret.md", "zebrafish old\n"},
+		// Folders on disk spelled as no pattern spells them: the exclude is for the name
+		// that they fold to.
+		{"notes", "ſession/x.md", "zebrafish session\n"},
+		{"notes", "ςοφία/x.md", "zebrafish wisdom\n"},
+		{"notes", "straße/x.md", "zebrafish street\n"},
+		{"notes", "ﬁle/x.md", "zebrafish ligature\n"},
 		{"work", "w1.md", "zebrafish work\n"},
 		{"work", "sub/w2.md", "zebrafish more work\n"},
 	}
@@ -684,7 +693,9 @@ func TestExcludeHidesPaths(t *testing.T) {
 	before := a.snapshot()
 	for _, row := range []struct{ vault, request, file string }{
 		{"notes", "transcripts/call.md", "transcripts/call.md"},
-		{"notes", "TRANSCRIPTS/call.md", "transcripts/call.md"}, // on a file system that ignores case it is the same file
+		{"notes", "TRANSCRIPTS/call.md", "transcripts/call.md"}, // where case is folded it is the same file
+		{"notes", "tranſcripts/call.md", "transcripts/call.md"}, // and so is this one, with a long s
+		{"notes", "TRANſCRIPTS/2026/deep/nested.md", "transcripts/2026/deep/nested.md"},
 		{"notes", "Transcripts/2026/deep/nested.md", "transcripts/2026/deep/nested.md"},
 		{"notes", "Journal/entry.md", "Journal/entry.md"},
 		{"notes", "journal/entry.md", "Journal/entry.md"},
@@ -693,10 +704,28 @@ func TestExcludeHidesPaths(t *testing.T) {
 		{"notes", "projects/private/draft.md", "projects/Private/draft.md"},
 		{"notes", "projects/old.secret.md", "projects/old.secret.md"},
 		{"notes", "projects/OLD.Secret.md", "projects/old.secret.md"},
+		{"notes", "session/x.md", "ſession/x.md"},
+		{"notes", "ſession/x.md", "ſession/x.md"},
+		{"notes", "SESSION/x.md", "ſession/x.md"},
+		{"notes", "σοφία/x.md", "ςοφία/x.md"},
+		{"notes", "ςοφία/x.md", "ςοφία/x.md"},
+		{"notes", "ΣΟΦΊΑ/x.md", "ςοφία/x.md"},
+		{"notes", "strasse/x.md", "straße/x.md"},
+		{"notes", "straße/x.md", "straße/x.md"},
+		{"notes", "STRASSE/x.md", "straße/x.md"},
+		{"notes", "file/x.md", "ﬁle/x.md"},
+		{"notes", "ﬁle/x.md", "ﬁle/x.md"},
+		{"notes", "FILE/x.md", "ﬁle/x.md"},
 		{"work", "w1.md", "w1.md"},
 		{"work", "sub/w2.md", "sub/w2.md"},
-		// Notes that are not there, in what is excluded: the answer is the same.
+		// Notes that are not there, in what is excluded: the answer is the same, and
+		// nothing is made there under any spelling.
 		{"notes", "transcripts/never.md", ""},
+		{"notes", "tranſcripts/planted.md", ""},
+		{"notes", "session/planted.md", ""},
+		{"notes", "ςοφία/planted.md", ""},
+		{"notes", "strasse/planted.md", ""},
+		{"notes", "ﬁle/planted.md", ""},
 		{"notes", "Journal/never.md", ""},
 		{"notes", "projects/x/private/never.md", ""},
 		{"notes", "projects/never.secret.md", ""},
@@ -746,7 +775,10 @@ func TestExcludeHidesPaths(t *testing.T) {
 
 	// Nothing that the tools said, in an answer or an error, has any of what is
 	// only in what is excluded.
-	for _, secret := range []string{"zebrafish", "transcripts", "journal", "private", "secret", "confidential", "call.md", "nested", "entry", "draft", "diary", "w1", "w2"} {
+	for _, secret := range []string{
+		"zebrafish", "transcripts", "journal", "private", "secret", "confidential", "call.md", "nested", "entry", "draft", "diary", "w1", "w2",
+		"ſession", "ςοφία", "straße", "ﬁle", "wisdom", "street", "ligature", "planted",
+	} {
 		if strings.Contains(strings.ToLower(a.said.String()), secret) {
 			t.Errorf("what the tools said has %q, which is only in what is excluded", secret)
 		}

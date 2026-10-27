@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -19,13 +20,15 @@ type Filter func(path string) bool
 // characters that notes have in their names ("[", "%", ",") match themselves.
 // Names are compared by character and not by byte, so an accent that is one
 // character in one name and a letter with a mark in the other is the same name,
-// and without regard to case. Case is ignored because a filesystem may ignore
-// it (macOS and Windows do by default): there a folder called Transcripts is the
-// folder that a pattern for transcripts is meant for, and a pattern that hid
-// nothing would show what it was meant to hide. Where the filesystem does tell
-// them apart, a pattern also hides the names that differ only in case, which is
-// the safe way to be wrong. MatchGlob does not check pattern; NormalizeGlob
-// does.
+// and without regard to case, which is folded in full: ſ is s, ς is σ, ß is ss and
+// ﬁ is fi (see foldName). A filesystem may ignore case that way (macOS does, by
+// default, and Windows does in its own way): there a folder called tranſcripts is
+// the folder transcripts, and a pattern for transcripts that did not hide it would
+// show what it was meant to hide. Where the filesystem does tell the names apart,
+// a pattern also hides the names that differ only in case, which is the safe way
+// to be wrong. Because one character can fold to several (ß to ss), "?" is one
+// character of the folded name: stra??e matches straße, and stra?e does not.
+// MatchGlob does not check pattern; NormalizeGlob does.
 func MatchGlob(pattern, path string) bool {
 	return compileGlob(pattern).matches(splitPath(path))
 }
@@ -42,11 +45,26 @@ func splitPath(path string) []string {
 	return strings.Split(foldName(path), "/")
 }
 
+// folding is Unicode full case folding. It is stateless, so it is shared.
+var folding = cases.Fold()
+
 // foldName makes names comparable the way a filesystem may compare them: the
-// accents of a name are in one form (NFC), and then it is in lower case. That
-// maps characters to characters, so "?" still stands for one of them.
+// accents of a name are in one form (NFC), every character is folded to its full
+// Unicode case folding, and the result is put in NFC again, because folding may
+// leave it in another form. Lower-casing is not enough: the folding of ſ is s, of
+// ς is σ, of ß is ss and of ﬁ is fi, and APFS takes those names for one as it takes
+// Transcripts for transcripts. A pattern and a path are folded the same way, and
+// nothing else decides whether two names are the same.
+//
+// The folding is followed by a lower-casing of what it leaves, for the letters of
+// Cherokee: cases.Fold takes each of them for the other case (it folds Ꭰ to ꭰ and
+// ꭰ to Ꭰ), so two spellings of a Cherokee name would stay two names, and an
+// exclude for one would show the other. After it they are one. That changes nothing
+// else: of all the characters there are, it changes only the 86 small Cherokee
+// letters that folding has turned to capitals, and TestFoldNameFoldsEveryCaseOrbit
+// tests all of them.
 func foldName(s string) string {
-	return strings.ToLower(norm.NFC.String(s))
+	return norm.NFC.String(strings.ToLower(folding.String(norm.NFC.String(s))))
 }
 
 // matches reports whether the glob matches all the names of a path.
