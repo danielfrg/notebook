@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/danielfrg/notebook/internal/mcp"
 	"github.com/danielfrg/notebook/internal/vault"
 	"github.com/danielfrg/notebook/internal/web"
 	"github.com/danielgtaylor/huma/v2"
@@ -25,8 +26,8 @@ type Options struct {
 	MCPExclude      map[string][]string // vault name -> glob patterns
 }
 
-// NewHandler serves the vaults of reg over the HTTP API, the probes and the
-// embedded frontend. The MCP endpoint is mounted here as it is built.
+// NewHandler serves the vaults of reg over the HTTP API, the MCP endpoint at
+// /mcp, the probes and the embedded frontend.
 func NewHandler(assets fs.FS, reg *vault.Registry, options Options) http.Handler {
 	mux := http.NewServeMux()
 	config := huma.DefaultConfig("Notebook API", "0.1.0")
@@ -40,6 +41,13 @@ func NewHandler(assets fs.FS, reg *vault.Registry, options Options) http.Handler
 	registerNotes(api, reg)
 	registerSearch(api, reg)
 	mux.HandleFunc("GET /api/vaults/{vault}/raw", raw(reg))
+	// The tools that change notes need both settings, and read-only wins. MCP is
+	// not under /api, which is where the guard of the changes to the vaults is: it
+	// has its own policy for hosts and origins.
+	mux.Handle("/mcp", mcp.NewHandler(reg, mcp.Options{
+		Write:   options.MCPWrite && !options.ReadOnly,
+		Exclude: options.MCPExclude,
+	}, options.MCPAllowedHosts))
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "ok\n")
