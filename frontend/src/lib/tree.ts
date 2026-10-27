@@ -78,6 +78,11 @@ export function visibleRows(tree: readonly TreeNode[], expanded: ReadonlySet<str
   return rows;
 }
 
+/** The one keyboard entry point, even when a refresh removes the focused row. */
+export function tabStopPath(rows: readonly Row[], focused: string | null): string | null {
+  return rows.find((row) => row.node.path === focused)?.node.path ?? rows[0]?.node.path ?? null;
+}
+
 /** The folders above a path, outermost first: ["a", "a/b"] for "a/b/c.md". */
 export function ancestors(path: string): string[] {
   const folders = path.split("/").slice(0, -1);

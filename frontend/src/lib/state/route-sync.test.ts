@@ -20,6 +20,12 @@ test("nextRoute rejects invalid decoded vault and path parts", () => {
   assert.deepEqual(nextRoute({ vault: "notes", path: null }, { type: "note", path: longPath }, vaults), { vault: "notes", path: null });
 });
 
+test("nextRoute keeps the open note when an invalid note path is requested", () => {
+  const current = { vault: "notes", path: "folder/open.md" };
+  assert.deepEqual(nextRoute(current, { type: "note", path: "../bad.md" }, ["notes"]), current);
+  assert.deepEqual(nextRoute(current, { type: "note", path: "bad\ud800.md" }, ["notes"]), current);
+});
+
 test("readOnlyReason distinguishes size, encoding, and mixed line endings", () => {
   assert.match(readOnlyReason({ error: new ApiError("large", 413) }) ?? "", /large|size/i);
   assert.match(readOnlyReason({ error: new ApiError("invalid", 415) }) ?? "", /UTF-8/i);

@@ -101,3 +101,16 @@ test("validateEntryName gives a reason for a name the vault would refuse, and nu
     assert.notEqual(reason, "", JSON.stringify(name.slice(0, 20)));
   }
 });
+
+test("validateEntryName rejects lone surrogates when isWellFormed is unavailable", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(String.prototype, "isWellFormed");
+  try {
+    Object.defineProperty(String.prototype, "isWellFormed", { configurable: true, value: undefined });
+    assert.match(validateEntryName("bad\ud800") ?? "", /invalid Unicode/);
+    assert.equal(validateEntryName("日本語"), null);
+    assert.equal(validateEntryName("📝"), null);
+  } finally {
+    if (descriptor) Object.defineProperty(String.prototype, "isWellFormed", descriptor);
+    else delete (String.prototype as { isWellFormed?: unknown }).isWellFormed;
+  }
+});

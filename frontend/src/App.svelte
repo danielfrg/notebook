@@ -10,7 +10,7 @@
   import VaultSwitcher from "./lib/components/VaultSwitcher.svelte";
   import { workspace } from "./lib/state/workspace.svelte.ts";
 
-  let collapsed = $state(false);
+  let collapsed = $state(window.innerWidth < 900);
   let sidebarWidth = $state(280);
   let editor = $state<Editor>();
   const extensions = $derived([
@@ -18,13 +18,12 @@
       notes: workspace.listing?.notes.map((note) => note.path) ?? [],
       assets: workspace.listing?.assets.map((asset) => asset.path) ?? [],
       path: workspace.path ?? "",
-      assetUrl: (path: string) => workspace.vault ? `/api/vaults/${encodeURIComponent(workspace.vault)}/raw?path=${encodeURIComponent(path)}` : "",
+      assetUrl: (path: string) => workspace.assetUrl(path),
     }),
     livePreview(), // Includes taskToggleExtension for rendered checkboxes.
   ]);
 
   onMount(() => {
-    collapsed = window.innerWidth < 900;
     try {
       const width = Number(localStorage.getItem("notebook-sidebar"));
       if (Number.isFinite(width) && width >= 200 && width <= 600) sidebarWidth = width;
@@ -97,7 +96,7 @@
       {/if}
     {/snippet}
 
-    <NoteHeader {collapsed} onOpenSidebar={() => (collapsed = !collapsed)} />
+    <NoteHeader {collapsed} onOpenSidebar={() => (collapsed = false)} />
     <main class="app-content">
       {#if workspace.loading}
         <div class="content-message"><Spinner label="Loading vault" /></div>

@@ -18,7 +18,10 @@ export function nextRoute(
   if (action.type === "vault") {
     return { vault: validVault(action.name) && available.includes(action.name) ? action.name : vault, path: null };
   }
-  return { vault, path: vault === current.vault && action.path && validPath(action.path) ? action.path : null };
+  if (action.path !== null && !validPath(action.path)) {
+    return { vault, path: vault === current.vault ? current.path : null };
+  }
+  return { vault, path: vault === current.vault ? action.path : null };
 }
 
 export function readOnlyReason(input: { error?: unknown; lineSeparator?: "\n" | "\r\n" | "mixed" }): string | null {

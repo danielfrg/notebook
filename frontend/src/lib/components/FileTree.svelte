@@ -2,13 +2,14 @@
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
   import FolderIcon from "@lucide/svelte/icons/folder";
-  import { visibleRows } from "../tree.ts";
+  import { tabStopPath, visibleRows } from "../tree.ts";
   import { workspace } from "../state/workspace.svelte.ts";
 
   let { onOpenNote = () => {} }: { onOpenNote?: () => void } = $props();
 
   const rows = $derived(visibleRows(workspace.tree, workspace.expanded));
   let focused = $state<string | null>(null);
+  const tabStop = $derived(tabStopPath(rows, focused));
   let tree: HTMLDivElement;
 
   function focusRow(index: number): void {
@@ -69,7 +70,7 @@
       aria-level={row.depth + 1}
       aria-expanded={node.kind === "folder" ? workspace.expanded.has(node.path) : undefined}
       aria-selected={node.kind === "note" ? workspace.path === node.path : undefined}
-      tabindex={focused === node.path || (focused === null && rows[0]?.node.path === node.path) ? 0 : -1}
+      tabindex={tabStop === node.path ? 0 : -1}
       style={`--depth: ${row.depth}`}
       onfocus={() => focused = node.path}
       onkeydown={onKeydown}

@@ -94,6 +94,10 @@ pre {
 
 .app-title {
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 1rem;
   line-height: 1.25;
@@ -101,14 +105,15 @@ pre {
   letter-spacing: normal;
   text-transform: uppercase;
 }
+.mobile-note-context { display: none; }
 
 .app-content {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .app-sidebar-header { justify-content: space-between; }
@@ -133,7 +138,7 @@ pre {
   cursor: pointer;
 }
 .file-tree-row:hover,
-.file-tree-row.is-current { background: var(--bg-secondary); color: var(--text-primary); }
+.file-tree-row.is-current { background: var(--bg-surface-hover); color: var(--text-primary); }
 .file-tree-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .file-tree-row .tree-open { transform: rotate(90deg); }
 .file-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -154,6 +159,7 @@ pre {
 
 .note-breadcrumb {
   display: block;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,13 +192,26 @@ pre {
 .editor-host {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  scrollbar-gutter: stable;
+  min-width: 0;
+  overflow: hidden;
 }
-.editor-host .nb-editor { max-width: var(--nb-editor-width); margin-inline: auto; }
 
 @media (max-width: 640px) {
-  .note-breadcrumb { display: none; }
+  .app-title--with-note, .note-breadcrumb { display: none; }
+  .mobile-note-context {
+    display: block;
+    padding: var(--space-2) var(--space-4);
+    border-bottom: var(--border-width) solid var(--border-default);
+  }
+  .mobile-note-context h1 {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
   .app-title { font-size: 0.875rem; }
   .note-toolbar { padding-inline: var(--space-2); }
 }

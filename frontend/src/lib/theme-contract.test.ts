@@ -170,3 +170,13 @@ test("theme.css is the only file with palette values", () => {
     `color literals outside theme.css (use a theme token, or move the value there):\n  ${findings.join("\n  ")}`,
   );
 });
+
+test("app background tokens are defined in both themes", () => {
+  const app = readFileSync(new URL("../app.css", import.meta.url), "utf8");
+  const theme = readFileSync(new URL("../theme.css", import.meta.url), "utf8");
+  const used = [...app.matchAll(/var\((--bg-[\w-]+)/g)].map((match) => match[1]);
+  const defined = [...theme.matchAll(/(--bg-[\w-]+)\s*:/g)].map((match) => match[1]);
+  for (const token of used) {
+    assert.ok(defined.filter((candidate) => candidate === token).length >= 2, `${token} is missing from a theme`);
+  }
+});

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ancestors, buildTree, visibleRows, type TreeNode } from "./tree.ts";
+import { ancestors, buildTree, tabStopPath, visibleRows, type TreeNode } from "./tree.ts";
 
 const note = (path: string) => ({ path, size: 1, modified: "2026-10-26T12:00:00Z" });
 const names = (nodes: readonly TreeNode[]) => nodes.map((node) => node.name);
@@ -110,4 +110,14 @@ test("ancestors lists the folders above a path, outermost first", () => {
   ] as const) {
     assert.deepEqual(ancestors(path), want, JSON.stringify(path));
   }
+});
+
+test("tree tab stop falls back to a visible row after refresh or collapse", () => {
+  const tree = buildTree({ folders: ["folder"], notes: [note("folder/child.md"), note("other.md")] });
+  const open = visibleRows(tree, new Set(["folder"]));
+  const closed = visibleRows(tree, new Set());
+  assert.equal(tabStopPath(open, "folder/child.md"), "folder/child.md");
+  assert.equal(tabStopPath(closed, "folder/child.md"), "folder");
+  assert.equal(tabStopPath(closed, "removed.md"), "folder");
+  assert.equal(tabStopPath([], "removed.md"), null);
 });

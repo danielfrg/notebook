@@ -44,9 +44,11 @@ class Workspace {
   async init(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    const generation = ++this.generation;
     this.mode = stored(MODE_KEY) === "source" ? "source" : "live";
     try {
       const result = await this.api.vaults();
+      if (generation !== this.generation) return;
       this.vaults = result.vaults;
       this.readOnly = result.readOnly;
       window.addEventListener("hashchange", this.handleHashChange);
@@ -58,12 +60,15 @@ class Workspace {
       }
       await this.followRoute(route.vault, route.path);
     } catch (error) {
+      if (generation !== this.generation) return;
       this.error = error instanceof Error ? error.message : "Could not load vaults";
       this.loading = false;
     }
   }
 
   dispose(): void {
+    this.started = false;
+    this.generation++;
     window.removeEventListener("hashchange", this.handleHashChange);
     void this.controller?.flush();
   }
@@ -79,6 +84,10 @@ class Workspace {
 
   openNote(path: string | null): void {
     this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "note", path }, this.vaults.map((v) => v.name)));
+  }
+
+  assetUrl(path: string): string {
+    return this.vault ? this.api.assetUrl(this.vault, path) : "";
   }
 
   setMode(mode: "live" | "source"): void {
