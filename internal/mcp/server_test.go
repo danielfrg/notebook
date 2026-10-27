@@ -18,7 +18,7 @@ import (
 )
 
 func TestToolsByMode(t *testing.T) {
-	read := []string{"get_note", "list_notes", "list_vaults", "search_notes"}
+	read := []string{"get_note", "list_notes", "list_tags", "list_vaults", "search_notes"}
 	write := []string{"append_to_note", "create_note", "update_note"}
 	for _, tc := range []struct {
 		name    string
