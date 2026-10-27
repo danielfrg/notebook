@@ -1,6 +1,8 @@
 package vault
 
 import (
+	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -8,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -72,14 +75,20 @@ func readDisk(t *testing.T, dir, name string) string {
 	return string(b)
 }
 
-// modeOf returns the permission bits of dir/name.
-func modeOf(t *testing.T, dir, name string) fs.FileMode {
+// fileInfo returns the FileInfo of dir/name, straight from the filesystem.
+func fileInfo(t *testing.T, dir, name string) fs.FileInfo {
 	t.Helper()
 	info, err := os.Stat(filepath.Join(dir, filepath.FromSlash(name)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return info.Mode().Perm()
+	return info
+}
+
+// modeOf returns the permission bits of dir/name.
+func modeOf(t *testing.T, dir, name string) fs.FileMode {
+	t.Helper()
+	return fileInfo(t, dir, name).Mode().Perm()
 }
 
 // wantErr checks that err is, or wraps, want. A nil want checks for success.
@@ -112,12 +121,59 @@ func setUmask(t *testing.T, mask int) {
 	t.Cleanup(func() { syscall.Umask(old) })
 }
 
+// limitedChildEnv holds, in the environment of the child process that runs a
+// test with a lowered file size limit, the name of that test.
+const limitedChildEnv = "NOTEBOOK_TEST_LIMITED_CHILD"
+
+// inLimitedChild is the first call of a test that lowers the file size limit
+// (limitFileSize), and says whether this is the process that may. The limit is
+// process wide, and a test binary writes files of its own while the tests run:
+// go test gives it a test log (-test.testlogfile) in which it records the files
+// and variables it uses, and -test.cpuprofile, -test.trace and
+// -test.coverprofile write more. A write of those that lands in the limited
+// window fails with EFBIG, and the whole run with it, depending on where a
+// buffer happens to flush. (-count=1 turns the test log off, so a test run that
+// uses it never sees this.) So in the process that runs the suite this runs the
+// test again in a child process that has none of those flags, checks how it
+// went and returns false, and the test returns. In the child it returns true.
+func inLimitedChild(t *testing.T) bool {
+	t.Helper()
+	if os.Getenv(limitedChildEnv) == t.Name() {
+		return true
+	}
+	if strings.Contains(t.Name(), "/") {
+		t.Fatalf("inLimitedChild runs a whole test again, not the subtest %s", t.Name())
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, "-test.run=^"+t.Name()+"$", "-test.v", "-test.count=1")
+	cmd.Env = append(os.Environ(), limitedChildEnv+"="+t.Name())
+	out, err := cmd.CombinedOutput()
+	switch {
+	case err != nil:
+		t.Fatalf("the child process that runs this test with a lowered file size limit failed: %v\n%s", err, out)
+	case bytes.Contains(out, []byte("--- SKIP: "+t.Name()+" ")):
+		t.Skipf("skipped in the child process:\n%s", out)
+	case !bytes.Contains(out, []byte("--- PASS: "+t.Name()+" ")):
+		t.Fatalf("the child process did not run the test:\n%s", out)
+	}
+	return false
+}
+
 // limitFileSize makes any write that grows a file past n bytes fail with EFBIG
 // (file too large), part-way through the data, the way a full disk fails. It
 // returns the function that lifts the limit again; the test ends with the limit
-// lifted either way. The limit is process wide, so keep the window short.
+// lifted either way. The limit is process wide, so this may only be called in
+// the child process of inLimitedChild, and the window should be short.
 func limitFileSize(t *testing.T, n uint64) (lift func()) {
 	t.Helper()
+	if os.Getenv(limitedChildEnv) != t.Name() {
+		t.Fatal("limitFileSize lowers a process wide limit: call inLimitedChild first, and only go on in the child")
+	}
 	var old syscall.Rlimit
 	if err := syscall.Getrlimit(syscall.RLIMIT_FSIZE, &old); err != nil {
 		t.Skipf("cannot read the file size limit here: %v", err)
@@ -641,6 +697,7 @@ func TestWriteRejectsInvalidInput(t *testing.T) {
 // the note is created with them or later saved with them.
 func TestWriteAndCreateStoreExactBytes(t *testing.T) {
 	v, dir := openTestVault(t, Options{})
+	unchanged := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
 	contents := []string{
 		"# Title\r\n\r\ncrlf\r\nline\r\n",
 		utf8BOM + "a BOM first\n",
@@ -687,14 +744,40 @@ func TestWriteAndCreateStoreExactBytes(t *testing.T) {
 			t.Errorf("%s on disk has %d bytes, want the %d given", written, len(got), len(content))
 		}
 
-		// Saving what is already there, as an editor does after an edit that was
-		// undone, changes nothing.
-		again, err := v.Write(written, content, n.Revision)
+		// Saving what is already there (an edit that was undone, Mod-s on a clean
+		// buffer, an agent sending the same text again) changes nothing, not even
+		// the file: it is not replaced, so it keeps its inode and modification time
+		// and no program watching the vault sees a modification. The modification
+		// time is set long ago so that a rewrite could not hide.
+		chtimes(t, dir, written, unchanged)
+		loaded := mustRead(t, v, written)
+		before, treeBefore := fileInfo(t, dir, written), diskTree(t, dir)
+		again, err := v.Write(written, content, loaded.Revision)
 		if err != nil {
 			t.Errorf("Write of unchanged content to %q: %v", written, err)
-		} else if again.Revision != n.Revision || readDisk(t, dir, written) != content {
-			t.Errorf("Write of unchanged content to %q changed the note", written)
+			continue
 		}
+		after := fileInfo(t, dir, written)
+		if !equalNotes(again, loaded) {
+			t.Errorf("Write of unchanged content to %q returned a note with revision %.8s, %d bytes, modified %v; want the note as it is: %.8s, %d bytes, modified %v",
+				written, again.Revision, again.Size, again.Modified, loaded.Revision, loaded.Size, loaded.Modified)
+		}
+		if !os.SameFile(before, after) {
+			t.Errorf("Write of unchanged content to %q replaced the file with a new one", written)
+		}
+		if !after.ModTime().Equal(unchanged) {
+			t.Errorf("Write of unchanged content to %q changed the modification time to %v, want %v", written, after.ModTime(), unchanged)
+		}
+		if got := readDisk(t, dir, written); got != content {
+			t.Errorf("Write of unchanged content to %q left %d bytes, want the %d it had", written, len(got), len(content))
+		}
+		if got := diskTree(t, dir); !slices.Equal(got, treeBefore) {
+			t.Errorf("Write of unchanged content to %q changed the directory:\n got %q\nwant %q", written, short(got), short(treeBefore))
+		}
+		// The check of the revision comes first: the same text is no excuse for
+		// having loaded an older note.
+		_, err = v.Write(written, content, sha256Hex("not the revision on disk"))
+		wantErr(t, "Write of unchanged content with a stale revision", err, ErrConflict)
 	}
 }
 
@@ -832,6 +915,9 @@ func TestCreateSerializesCreators(t *testing.T) {
 // A write that fails part-way, as it does on a full disk, must leave the note
 // as it was and no temp file behind, and must not leave the vault stuck.
 func TestFailedWriteKeepsTheNoteAndLeavesNoTemp(t *testing.T) {
+	if !inLimitedChild(t) {
+		return
+	}
 	v, dir := openTestVault(t, Options{})
 	original := "original\n"
 	writeFile(t, dir, "sub/n.md", original)
@@ -867,6 +953,9 @@ func TestFailedWriteKeepsTheNoteAndLeavesNoTemp(t *testing.T) {
 }
 
 func TestFailedCreateLeavesNoNote(t *testing.T) {
+	if !inLimitedChild(t) {
+		return
+	}
 	v, dir := openTestVault(t, Options{})
 	mustMkdir(t, filepath.Join(dir, "sub"))
 
@@ -891,6 +980,57 @@ func TestFailedCreateLeavesNoNote(t *testing.T) {
 	if _, err := v.Create("sub/new.md", "hello\n"); err != nil {
 		t.Errorf("Create once the filesystem works again: %v", err)
 	}
+}
+
+// fillNew is what Create does with the note it has just made at the path. Whatever
+// goes wrong there, the half-made note is taken back, unless something else has
+// replaced it meanwhile: then it is no longer Create's to remove. Each failure
+// is made without touching the file size limit: a closed file cannot be
+// inspected, and a file opened for reading cannot be written.
+func TestFillNewTakesBackTheNoteWhenItCannotBeCompleted(t *testing.T) {
+	const name = "new.md"
+	newFile := func(t *testing.T, flag int) (*Vault, string, *os.File) {
+		t.Helper()
+		v, dir := openTestVault(t, Options{})
+		f, err := v.root.OpenFile(name, flag|os.O_CREATE|os.O_EXCL, 0o644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { f.Close() })
+		return v, dir, f
+	}
+
+	t.Run("the new file cannot be inspected", func(t *testing.T) {
+		v, dir, f := newFile(t, os.O_WRONLY)
+		f.Close()
+		_, err := v.fillNew(name, f, "text\n")
+		wantErr(t, "fillNew", err, os.ErrClosed)
+		if got := diskTree(t, dir); len(got) != 0 {
+			t.Errorf("directory = %q, want the new note taken back", got)
+		}
+	})
+
+	t.Run("the write fails", func(t *testing.T) {
+		v, dir, f := newFile(t, os.O_RDONLY)
+		_, err := v.fillNew(name, f, "text\n")
+		wantErr(t, "fillNew", err, syscall.EBADF)
+		if got := diskTree(t, dir); len(got) != 0 {
+			t.Errorf("directory = %q, want the half-made note taken back", got)
+		}
+	})
+
+	t.Run("something else has replaced the note", func(t *testing.T) {
+		v, dir, f := newFile(t, os.O_RDONLY)
+		writeFile(t, dir, "other.md", "someone else's\n")
+		if err := os.Rename(filepath.Join(dir, "other.md"), filepath.Join(dir, name)); err != nil {
+			t.Fatal(err)
+		}
+		_, err := v.fillNew(name, f, "text\n")
+		wantErr(t, "fillNew", err, syscall.EBADF)
+		if got := readDisk(t, dir, name); got != "someone else's\n" {
+			t.Errorf("the file that replaced the note = %q, want it left alone", got)
+		}
+	})
 }
 
 // replaceFile is the step after the revision check: it puts the new text next to
@@ -1053,6 +1193,13 @@ func TestReadOnlyVaultRejectsWrites(t *testing.T) {
 	wantErr(t, "Write", err, ErrReadOnly)
 	if !equalNotes(n, Note{}) {
 		t.Errorf("Write returned %+v with its error, want the zero Note", n)
+	}
+	// Not even a save of the text that is already there gets through: the
+	// policy is checked before the note is looked at.
+	n, err = v.Write("n.md", "note\n", revision)
+	wantErr(t, "Write of unchanged content", err, ErrReadOnly)
+	if !equalNotes(n, Note{}) {
+		t.Errorf("Write of unchanged content returned %+v with its error, want the zero Note", n)
 	}
 	n, err = v.Create("new.md", "x")
 	wantErr(t, "Create", err, ErrReadOnly)

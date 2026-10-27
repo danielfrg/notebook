@@ -28,8 +28,9 @@ var (
 )
 
 // ConflictError is the error of a write that lost against another writer.
-// Current is the revision now on disk, or "" if the note was deleted. It
-// matches ErrConflict with errors.Is.
+// Current is the revision now on disk; it is never empty (a write to a note
+// deleted since it was loaded is ErrNotFound). It matches ErrConflict with
+// errors.Is.
 type ConflictError struct{ Current string }
 
 func (e *ConflictError) Error() string { return ErrConflict.Error() }

@@ -54,21 +54,30 @@ func (v *Vault) CurrentRevision(p string) (revision string, modified time.Time, 
 }
 
 // Write replaces the note at p with content, provided the note still has
-// expectedRevision, the revision the caller loaded. If it does not, nothing is
+// expectedRevision, the revision the caller loaded. Otherwise nothing is
 // written and the error is a *ConflictError (it matches ErrConflict) whose
 // Current is the revision on disk now. An empty or malformed expectedRevision
-// never matches. A note that no longer exists is ErrNotFound, not a conflict,
-// and is not brought back. A note on disk that Read would refuse (over
-// MaxNoteBytes, not UTF-8) cannot be written over either.
+// never matches. A note deleted since it was loaded is ErrNotFound, not a
+// conflict, and is not brought back; one that Read would refuse (over
+// MaxNoteBytes, not UTF-8) cannot be written over either. Content identical to
+// what is on disk is not written: the note is returned as it is and keeps its
+// inode and modification time.
 //
 // The new text goes to a hidden temp file in the note's folder, is synced and
-// then renamed over the note, so a reader, or a crash, sees the old note or the
-// new one, never a mix. The new file has the permission bits of the old one; its
-// owner and group are those of the process, and extended attributes are not
-// carried over. Writers in this process run one at a time, so two writers
-// holding the same revision cannot both win. Other programs are not locked out:
-// one that replaces the note after the revision was checked and before the
-// rename is overwritten. That window is one write and sync wide.
+// renamed over the note, so a reader or a crash sees the old note or the new
+// one, never a mix. The replacement is a new file: it has the old permission
+// bits, but its owner is the process's user and its group is what the system
+// gives a new file in that folder (the folder's on BSD and macOS and in setgid
+// folders, otherwise the process's). ACLs and extended attributes are not
+// carried over, other hard links keep the old text, and a read-only (0444) note
+// is replaced anyway when its folder is writable.
+//
+// Writes through one Vault run one at a time, so two writers holding the same
+// revision cannot both win. Other Vault values over the same or overlapping
+// directories do not serialize with it, and neither do other programs: one that
+// changes the note after the revision was checked and before the rename, by
+// replacing it or editing it in place, is overwritten. That window is one write
+// and sync wide.
 func (v *Vault) Write(p, content, expectedRevision string) (Note, error) {
 	if v.readOnly {
 		return Note{}, ErrReadOnly
@@ -89,6 +98,12 @@ func (v *Vault) Write(p, content, expectedRevision string) (Note, error) {
 	}
 	if current.Revision != expectedRevision {
 		return Note{}, &ConflictError{Current: current.Revision}
+	}
+	// A save without edits touches nothing. Replacing the note would give it a
+	// new inode and modification time, drop what a replacement does not carry
+	// over, and show up as a modification to Obsidian and Syncthing.
+	if content == current.Content {
+		return current, nil
 	}
 	modified, err := v.replaceFile(p, content, perm)
 	if err != nil {
@@ -140,7 +155,27 @@ func (v *Vault) Create(p, content string) (Note, error) {
 		}
 		return Note{}, err
 	}
-	created, _ := f.Stat() // identifies the file this call made, to tell it from one that replaces it
+	modified, err := v.fillNew(p, f, content)
+	if err != nil {
+		return Note{}, err
+	}
+	return newNote(p, content, modified), nil
+}
+
+// fillNew writes content to f, the file that Create has just made at p, syncs
+// and closes it, and returns its modification time. If anything fails, the
+// half-made note is removed again.
+func (v *Vault) fillNew(p string, f *os.File, content string) (time.Time, error) {
+	// created identifies the file this call made, to tell it from one that
+	// replaces it later.
+	created, err := f.Stat()
+	if err != nil {
+		// O_EXCL made this file a moment ago, so it is ours to remove without
+		// comparing it with anything.
+		f.Close()
+		v.root.Remove(p)
+		return time.Time{}, err
+	}
 	info, err := writeAndSync(f, content)
 	if cerr := f.Close(); err == nil {
 		err = cerr
@@ -151,9 +186,9 @@ func (v *Vault) Create(p, content string) (Note, error) {
 		if current, lerr := v.root.Lstat(p); lerr == nil && os.SameFile(created, current) {
 			v.root.Remove(p)
 		}
-		return Note{}, err
+		return time.Time{}, err
 	}
-	return newNote(p, content, info.ModTime()), nil
+	return info.ModTime(), nil
 }
 
 func newNote(p, content string, modified time.Time) Note {
