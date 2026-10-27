@@ -9,8 +9,9 @@ import (
 // turned into the precomposed character by a tool or an editor, which would
 // turn the decomposed cases below into the composed ones.
 const (
-	combiningAcute = "\xcc\x81" // U+0301
-	combiningTilde = "\xcc\x83" // U+0303
+	combiningAcute = "\xcc\x81"     // U+0301
+	combiningTilde = "\xcc\x83"     // U+0303
+	hangulGa       = "\xea\xb0\x80" // U+AC00: one character that Fold makes two, as NFD does
 )
 
 func TestFold(t *testing.T) {

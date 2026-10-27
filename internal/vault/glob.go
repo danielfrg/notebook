@@ -17,9 +17,15 @@ type Filter func(path string) bool
 // of characters inside a name, "?" is one character, and a name that is "**" is
 // any number of names, none included. Nothing else is special, so the other
 // characters that notes have in their names ("[", "%", ",") match themselves.
-// Names are compared exactly, case included, but by character and not by byte:
-// an accent that is one character in one name and a letter with a mark in the
-// other is the same name. MatchGlob does not check pattern; ExcludeGlobs does.
+// Names are compared by character and not by byte, so an accent that is one
+// character in one name and a letter with a mark in the other is the same name,
+// and without regard to case. Case is ignored because a filesystem may ignore
+// it (macOS and Windows do by default): there a folder called Transcripts is the
+// folder that a pattern for transcripts is meant for, and a pattern that hid
+// nothing would show what it was meant to hide. Where the filesystem does tell
+// them apart, a pattern also hides the names that differ only in case, which is
+// the safe way to be wrong. MatchGlob does not check pattern; NormalizeGlob
+// does.
 func MatchGlob(pattern, path string) bool {
 	return compileGlob(pattern).matches(splitPath(path))
 }
@@ -29,11 +35,18 @@ func MatchGlob(pattern, path string) bool {
 type glob []string
 
 func compileGlob(pattern string) glob {
-	return append(strings.Split(norm.NFC.String(pattern), "/"), "**")
+	return append(strings.Split(foldName(pattern), "/"), "**")
 }
 
 func splitPath(path string) []string {
-	return strings.Split(norm.NFC.String(path), "/")
+	return strings.Split(foldName(path), "/")
+}
+
+// foldName makes names comparable the way a filesystem may compare them: the
+// accents of a name are in one form (NFC), and then it is in lower case. That
+// maps characters to characters, so "?" still stands for one of them.
+func foldName(s string) string {
+	return strings.ToLower(norm.NFC.String(s))
 }
 
 // matches reports whether the glob matches all the names of a path.
@@ -111,37 +124,51 @@ func matchName(pattern, name string) bool {
 	return p == len(pattern)
 }
 
+// NormalizeGlob checks an exclude pattern and returns it in the form that is
+// matched: white space around the pattern and one trailing "/" are trimmed, and
+// nothing else is rewritten. What is left must not be empty, start with "/" or
+// hold a backslash, and none of its "/"-separated names may be empty, "." or
+// "..". Such a pattern can never match a path, and an exclude that silently hides
+// nothing would show what it was meant to hide, so it is an error that names the
+// pattern.
+//
+// This is the one definition of what an exclude pattern may be: ExcludeGlobs
+// uses it, and so should the code that reads the patterns from the settings, so
+// that a pattern cannot be accepted by one and rejected by the other.
+func NormalizeGlob(pattern string) (string, error) {
+	canonical := strings.TrimSuffix(strings.TrimSpace(pattern), "/")
+	reason := ""
+	switch {
+	case canonical == "":
+		reason = "is empty"
+	case strings.HasPrefix(canonical, "/"):
+		reason = "must be relative to the vault"
+	case strings.Contains(canonical, `\`):
+		reason = `must separate folders with "/", not a backslash`
+	default:
+		for name := range strings.SplitSeq(canonical, "/") {
+			if name == "" || name == "." || name == ".." {
+				reason = `must not contain empty, "." or ".." path segments`
+				break
+			}
+		}
+	}
+	if reason != "" {
+		return "", fmt.Errorf("exclude pattern %q %s", pattern, reason)
+	}
+	return canonical, nil
+}
+
 // ExcludeGlobs returns the filter that shows a path unless a pattern matches it
-// (see MatchGlob), for the paths that must stay hidden from agents. A pattern
-// is a path relative to the vault: white space around it and one trailing "/"
-// are trimmed, and what is left must not be empty or start with "/" or hold a
-// backslash, and none of its "/"-separated names may be empty, "." or "..".
-// Such a pattern can never match a path, and an exclude that silently hides
-// nothing would show what it was meant to hide, so it is an error and no filter
-// is made. This is the rule that parseExcludes in cmd/notebook applies when it
-// reads the settings; the two have to agree.
+// (see MatchGlob), for the paths that must stay hidden from agents. Each pattern
+// is checked by NormalizeGlob, and one that it rejects is an error and no filter
+// is made, so nothing starts up half excluded.
 func ExcludeGlobs(patterns []string) (Filter, error) {
 	globs := make([]glob, 0, len(patterns))
 	for _, pattern := range patterns {
-		canonical := strings.TrimSuffix(strings.TrimSpace(pattern), "/")
-		reason := ""
-		switch {
-		case canonical == "":
-			reason = "is empty"
-		case strings.HasPrefix(canonical, "/"):
-			reason = "must be relative to the vault"
-		case strings.Contains(canonical, `\`):
-			reason = `must separate folders with "/", not a backslash`
-		default:
-			for name := range strings.SplitSeq(canonical, "/") {
-				if name == "" || name == "." || name == ".." {
-					reason = `must not contain empty, "." or ".." path segments`
-					break
-				}
-			}
-		}
-		if reason != "" {
-			return nil, fmt.Errorf("exclude pattern %q %s", pattern, reason)
+		canonical, err := NormalizeGlob(pattern)
+		if err != nil {
+			return nil, err
 		}
 		globs = append(globs, compileGlob(canonical))
 	}

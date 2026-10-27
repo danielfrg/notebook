@@ -2,7 +2,9 @@ package vault
 
 import (
 	"context"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
 	"sync"
@@ -12,8 +14,9 @@ import (
 )
 
 const (
-	// snapshotMaxAge is how old the snapshot may be before the next search
-	// refreshes it.
+	// snapshotMaxAge is how long after the end of a refresh the next search
+	// refreshes again. It is measured from the end, not from the start, so that a
+	// refresh that takes seconds on a big vault is not followed at once by another.
 	snapshotMaxAge = 2 * time.Second
 
 	// loadWorkers is how many notes of one folder are read at the same time. What
@@ -51,10 +54,14 @@ type noteEntry struct {
 	tags        []string // Tags of the text, never nil
 }
 
-// current returns the notes of the vault, as they were at most snapshotMaxAge
-// ago. A snapshot that is older, or that does not exist yet, is refreshed first,
-// and the refresh is done by one caller at a time, so a crowd of searches makes
-// one walk and not many. If the refresh fails the old snapshot stays as it was.
+// current returns the notes of the vault as the last refresh saw them. If there
+// has been none, or snapshotMaxAge has passed since the last one ended, it
+// refreshes first. So a change can take longer than snapshotMaxAge to show up:
+// that wait starts when the last refresh ended, not when the change was made,
+// and a refresh takes time too (seconds, for thousands of notes on a slow
+// disk). The refresh is done by one caller at a time, so a crowd of searches
+// makes one walk and not many. If the refresh fails the old snapshot stays as it
+// was.
 func (c *searchCache) current(ctx context.Context, v *Vault) (map[string]*noteEntry, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -102,62 +109,98 @@ func (v *Vault) refresh(ctx context.Context, old map[string]*noteEntry) (map[str
 
 // loadNotes reads the notes, which are in the folder that dir is open on, a few
 // at a time, and returns their entries in the same order. The entry of a note
-// that could not be read is nil.
+// that is to be skipped (see loadNote) is nil. The first note that fails makes
+// the others stop, and its error is returned.
 func loadNotes(ctx context.Context, dir *os.Root, files []walkedFile) ([]*noteEntry, error) {
 	entries := make([]*noteEntry, len(files))
+	errs := make([]error, len(files))
 	var next atomic.Int64
+	var failed atomic.Bool
 	var wg sync.WaitGroup
 	for range min(loadWorkers, len(files)) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for ctx.Err() == nil {
+			for ctx.Err() == nil && !failed.Load() {
 				i := int(next.Add(1)) - 1
 				if i >= len(files) {
 					return
 				}
-				entries[i] = loadNote(dir, files[i])
+				if entries[i], errs[i] = loadNote(dir, files[i]); errs[i] != nil {
+					failed.Store(true)
+				}
 			}
 		}()
 	}
 	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
 	return entries, ctx.Err()
 }
 
-// loadNote reads one note through the root of its folder. It returns nil for a
-// note that cannot be read now (it is gone, or this process may not read it):
-// that is not remembered, so the next refresh tries again, and a note that was
-// made readable shows up though nothing a stat can see has changed. A note that
-// can be read but is not one (see noteEntry.skipped) is remembered.
-func loadNote(dir *os.Root, f walkedFile) *noteEntry {
+// loadNote reads one note through the root of its folder. A note that is to be
+// skipped has a nil entry and no error: it is gone, this process may not read
+// it, or it is no regular file any more because it was replaced since the walk
+// by a folder or a link. That is not remembered, so the next refresh tries
+// again, and a note that was made readable shows up though nothing a stat can
+// see has changed. A note that can be read but is not one (see
+// noteEntry.skipped) is remembered. Any other error (a failing disk, no file
+// descriptors left) is returned, as an error about the path of the note in the
+// vault, and fails the refresh: such a note must not vanish from the results
+// while List still shows it.
+func loadNote(dir *os.Root, f walkedFile) (*noteEntry, error) {
 	entry := &noteEntry{size: f.info.Size(), modified: f.info.ModTime()}
 	if entry.size > MaxNoteBytes {
 		entry.skipped = true
-		return entry
+		return entry, nil
 	}
 	file, err := dir.Open(f.name)
 	if err != nil {
-		return nil
+		return nil, unreadable(dir, f, err)
 	}
 	defer file.Close()
 	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		return nil
+	if err != nil {
+		return nil, unreadable(dir, f, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, nil // replaced since the walk
 	}
 	// The limit is enforced again on what is read: the note may have grown.
 	data, err := io.ReadAll(io.LimitReader(file, MaxNoteBytes+1))
 	if err != nil {
-		return nil
+		return nil, unreadable(dir, f, err)
 	}
 	// The stat of the open note goes with what was read from it: if the note
 	// changed since the walk, the next refresh sees that and reads it again.
 	entry.size, entry.modified = info.Size(), info.ModTime()
 	if len(data) > MaxNoteBytes || !utf8.Valid(data) {
 		entry.skipped = true
-		return entry
+		return entry, nil
 	}
 	entry.fill(f.path, string(data))
-	return entry
+	return entry, nil
+}
+
+// unreadable decides what err, which came from reading the note f in the folder
+// that dir is open on, means. It returns nil if the note is to be skipped (see
+// loadNote), and otherwise err, about the path of the note in the vault.
+func unreadable(dir *os.Root, f walkedFile, err error) error {
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+		return nil
+	}
+	// Replaced since the walk by a link that leaves the vault, which os.Root
+	// refuses to follow, or by something else that cannot be read like a note.
+	switch info, lerr := dir.Lstat(f.name); {
+	case errors.Is(lerr, fs.ErrNotExist), errors.Is(lerr, fs.ErrPermission):
+		return nil
+	case lerr == nil && !info.Mode().IsRegular():
+		return nil
+	}
+	return withPath(err, f.path)
 }
 
 // fill makes the entry of the note at path, which has this text.

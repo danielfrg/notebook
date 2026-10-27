@@ -51,7 +51,7 @@ func TestMatchGlob(t *testing.T) {
 		{"Private/**", "Private", true},
 		{"Private/**", "Private/a.md", true},
 		{"Private/**", "Private/a/b.md", true},
-		{"Private/**", "private/a.md", false}, // names are compared exactly, case included
+		{"Private/**", "private/a.md", true}, // case does not matter, see below
 		{"Private/**", "PrivateNotes/a.md", false},
 		{"a/**/z.md", "a/z.md", true},
 		{"a/**/z.md", "a/b/c/z.md", true},
@@ -71,7 +71,21 @@ func TestMatchGlob(t *testing.T) {
 		{"Reflexión", "Reflexio" + combiningAcute + "n/a.md", true},
 		{"Reflexio" + combiningAcute + "n", "Reflexión/a.md", true},
 		{"Reflexi?n", "Reflexio" + combiningAcute + "n/a.md", true},
-		{"Reflexión", "Reflexion/a.md", false},
+		{"Reflexión", "Reflexion/a.md", false}, // but an accent is a letter of its own
+
+		// Case does not matter: a filesystem may not tell Transcripts from
+		// transcripts (macOS and Windows do not, by default), and an exclude that
+		// hid nothing there would show what it was meant to hide. Where the
+		// filesystem does tell them apart, hiding both is the safe way to be wrong.
+		{"transcripts", "TRANSCRIPTS/a.md", true},
+		{"TRANSCRIPTS", "transcripts/a.md", true},
+		{"transcripts", "Transcripts", true},
+		{"**/*.Private.md", "a/X.PRIVATE.MD", true},
+		{"a?c.md", "AÉC.md", true},
+		{"ÉCOLE", "école/a.md", true}, // letters that are not ASCII too
+		{"Reflexión", "REFLEXIÓN/a.md", true},
+		{"Reflexio" + combiningAcute + "n", "REFLEXIÓN/a.md", true}, // together with the other spelling of an accent
+		{"transcripts", "transcripts2/A.md", false},
 	} {
 		if got := MatchGlob(tc.pattern, tc.path); got != tc.want {
 			t.Errorf("MatchGlob(%q, %q) = %v, want %v", tc.pattern, tc.path, got, tc.want)
@@ -79,26 +93,28 @@ func TestMatchGlob(t *testing.T) {
 	}
 }
 
-// ExcludeGlobs and parseExcludes in cmd/notebook state one rule, and an exclude
-// that one of them accepts and the other rejects would hide nothing without a
-// word: a recorded conversation would reach third-party models. These are the
-// patterns of TestParseExcludes there; keep the two tables in step.
+// What an exclude pattern may be is decided in one place, NormalizeGlob, and
+// ExcludeGlobs uses it, so that a pattern accepted by one of them cannot be
+// rejected by the other: such a pattern would hide nothing, without a word, and
+// a recorded conversation would reach third-party models. These are the patterns
+// of TestParseExcludes in cmd/notebook, which still has a copy of the rule of its
+// own until it calls NormalizeGlob; keep the two tables in step.
 var (
-	// Accepted, and the path each one hides. One trailing "/" and white space
-	// around a pattern are trimmed and nothing else is rewritten, so a pattern
-	// that is accepted is one that matches.
-	acceptedExcludes = []struct{ pattern, hides string }{
-		{"transcripts", "transcripts/a.md"},
-		{"transcripts/", "transcripts/a.md"},
-		{" transcripts/ ", "transcripts/a.md"},
-		{"Private/**", "Private/a.md"},
-		{"Private/**/", "Private/a.md"},
-		{"**/*.private.md", "a/b.private.md"},
-		{"a/*/c.md", "a/b/c.md"},
-		{"a b/c?", "a b/cd"},
-		{"Q1..Q2", "Q1..Q2/x.md"}, // dots inside a name are not "." or ".." segments
-		{"..data", "..data/x.md"},
-		{".obsidian", ".obsidian/x.md"},
+	// Accepted: the form that is matched, which is the pattern with white space
+	// around it and one trailing "/" trimmed and nothing else rewritten, and a
+	// path that the pattern hides.
+	acceptedExcludes = []struct{ pattern, canonical, hides string }{
+		{"transcripts", "transcripts", "transcripts/a.md"},
+		{"transcripts/", "transcripts", "transcripts/a.md"},
+		{" transcripts/ ", "transcripts", "transcripts/a.md"},
+		{"Private/**", "Private/**", "Private/a.md"},
+		{"Private/**/", "Private/**", "Private/a.md"},
+		{"**/*.private.md", "**/*.private.md", "a/b.private.md"},
+		{"a/*/c.md", "a/*/c.md", "a/b/c.md"},
+		{"a b/c?", "a b/c?", "a b/cd"},
+		{"Q1..Q2", "Q1..Q2", "Q1..Q2/x.md"}, // dots inside a name are not "." or ".." segments
+		{"..data", "..data", "..data/x.md"},
+		{".obsidian", ".obsidian", ".obsidian/x.md"},
 	}
 	rejectedExcludes = []string{
 		"",              // empty
@@ -122,7 +138,32 @@ var (
 	}
 )
 
-func TestExcludeGlobsAcceptsAndRejectsLikeParseExcludes(t *testing.T) {
+func TestNormalizeGlob(t *testing.T) {
+	for _, tc := range acceptedExcludes {
+		got, err := NormalizeGlob(tc.pattern)
+		if err != nil || got != tc.canonical {
+			t.Errorf("NormalizeGlob(%q) = %q, %v, want %q", tc.pattern, got, err, tc.canonical)
+		}
+		// What comes out is a pattern in its own form, so normalizing twice is
+		// the same as once: a settings parser may store it and hand it back.
+		if again, err := NormalizeGlob(got); err != nil || again != got {
+			t.Errorf("NormalizeGlob(%q) = %q, %v, want it unchanged", got, again, err)
+		}
+	}
+	for _, pattern := range rejectedExcludes {
+		got, err := NormalizeGlob(pattern)
+		if err == nil || got != "" {
+			t.Errorf("NormalizeGlob(%q) = %q, %v, want an error", pattern, got, err)
+		} else if !strings.Contains(err.Error(), fmt.Sprintf("%q", pattern)) {
+			t.Errorf("NormalizeGlob(%q) = %q, want an error that names the pattern", pattern, err)
+		}
+	}
+}
+
+// ExcludeGlobs has no rule of its own: what NormalizeGlob accepts is matched in
+// the form it returns, and one pattern it rejects fails them all, because
+// nothing may start up half excluded.
+func TestExcludeGlobsUsesNormalizeGlob(t *testing.T) {
 	for _, tc := range acceptedExcludes {
 		visible, err := ExcludeGlobs([]string{tc.pattern})
 		if err != nil {
@@ -131,17 +172,11 @@ func TestExcludeGlobsAcceptsAndRejectsLikeParseExcludes(t *testing.T) {
 			t.Errorf("ExcludeGlobs(%q) shows %q, want it hidden", tc.pattern, tc.hides)
 		}
 	}
-	for _, pattern := range rejectedExcludes {
-		if _, err := ExcludeGlobs([]string{pattern}); err == nil {
-			t.Errorf("ExcludeGlobs(%q) was accepted, want an error", pattern)
-		} else if !strings.Contains(err.Error(), fmt.Sprintf("%q", pattern)) {
-			t.Errorf("ExcludeGlobs(%q) = %q, want an error that names the pattern", pattern, err)
+	for _, pattern := range []string{"./oops", " ", `a\b`} {
+		visible, err := ExcludeGlobs([]string{"transcripts", pattern})
+		if err == nil || visible != nil {
+			t.Errorf("ExcludeGlobs with %q among good patterns = %v, %v, want nil and an error", pattern, visible != nil, err)
 		}
-	}
-	// One bad pattern among good ones fails them all: nothing may start up half
-	// excluded.
-	if visible, err := ExcludeGlobs([]string{"transcripts", "./oops"}); err == nil || visible != nil {
-		t.Errorf("ExcludeGlobs with one bad pattern = %v, %v, want nil and an error", visible != nil, err)
 	}
 }
 
@@ -156,18 +191,25 @@ func TestExcludeGlobs(t *testing.T) {
 		"transcripts/deep/a.md":  false,
 		"transcripts2/a.md":      true,
 		"notes/transcripts/a.md": true,
+		"TRANSCRIPTS/a.md":       false, // case does not matter
+		"Transcripts/deep/a.md":  false,
+		"Transcripts2/a.md":      true,
 		"x.private.md":           false,
 		"deep/er/x.private.md":   false,
+		"Deep/X.Private.MD":      false,
 		"x.private.mdx":          true,
 		"Private":                false,
 		"Private/a.md":           false,
-		"private/a.md":           true,
+		"private/a.md":           false,
+		"PRIVATE/a.md":           false,
 		"a/b/c.md":               false,
 		"a/c.md":                 true,
 		"xy/z.md":                false,
+		"XY/z.md":                false,
 		"x/z.md":                 true,
 		"Done":                   false, // a trailing slash means the folder, as written
 		"Done/a.md":              false,
+		"done/a.md":              false,
 		"Done.md":                true,
 		"notes.md":               true,
 	} {

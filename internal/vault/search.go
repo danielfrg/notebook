@@ -16,9 +16,12 @@ const (
 	maxSnippets        = 3
 	snippetRunes       = 200
 	// How a note is scored, for each term of the query.
-	scoreName    = 50 // the term is in the file name
-	scorePath    = 20 // the term is in the path, and not in the file name
-	maxScoreText = 20 // one for each time it is in the text, and no more than this
+	scoreName = 50 // the term is in the file name
+	scorePath = 20 // the term is in the path, and not in the file name
+	// One for each time the term is in the text, and no more than this. It is
+	// below scorePath so that a hit by path always ranks above one by text alone,
+	// and a hit by file name above both, as the results are meant to be ranked.
+	maxScoreText = scorePath - 1
 )
 
 // ErrEmptyQuery is the error of a search for nothing: a query without a term.
@@ -36,7 +39,8 @@ type Hit struct {
 	Path, Title string
 	// Score ranks the hits. Each term of the query adds 50 if it is in the file
 	// name, else 20 if it is in the path, and 1 for each time it is in the text
-	// of the note, up to 20.
+	// of the note, up to 19: so for a query of one term, a hit by file name ranks
+	// above a hit by path, and that above a hit by the text alone.
 	Score    int
 	Modified time.Time
 	// Snippets are the first three lines that hold a term, in the order of the
@@ -65,11 +69,12 @@ type SearchOptions struct {
 // among equals the newest note first, and there are at most opts.Limit of them
 // (see SearchOptions). A query without a term is ErrEmptyQuery.
 //
-// Nothing is indexed on disk: the notes are searched in a snapshot in memory
-// that is refreshed, by size and modification time, when it is two seconds old
-// or more, so a change shows up after that long at the latest. A note over 2 MiB
-// or that is not UTF-8 is left out. The hits and what is in them belong to the
-// caller.
+// Nothing is indexed on disk: the notes are searched in a snapshot in memory.
+// A search refreshes it, by size and modification time, when two seconds or more
+// have passed since the end of the previous refresh (not since its start), so a
+// change can take longer than two seconds to show up: that wait starts when the
+// last refresh ended, and a refresh takes time too. A note over 2 MiB or that is
+// not UTF-8 is left out. The hits and what is in them belong to the caller.
 func (v *Vault) Search(ctx context.Context, query string, opts SearchOptions) ([]Hit, error) {
 	terms := parseQuery(query)
 	if len(terms) == 0 {
@@ -221,11 +226,14 @@ func snippetText(line, folded string, at, length int) string {
 	if total <= snippetRunes {
 		return strings.TrimSpace(line)
 	}
-	// Where the match is in the line as written. Fold drops the combining marks
-	// of a text that has them as characters of their own, so a character of the
-	// folded line is not always the character of the line at the same place.
+	// Where the match is in the line as written. Fold turns some characters into
+	// more than one (a Hangul syllable into its letters) and drops others (a
+	// combining mark of its own), so in a line that is not ASCII a character of
+	// the folded line is not the character of the line at the same place, even
+	// when the two lines have as many characters, because what is added and what
+	// is dropped can cancel out.
 	start := utf8.RuneCountInString(folded[:at])
-	if utf8.RuneCountInString(folded) != total {
+	if !isASCII(line) {
 		start = originalRune(line, start)
 	}
 	margin := max(snippetRunes-utf8.RuneCountInString(folded[at:at+length]), 0) / 2
@@ -270,7 +278,7 @@ type NoteMeta struct {
 // Notes lists the notes of the vault that visible lets through (all of them if
 // it is nil), newest first, and by path among notes changed at the same time. It
 // lists what Search searches: the notes that can be opened, from the same
-// snapshot, so it can be as much as two seconds behind the vault. What is
+// snapshot, so it can be behind the vault as Search can (see there). What is
 // returned belongs to the caller.
 func (v *Vault) Notes(ctx context.Context, visible Filter) ([]NoteMeta, error) {
 	if err := ctx.Err(); err != nil {

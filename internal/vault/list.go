@@ -90,8 +90,11 @@ type walkedFile struct {
 // fs.DirEntry.Info would leave it: it is a plain lstat of the path.
 //
 // What goes away while the walk is under way (sync tools rename and delete all
-// the time) is skipped, and so is a folder this process may not open, which is
-// still listed; the vault directory itself must be readable.
+// the time) is skipped, and so is a folder that is replaced by something that is
+// not a folder; a folder this process may not open is skipped but still listed.
+// The vault directory itself must be readable. An error that is not one of
+// those fails the walk, and is about a path in the vault: os.Root names the
+// absolute path of the vault in some of its errors, and that is taken out.
 func (v *Vault) walk(ctx context.Context, folder func(p string), files func(dir *os.Root, files []walkedFile) error) error {
 	// A walk of a deleted vault directory succeeds with nothing in it.
 	if err := v.Ping(); err != nil {
@@ -134,7 +137,7 @@ func (w *walker) dir(root *os.Root, dirPath string) error {
 		}
 	}
 	if err != nil {
-		return err
+		return withPath(err, cmp.Or(dirPath, "."))
 	}
 	if dirPath != "" {
 		w.listFolder(dirPath)
@@ -171,7 +174,7 @@ func (w *walker) dir(root *os.Root, dirPath string) error {
 		case errors.Is(err, fs.ErrPermission):
 			continue // a folder that can be read but not searched (mode 0o444)
 		case err != nil:
-			return err
+			return withPath(err, p)
 		}
 		if !info.Mode().IsRegular() {
 			continue // a symlink (Lstat reports the link itself), pipe, socket or device
@@ -194,7 +197,13 @@ func (w *walker) enter(parent *os.Root, name, p string) error {
 		w.listFolder(p) // it is there, but this process may not open it
 		return nil
 	case err != nil:
-		return err
+		// A folder can be replaced, after parent was read, by a file or by a link
+		// that leaves the vault. It has gone away as a folder, like anything else
+		// that goes away.
+		if current, lerr := parent.Lstat(name); errors.Is(lerr, fs.ErrNotExist) || (lerr == nil && !current.IsDir()) {
+			return nil
+		}
+		return withPath(err, p)
 	}
 	defer child.Close()
 
@@ -204,7 +213,7 @@ func (w *walker) enter(parent *os.Root, name, p string) error {
 		w.listFolder(p) // it can be opened but not searched (mode 0o444): nothing in it can be looked at
 		return nil
 	case err != nil:
-		return err
+		return withPath(err, p)
 	}
 	// OpenRoot follows a symlink that stays inside the vault, so a folder swapped
 	// for a link since parent was read would otherwise be walked, and the files
@@ -215,6 +224,19 @@ func (w *walker) enter(parent *os.Root, name, p string) error {
 		return nil
 	}
 	return w.dir(child, p)
+}
+
+// withPath returns err as an error about p, a path in the vault. Some of the
+// errors of os.Root, and of the files it opens, name the absolute path of the
+// vault directory (a folder that turns out not to be one, a failed read), and
+// that is not for the callers of the vault to see: its errors are about paths in
+// the vault.
+func withPath(err error, p string) error {
+	var pathErr *fs.PathError
+	if errors.As(err, &pathErr) {
+		return &fs.PathError{Op: pathErr.Op, Path: p, Err: pathErr.Err}
+	}
+	return fmt.Errorf("%s: %w", p, err)
 }
 
 // fingerprint is the SHA-256 of the sorted lines "kind\x00path\x00size\x00mtime\n".

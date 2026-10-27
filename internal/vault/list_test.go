@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -540,6 +542,107 @@ func TestListDoesNotFollowFolderSwappedForSymlink(t *testing.T) {
 	}
 	if want := []string{"target"}; !slices.Equal(got.Folders, want) {
 		t.Errorf("Folders = %v, want %v: the link must not be listed", got.Folders, want)
+	}
+}
+
+// A folder can also be replaced, after its parent was read, by a file or by a
+// link that leaves the vault. That has gone away like any other entry: it does
+// not stop the listing, and it is not listed as the folder it was.
+func TestListSkipsFolderReplacedMidWalk(t *testing.T) {
+	for _, tc := range []struct {
+		what    string
+		replace func(t *testing.T, dir, outside string)
+	}{
+		{"a file", func(t *testing.T, dir, _ string) { writeFile(t, dir, "sub", "no folder any more") }},
+		{"a link out of the vault", func(t *testing.T, dir, outside string) { mustSymlink(t, outside, filepath.Join(dir, "sub")) }},
+	} {
+		t.Run(tc.what, func(t *testing.T) {
+			v, dir := openTestVault(t, Options{})
+			outside := t.TempDir()
+			writeFile(t, outside, "secret.md", "secret")
+			writeFile(t, dir, "a.md", "a")
+			writeFile(t, dir, "sub/x.md", "x")
+			writeFile(t, dir, "z.md", "z")
+
+			// Root is checked first, then a.md, then sub: by the third check the
+			// root folder has been read and sub is still a folder in that listing.
+			ctx := &hookContext{Context: context.Background(), onErr: func(call int) error {
+				if call == 3 {
+					if err := os.RemoveAll(filepath.Join(dir, "sub")); err != nil {
+						t.Error(err)
+					}
+					tc.replace(t, dir, outside)
+				}
+				return nil
+			}}
+			got, err := v.List(ctx)
+			if err != nil {
+				t.Fatalf("List() after sub was replaced by %s = %v", tc.what, err)
+			}
+			if want := []string{"a.md", "z.md"}; !slices.Equal(entryPaths(got.Notes), want) {
+				t.Errorf("Notes = %v, want %v", entryPaths(got.Notes), want)
+			}
+			if len(got.Folders) != 0 {
+				t.Errorf("Folders = %v, want none: sub is no folder any more", got.Folders)
+			}
+		})
+	}
+}
+
+// What os.Root and the files it opens say about an error holds the absolute path
+// of the vault directory in some of them (a folder that is not one, a failed
+// read). The errors of the vault are about paths in the vault.
+func TestWithPath(t *testing.T) {
+	cause := errors.New("not a directory")
+	err := withPath(&fs.PathError{Op: "open", Path: "/var/folders/xy/vault/sub", Err: cause}, "sub")
+	if got, want := err.Error(), "open sub: not a directory"; got != want {
+		t.Errorf("withPath(PathError) = %q, want %q", got, want)
+	}
+	if !errors.Is(err, cause) {
+		t.Errorf("withPath(PathError) = %v, which does not wrap what went wrong", err)
+	}
+
+	// An error that wraps one is made from the one it wraps.
+	wrapped := fmt.Errorf("walk: %w", &fs.PathError{Op: "read", Path: "/var/folders/xy/vault/a.md", Err: io.ErrUnexpectedEOF})
+	if err := withPath(wrapped, "a.md"); err.Error() != "read a.md: unexpected EOF" || !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("withPath(wrapped PathError) = %q, want %q wrapping the cause", err, "read a.md: unexpected EOF")
+	}
+	// Any other error is put after the path.
+	if err := withPath(io.ErrUnexpectedEOF, "a/b.md"); err.Error() != "a/b.md: unexpected EOF" || !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("withPath(other error) = %q, want %q wrapping the cause", err, "a/b.md: unexpected EOF")
+	}
+}
+
+// The errors of the walk are about paths in the vault, whatever name the
+// operation that failed was given. A folder root that has been closed makes
+// every operation on it fail, which is a failure that is not one of those the
+// walk skips, and what comes back names the path in the vault: not the name in
+// the folder, and not the directory of the vault.
+func TestWalkerErrorsAreAboutPathsInTheVault(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "top/sub/x.md", "x")
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	top, err := root.OpenRoot("top")
+	if err != nil {
+		t.Fatal(err)
+	}
+	top.Close()
+	w := &walker{ctx: context.Background()}
+
+	for what, err := range map[string]error{
+		"entering a folder of it": w.enter(top, "sub", "top/sub"),
+		"walking it":              w.dir(top, "top"),
+	} {
+		var pathErr *fs.PathError
+		if !errors.Is(err, os.ErrClosed) || !errors.As(err, &pathErr) || !strings.HasPrefix(pathErr.Path, "top") {
+			t.Errorf("%s: error = %v, want one about a path in the vault (top/sub, top)", what, err)
+		} else if pathErr.Path == "sub" || strings.Contains(err.Error(), dir) {
+			t.Errorf("%s: error = %v, which names the folder or the directory of the vault", what, err)
+		}
 	}
 }
 

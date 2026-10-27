@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -125,7 +126,7 @@ func TestSearchScore(t *testing.T) {
 		{"folder and name both have it, and the name wins", "needle/needle.md", "x", "needle", 50},
 		{"text once", "x.md", "needle", "needle", 1},
 		{"text three times", "x.md", "needle needle\nneedle", "needle", 3},
-		{"text is capped at 20", "x.md", strings.Repeat("needle ", 30), "needle", 20},
+		{"text is capped at 19, below a path", "x.md", strings.Repeat("needle ", 30), "needle", 19},
 		{"file name and text", "needle.md", "needle needle", "needle", 52},
 		{"each term adds its own", "needle.md", "thread thread", "needle thread", 52},
 		{"a phrase counts as one term", "x.md", "a b a b a", `"a b"`, 2},
@@ -156,24 +157,28 @@ func TestSearchRanking(t *testing.T) {
 		{"body-many.md", "needle needle needle", hours(-5)},
 		{"tie-a.md", "needle", hours(2)}, // among equals the newer comes first, whatever the names
 		{"tie-b.md", "needle", hours(3)},
+		// The newest of all, with more occurrences than the text can score: it
+		// still ranks below a hit by path, which would tie with it if the text
+		// could score as much.
+		{"body-lots.md", strings.Repeat("needle ", 25), hours(9)},
 	} {
 		writeFile(t, dir, n.path, n.content)
 		chtimes(t, dir, n.path, n.mtime)
 	}
 
 	hits := mustSearch(t, v, "needle", SearchOptions{})
-	want := []string{"needle.md", "dir-needle/x.md", "body-many.md", "tie-b.md", "tie-a.md"}
+	want := []string{"needle.md", "dir-needle/x.md", "body-lots.md", "body-many.md", "tie-b.md", "tie-a.md"}
 	if !slices.Equal(hitPaths(hits), want) {
 		t.Errorf("Search order = %q, want %q: file name, then path, then text, and the newest first among equals", hitPaths(hits), want)
 	}
 	if len(hits) != len(want) {
 		t.FailNow()
 	}
-	if hits[0].Title != "needle" || !hits[3].Modified.Equal(hours(3)) {
-		t.Errorf("hits[0].Title = %q, hits[3].Modified = %v, want needle and %v", hits[0].Title, hits[3].Modified, hours(3))
+	if hits[0].Title != "needle" || !hits[4].Modified.Equal(hours(3)) {
+		t.Errorf("hits[0].Title = %q, hits[4].Modified = %v, want needle and %v", hits[0].Title, hits[4].Modified, hours(3))
 	}
 
-	for limit, wantLen := range map[int]int{1: 1, 2: 2, 5: 5, 100: 5} {
+	for limit, wantLen := range map[int]int{1: 1, 2: 2, 6: 6, 100: 6} {
 		got := mustSearch(t, v, "needle", SearchOptions{Limit: limit})
 		if len(got) != wantLen || !slices.Equal(hitPaths(got), want[:wantLen]) {
 			t.Errorf("Search with Limit %d = %q, want the first %d: %q", limit, hitPaths(got), wantLen, want[:wantLen])
@@ -249,6 +254,11 @@ func TestSearchSnippetsAreTrimmedAroundTheMatch(t *testing.T) {
 		// Accents as marks of their own: the line has more characters than the
 		// text the search matched on, and the match is far from where it looks.
 		{"after marks", strings.Repeat("e"+combiningAcute, 150), strings.Repeat("a", 300)},
+		// What Fold adds and what it drops can cancel out, so that the line and
+		// the text matched on have the same number of characters (458), and the
+		// match is still not where it looks: 150 characters that become two each
+		// before it, 150 marks that vanish after it.
+		{"expansions and drops that cancel out", strings.Repeat(hangulGa, 150), strings.Repeat("e"+combiningAcute, 150)},
 	} {
 		v, dir := openTestVault(t, Options{})
 		line := tc.before + " Needle " + tc.after
@@ -290,16 +300,17 @@ func TestSearchVisibleFilter(t *testing.T) {
 		"transcripts2/b.md",
 		"notes/a.md",
 		"notes/secret.private.md",
+		"Recordings/b.md", // hidden by "recordings": case does not matter, so it is hidden wherever the filesystem is
 	} {
 		writeFile(t, dir, name, "needle in "+name)
 	}
-	visible, err := ExcludeGlobs([]string{"transcripts", "**/*.private.md"})
+	visible, err := ExcludeGlobs([]string{"transcripts", "**/*.private.md", "recordings"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if all := mustSearch(t, v, "needle", SearchOptions{}); len(all) != 5 {
-		t.Errorf("Search without a filter = %q, want all 5 notes", hitPaths(all))
+	if all := mustSearch(t, v, "needle", SearchOptions{}); len(all) != 6 {
+		t.Errorf("Search without a filter = %q, want all 6 notes", hitPaths(all))
 	}
 	hits := mustSearch(t, v, "needle", SearchOptions{Visible: visible})
 	got := hitPaths(hits)
@@ -322,8 +333,8 @@ func TestSearchVisibleFilter(t *testing.T) {
 	if want := []string{"notes/a.md", "transcripts2/b.md"}; !slices.Equal(notes, want) {
 		t.Errorf("Notes with a filter = %q, want %q", notes, want)
 	}
-	if all := mustNotes(t, v, nil); len(all) != 5 {
-		t.Errorf("Notes without a filter = %q, want all 5", notePaths(all))
+	if all := mustNotes(t, v, nil); len(all) != 6 {
+		t.Errorf("Notes without a filter = %q, want all 6", notePaths(all))
 	}
 }
 
@@ -451,6 +462,118 @@ func TestSearchRetriesNotesThatCouldNotBeRead(t *testing.T) {
 	slices.Sort(got)
 	if want := []string{"locked.md", "ok.md"}; !slices.Equal(got, want) {
 		t.Errorf("Search after the permissions were fixed = %q, want %q", got, want)
+	}
+}
+
+// syncHookContext is hookContext for code that checks the context from several
+// goroutines, as the readers of a refresh do.
+type syncHookContext struct {
+	context.Context
+	calls atomic.Int64
+	onErr func(call int) error
+}
+
+func (c *syncHookContext) Err() error { return c.onErr(int(c.calls.Add(1))) }
+
+// A refresh stats the notes of a folder and then reads them, and a note can
+// change in between. One that is gone, or has been replaced by a folder or by a
+// link, is no note any more and is skipped, and a link that leaves the vault is
+// not followed: nothing of what it points to is read.
+func TestSearchSkipsNotesThatChangeBetweenTheWalkAndTheRead(t *testing.T) {
+	for _, tc := range []struct {
+		what    string
+		replace func(t *testing.T, dir, outside string)
+	}{
+		{"removed", func(*testing.T, string, string) {}},
+		{"replaced by a folder", func(t *testing.T, dir, _ string) { mustMkdir(t, filepath.Join(dir, "a.md")) }},
+		{"replaced by a link out of the vault", func(t *testing.T, dir, outside string) {
+			mustSymlink(t, filepath.Join(outside, "secret.md"), filepath.Join(dir, "a.md"))
+		}},
+	} {
+		t.Run(tc.what, func(t *testing.T) {
+			v, dir := openTestVault(t, Options{})
+			outside := t.TempDir()
+			writeFile(t, outside, "secret.md", "needle outside")
+			writeFile(t, dir, "a.md", "needle a")
+			writeFile(t, dir, "b.md", "needle b")
+
+			// The context is checked by the search, by the walk, for a.md and for
+			// b.md, and after those by the readers: at the fourth check a.md has
+			// been stat'ed and the notes have not been read yet.
+			ctx := &syncHookContext{Context: context.Background(), onErr: func(call int) error {
+				if call == 4 {
+					if err := os.RemoveAll(filepath.Join(dir, "a.md")); err != nil {
+						t.Error(err)
+					}
+					tc.replace(t, dir, outside)
+				}
+				return nil
+			}}
+			hits, err := v.Search(ctx, "needle", SearchOptions{})
+			if err != nil || !slices.Equal(hitPaths(hits), []string{"b.md"}) {
+				t.Errorf("Search = %q, %v, want just b.md and no error", hitPaths(hits), err)
+			}
+			if hits := mustSearch(t, v, "outside", SearchOptions{}); len(hits) != 0 {
+				t.Errorf("Search(outside) = %q: what a link out of the vault points to must not be read", hitPaths(hits))
+			}
+		})
+	}
+}
+
+// A note that cannot be read for any other reason (a failing disk, no file
+// descriptors left) must not vanish from the results while List still shows it:
+// the search fails, and the next one tries again. What stops the reads here is
+// the vault being closed after the walk has stat'ed the notes, which is
+// reported by every operation on its root.
+func TestSearchFailsWhenANoteCannotBeRead(t *testing.T) {
+	v, dir := openTestVault(t, Options{})
+	writeFile(t, dir, "a.md", "needle a")
+	writeFile(t, dir, "b.md", "needle b")
+
+	// The fifth check of the context is the first of the readers.
+	ctx := &syncHookContext{Context: context.Background(), onErr: func(call int) error {
+		if call == 5 {
+			v.Close()
+		}
+		return nil
+	}}
+	hits, err := v.Search(ctx, "needle", SearchOptions{})
+	var pathErr *fs.PathError
+	if !errors.Is(err, os.ErrClosed) || !errors.As(err, &pathErr) || pathErr.Op != "openat" || (pathErr.Path != "a.md" && pathErr.Path != "b.md") {
+		t.Fatalf("Search = %q, %v, want an error from opening a note, about its path in the vault", hitPaths(hits), err)
+	}
+	if strings.Contains(err.Error(), dir) {
+		t.Errorf("the error names the directory of the vault: %v", err)
+	}
+}
+
+// An error of reading a note is about its path in the vault, not the name that
+// the folder has for it, and not the directory of the vault.
+func TestLoadNoteErrorIsAboutThePathInTheVault(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "sub/a.md", "a")
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	folder, err := root.OpenRoot("sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := folder.Lstat("a.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	folder.Close() // every operation on it fails from now on
+
+	entry, err := loadNote(folder, walkedFile{path: "sub/a.md", name: "a.md", info: info})
+	var pathErr *fs.PathError
+	if entry != nil || !errors.Is(err, os.ErrClosed) || !errors.As(err, &pathErr) || pathErr.Path != "sub/a.md" {
+		t.Errorf("loadNote = %v, %v, want no entry and an error about sub/a.md", entry, err)
+	}
+	if err != nil && strings.Contains(err.Error(), dir) {
+		t.Errorf("the error names the directory of the vault: %v", err)
 	}
 }
 
@@ -688,9 +811,12 @@ func largeNote(i int, rng *rand.Rand) string {
 // where it happens varies from run to run, from the first pass over the files
 // to the fourth). That says nothing about the code, and a single timed search
 // that happens to land in it would fail a bound it should meet. So the first
-// search is timed on a fresh Vault, whose snapshot is empty, as often as it
-// takes to meet the bound, for up to 20 seconds: code that is too slow is too
-// slow every time, and fails them all. The attempts are logged.
+// search is timed on a fresh Vault, whose snapshot is empty, up to three times,
+// and the best of them counts. That is lenient on purpose, and is all the
+// leniency there is: it is the allowance that one stall needs and no more. The
+// bounds are the ones that were asked for, and code that is too slow is too slow
+// every time and fails all three. Every attempt is logged. An attempt that is
+// not the best is closed at once, so that its snapshot is not kept alive.
 func TestSearchLargeVault(t *testing.T) {
 	if testing.Short() {
 		t.Skip("writes 5,000 files")
@@ -704,30 +830,41 @@ func TestSearchLargeVault(t *testing.T) {
 	}
 
 	timed := func(v *Vault, query string) ([]Hit, time.Duration) {
-		start := time.Now()
+		start := time.Now() // the real time: the clock of the vault is faked
 		hits := mustSearch(t, v, query, SearchOptions{Limit: 1000})
 		return hits, time.Since(start)
 	}
-
-	const firstBound, laterBound = 2 * time.Second, 500 * time.Millisecond
-	var v *Vault // the one whose first search was the fastest, which has its snapshot
-	var first time.Duration
-	var took []time.Duration
-	for began := time.Now(); first == 0 || (first > firstBound && time.Since(began) < 20*time.Second); {
+	firstSearch := func() (*Vault, time.Duration) {
 		fresh, err := Open("notes", dir, Options{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() { fresh.Close() })
 		hits, d := timed(fresh, "needle")
 		if len(hits) != notes/20 {
+			fresh.Close()
 			t.Fatalf("first search found %d notes, want %d", len(hits), notes/20)
 		}
+		return fresh, d
+	}
+
+	const firstBound, laterBound = 2 * time.Second, 500 * time.Millisecond
+	const attempts = 3
+	var v *Vault // the one whose first search was the fastest, which has its snapshot
+	var first time.Duration
+	var took []time.Duration
+	for len(took) < attempts && (v == nil || first > firstBound) {
+		fresh, d := firstSearch()
 		took = append(took, d.Round(time.Millisecond))
 		if v == nil || d < first {
+			if v != nil {
+				v.Close()
+			}
 			v, first = fresh, d
+		} else {
+			fresh.Close()
 		}
 	}
+	t.Cleanup(func() { v.Close() })
 
 	// The second search is served from the snapshot.
 	var second time.Duration
