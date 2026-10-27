@@ -3,6 +3,7 @@ import type { EditorState, Extension, TransactionSpec } from "@codemirror/state"
 import { EditorView, WidgetType } from "@codemirror/view";
 import { parseProperties } from "../properties.ts";
 import type { WidgetKind } from "./livePreview.ts";
+import { NodeName } from "./markdown.ts";
 
 /** A task marker's one mutable character, or null outside a parsed task. */
 export function toggleTaskAt(state: EditorState, pos: number): TransactionSpec | null {
@@ -12,21 +13,51 @@ export function toggleTaskAt(state: EditorState, pos: number): TransactionSpec |
   if (!taskMarker || pos < taskMarker.from || pos > taskMarker.to) return null;
   const char = state.sliceDoc(taskMarker.from + 1, taskMarker.from + 2);
   if (char !== " " && char !== "x" && char !== "X") return null;
-  return { changes: { from: taskMarker.from + 1, to: taskMarker.from + 2, insert: char === " " ? "x" : " " }, userEvent: "input" };
+  return { changes: { from: taskMarker.from + 1, to: taskMarker.from + 2, insert: char === " " ? "x" : " " }, userEvent: "input.toggle" };
 }
 
-/** Click a rendered checkbox; its data position points back to its source. */
+/** Activate source-backed widgets before CodeMirror can move the selection into their replacements. */
 export function taskToggleExtension(): Extension {
+  const activate = (target: EventTarget | null, view: EditorView): boolean => {
+    if (!(target instanceof Element)) return false;
+    const checkbox = target.closest<HTMLElement>(".nb-task-checkbox");
+    if (checkbox && view.dom.contains(checkbox)) {
+      const pos = view.posAtDOM(checkbox);
+      const listItem = syntaxTree(view.state).resolveInner(pos, 1).parent;
+      const marker = listItem?.name === "ListItem" ? listItem.getChild("Task")?.getChild("TaskMarker") : null;
+      const change = marker && toggleTaskAt(view.state, marker.from + 1);
+      if (change) view.dispatch(change);
+      return true;
+    }
+    const properties = target.closest<HTMLElement>(".nb-properties");
+    if (properties && view.dom.contains(properties)) {
+      const node = syntaxTree(view.state).resolveInner(view.posAtDOM(properties), 1);
+      if (node.name === NodeName.Frontmatter) {
+        view.dispatch({ selection: { anchor: Math.min(node.to, node.from + 4) }, scrollIntoView: true });
+        view.focus();
+      }
+      return true;
+    }
+    const link = target.closest<HTMLAnchorElement>("a.nb-wikilink");
+    if (!link || !view.dom.contains(link)) return false;
+    const node = syntaxTree(view.state).resolveInner(view.posAtDOM(link), 1);
+    if (node.name !== NodeName.Wikilink) return true;
+    view.dom.dispatchEvent(new CustomEvent("notebook:wikilink", {
+      bubbles: true,
+      detail: { source: view.state.sliceDoc(node.from, node.to), from: node.from, to: node.to, resolved: !link.classList.contains("nb-wikilink-unresolved") },
+    }));
+    return true;
+  };
   return EditorView.domEventHandlers({
+    mousedown(event, view) {
+      if (event.button !== 0) return false;
+      return activate(event.target, view);
+    },
     click(event, view) {
       const target = event.target;
-      if (!(target instanceof Element)) return false;
-      const checkbox = target.closest<HTMLElement>(".nb-task-checkbox");
-      if (!checkbox || !view.dom.contains(checkbox)) return false;
-      const pos = Number(checkbox.dataset.taskPos);
-      const change = toggleTaskAt(view.state, pos);
-      if (change) view.dispatch(change);
-      event.preventDefault();
+      if (!(target instanceof Element) || !target.closest(".nb-task-checkbox, a.nb-wikilink")) return false;
+      // Pointer activation already ran on mousedown. Keyboard-generated clicks have detail 0.
+      if (event.detail === 0) activate(target, view);
       return true;
     },
   });
@@ -46,7 +77,7 @@ export class LivePreviewWidget extends WidgetType {
   }
 
   eq(other: LivePreviewWidget): boolean {
-    return JSON.stringify(this.kind) === JSON.stringify(other.kind);
+    return this.from === other.from && this.to === other.to && JSON.stringify(this.kind) === JSON.stringify(other.kind);
   }
 
   ignoreEvent(): boolean {
@@ -68,7 +99,6 @@ export class LivePreviewWidget extends WidgetType {
         checkbox.setAttribute("role", "checkbox");
         checkbox.setAttribute("aria-checked", String(this.kind.checked));
         checkbox.setAttribute("aria-label", this.kind.checked ? "Mark task incomplete" : "Mark task complete");
-        checkbox.dataset.taskPos = String(this.from + 3);
         return checkbox;
       }
       case "rule": {
@@ -90,13 +120,6 @@ export class LivePreviewWidget extends WidgetType {
         link.className = this.kind.resolved ? "nb-wikilink" : "nb-wikilink nb-wikilink-unresolved";
         link.href = "#";
         link.textContent = this.kind.label;
-        link.addEventListener("click", (event) => {
-          event.preventDefault();
-          view.dom.dispatchEvent(new CustomEvent("notebook:wikilink", {
-            bubbles: true,
-            detail: { source: view.state.sliceDoc(this.from, this.to), from: this.from, to: this.to, resolved: this.kind.kind === "wikilink" && this.kind.resolved },
-          }));
-        });
         return link;
       }
       case "properties": {

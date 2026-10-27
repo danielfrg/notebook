@@ -2,6 +2,7 @@ import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { Facet, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
+import { parseProperties } from "../properties.ts";
 import { parseWikilink, resolveAsset, resolveNote, type Wikilink } from "../wikilinks.ts";
 import { NodeName } from "./markdown.ts";
 import { LivePreviewWidget, taskToggleExtension } from "./widgets.ts";
@@ -198,7 +199,7 @@ class Collector {
         return false;
       case "Task":
         this.task(node);
-        return false;
+        return true;
       case "HorizontalRule":
         if (!this.linesTouched(node.from, node.to)) this.widget(node.from, node.to, { kind: "rule" });
         return false;
@@ -211,16 +212,15 @@ class Collector {
         // Tables stay raw text in v1: nothing in them is decorated.
         this.lines(node.from, node.to, "nb-table");
         return false;
-      case NodeName.Frontmatter:
+      case NodeName.Frontmatter: {
         this.rawBlocks.push({ from: node.from, to: node.to });
-        if (this.touched(node.from, node.to)) this.lines(node.from, node.to, "nb-frontmatter");
-        else {
-          const first = this.#state.doc.lineAt(node.from);
-          const last = this.#state.doc.lineAt(node.to);
-          const yaml = this.#state.sliceDoc(first.to + 1, last.from - 1);
-          this.widget(node.from, node.to, { kind: "properties", yaml });
-        }
+        const first = this.#state.doc.lineAt(node.from);
+        const last = this.#state.doc.lineAt(node.to);
+        const yaml = this.#state.sliceDoc(first.to + 1, last.from - 1);
+        if (this.touched(node.from, node.to) || parseProperties(yaml).length === 0) this.lines(node.from, node.to, "nb-frontmatter");
+        else this.widget(node.from, node.to, { kind: "properties", yaml });
         return false;
+      }
       default:
         return true;
     }
@@ -307,8 +307,10 @@ class Collector {
   }
 
   imageAsset(target: string): string | null {
-    if (!/^[^:#?]+\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(target) || target.startsWith("//")) return null;
-    const path = resolveAsset(this.#context.assets, this.#context.path, target);
+    const unwrapped = target.startsWith("<") && target.endsWith(">") ? target.slice(1, -1) : target;
+    const local = unwrapped.replace(/%20/gi, " ");
+    if (!/^[^:#?]+\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(local) || local.startsWith("//")) return null;
+    const path = resolveAsset(this.#context.assets, this.#context.path, local);
     if (path === null) return null;
     const src = this.#context.assetUrl(path);
     return /^(?:\/|\.\/|\.\.\/|https?:\/\/)/i.test(src) ? path : null;
@@ -382,7 +384,7 @@ class Collector {
     const listMark = node.parent?.getChild("ListMark");
     if (!marker || !listMark) return;
     const checked = /\[[xX]\]/.test(this.#state.sliceDoc(marker.from, marker.to));
-    if (checked) this.mark(marker.to + 1, Math.min(node.to, this.#state.doc.lineAt(marker.from).to), "nb-task-done");
+    if (checked) this.mark(marker.to + 1, node.to, "nb-task-done");
     if (!this.touched(listMark.from, marker.to)) this.widget(listMark.from, marker.to, { kind: "task", checked });
   }
 

@@ -444,10 +444,24 @@ test("off-cursor bullets, task markers, and rules become widgets", () => {
     "line nb-list 0 indent=6", "line nb-list 11 indent=6",
     'widget 0-5 {"kind":"task","checked":false}',
     'widget 11-16 {"kind":"task","checked":true}',
-    "mark nb-task-done 17-21",
+    "mark nb-task-done 17-26",
   ]));
   assert.deepEqual(decorate("---\n\nx", 6), ['widget 0-3 {"kind":"rule"}']);
   assert.deepEqual(decorate("---\n\nx", 1), []);
+});
+
+test("task text keeps inline decorations", () => {
+  const doc = "- [x] **bold** #tag [[Known]]\n  continuation\n\nnext";
+  const specs = decorate(doc, doc.length);
+  assert.ok(specs.includes("mark nb-strong 8-12"), "bold text inside a task");
+  assert.ok(specs.includes("mark nb-tag 15-19"), "tag inside a task");
+  assert.ok(specs.includes('widget 20-29 {"kind":"wikilink","label":"Known","resolved":true}'), "wikilink inside a task");
+});
+
+test("checked task text styling reaches continuation lines", () => {
+  const doc = "- [x] **bold** #tag [[Known]]\n  continuation\n\nnext";
+  const specs = decorate(doc, doc.length);
+  assert.ok(specs.includes("mark nb-task-done 6-44"), "checked styling reaches the continuation line");
 });
 
 test("local images render; remote, unresolved, and non-image targets stay as links", () => {
@@ -458,6 +472,13 @@ test("local images render; remote, unresolved, and non-image targets stay as lin
     assert.ok(!specs.some((spec) => spec.includes('"kind":"image"')), source);
     assert.ok(specs.some((spec) => spec.startsWith("mark nb-link")), source);
   }
+});
+
+test("local markdown image targets with spaces resolve without allowing remote images", () => {
+  const ctx = { ...context, assets: ["img/my pic.png"] };
+  assert.deepEqual(decorate("![x](<img/my pic.png>) z", 24, { ctx }), ['widget 0-22 {"kind":"image","src":"/raw/img/my pic.png","alt":"x"}']);
+  assert.deepEqual(decorate("![x](img/my%20pic.png) z", 24, { ctx }), ['widget 0-22 {"kind":"image","src":"/raw/img/my pic.png","alt":"x"}']);
+  assert.deepEqual(decorate("![x](<https://example.com/a.png>) z", 35, { ctx }), ["mark nb-link 0-33"]);
 });
 
 test("frontmatter collapses only when the selection is elsewhere", () => {
@@ -474,11 +495,21 @@ test("frontmatter collapses only when the selection is elsewhere", () => {
   assert.equal(block, true, "properties is a block replacement from the StateField");
 });
 
+test("empty frontmatter stays editable without an empty properties panel", () => {
+  assert.deepEqual(decorate("---\n---\nbody", 11), sorted([
+    "line nb-frontmatter 0", "line nb-frontmatter 4",
+  ]));
+  assert.deepEqual(decorate("---\n# comment\n---\nbody", 22), sorted([
+    "line nb-frontmatter 0", "line nb-frontmatter 4", "line nb-frontmatter 14",
+  ]));
+});
+
 test("toggleTaskAt changes only the checkbox character, including CRLF documents", () => {
   for (const [input, expected] of [["- [ ] a\nother", "- [x] a\nother"], ["- [x] a\nother", "- [ ] a\nother"]]) {
     const state = stateOf(input, input.length);
     const change = toggleTaskAt(state, 3);
     assert.ok(change);
+    assert.equal(change.userEvent, "input.toggle");
     assert.equal(state.update(change).state.sliceDoc(0), expected);
   }
   const crlf = stateOf("- [ ] a\r\nnext", 0, { crlf: true });
@@ -489,6 +520,21 @@ test("toggleTaskAt changes only the checkbox character, including CRLF documents
 test("widgets compare payloads and expose interactive task and wikilink events", () => {
   assert.ok(new LivePreviewWidget({ kind: "bullet" }).eq(new LivePreviewWidget({ kind: "bullet" })));
   assert.ok(!new LivePreviewWidget({ kind: "task", checked: false }).eq(new LivePreviewWidget({ kind: "task", checked: true })));
+  assert.ok(!new LivePreviewWidget({ kind: "task", checked: false }, 0, 5).eq(new LivePreviewWidget({ kind: "task", checked: false }, 6, 11)), "task positions participate in DOM reuse");
+  assert.ok(!new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }, 0, 9).eq(new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }, 4, 13)), "wikilink positions participate in DOM reuse");
   assert.equal(new LivePreviewWidget({ kind: "task", checked: false }).ignoreEvent(), false);
   assert.equal(new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }).ignoreEvent(), false);
+});
+
+test("a task widget after an edit above it toggles the shifted source marker", () => {
+  const doc = "- [ ] task\n[[Known]]\nend";
+  let state = stateOf(doc, doc.length, { extensions: livePreview() });
+  state = state.update({ changes: { from: 0, insert: "intro\n" }, selection: { anchor: doc.length + 6 } }).state;
+  const tasks: { from: number; to: number }[] = [];
+  rendered(state).set.between(0, state.doc.length, (from, to, deco) => {
+    if ((deco.spec.widget as LivePreviewWidget | undefined)?.kind.kind === "task") tasks.push({ from, to });
+  });
+  assert.deepEqual(tasks, [{ from: 6, to: 11 }]);
+  state = state.update(toggleTaskAt(state, tasks[0].to - 2)!).state;
+  assert.equal(state.doc.toString(), "intro\n- [x] task\n[[Known]]\nend");
 });
