@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -526,5 +527,43 @@ func TestRaw(t *testing.T) {
 	res = a.get(api("notes", "raw", "missing.png")).want(t, 404)
 	if res.Header.Get("Content-Type") != "application/problem+json" || res.Header.Get("Cache-Control") != "no-store" {
 		t.Errorf("error answer: %q, Cache-Control %q; want a problem document that is not stored", res.Header.Get("Content-Type"), res.Header.Get("Cache-Control"))
+	}
+}
+
+// raw gets the content type of an image from imageTypes, and what is an image
+// from vault.IsAsset: the two have to list the same extensions.
+func TestImageTypesMatchAssets(t *testing.T) {
+	for _, ext := range []string{
+		".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp", ".tif", ".tiff",
+		".heic", ".heif", ".ico", ".apng", ".jxl", ".md", ".txt", "",
+	} {
+		for _, name := range []string{"a" + ext, "a" + strings.ToUpper(ext)} {
+			if _, typed := imageTypes[strings.ToLower(path.Ext(name))]; typed != vault.IsAsset(name) {
+				t.Errorf("%s: has a content type %v, vault.IsAsset %v; want the same", name, typed, vault.IsAsset(name))
+			}
+		}
+	}
+	for ext := range imageTypes {
+		if !vault.IsAsset("a" + ext) {
+			t.Errorf("imageTypes has %s, which vault.IsAsset does not take for an image", ext)
+		}
+	}
+}
+
+// What vault.IsAsset takes for an image but has no content type would be sent
+// with none, and its bytes sniffed for one: it is refused instead.
+func TestRawRefusesAnImageWithoutAType(t *testing.T) {
+	a := newApp(t)
+	a.seed("notes", "pic.avif", "SECRET-PIXELS")
+	a.get(api("notes", "raw", "pic.avif")).want(t, 200)
+
+	// The two lists drift apart: .avif is an asset with no type.
+	saved := imageTypes[".avif"]
+	delete(imageTypes, ".avif")
+	t.Cleanup(func() { imageTypes[".avif"] = saved })
+
+	res := a.get(api("notes", "raw", "pic.avif")).want(t, 400)
+	if res.Header.Get("Content-Type") != "application/problem+json" || !strings.Contains(res.Body, "invalid path") || strings.Contains(res.Body, "SECRET-PIXELS") {
+		t.Errorf("answer = %s %q, want the problem document of an invalid path and no bytes of the file", res.Header.Get("Content-Type"), res.Body)
 	}
 }

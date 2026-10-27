@@ -60,7 +60,8 @@ func newApp(t *testing.T, tweaks ...func(*appConfig)) *app {
 	a := &app{t: t, dirs: map[string]string{"notes": t.TempDir(), "work": t.TempDir()}}
 	var vaults []*vault.Vault
 	for _, name := range []string{"notes", "work"} {
-		v, err := vault.Open(name, a.dirs[name], vault.Options{})
+		// The vaults are opened as main opens them: read-only when the instance is.
+		v, err := vault.Open(name, a.dirs[name], vault.Options{ReadOnly: config.options.ReadOnly})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -575,6 +576,24 @@ func TestGuard(t *testing.T) {
 			}
 			if disk := a.onDisk("notes", "a.md"); disk != original {
 				t.Errorf("a.md on disk = %q, want it untouched", disk)
+			}
+			if _, err := os.Stat(filepath.Join(a.dirs["notes"], "x")); err == nil {
+				t.Errorf("a folder was made")
+			}
+		})
+	}
+
+	// The guard judges the path as it was sent. A path that is not clean never
+	// reaches a handler as it is: the mux answers it with a redirect first, and
+	// that is all that keeps //api/... and /./api/... (which do not start with
+	// /api/) from being served without the guard having looked at them. These
+	// pin that nothing dispatches them: a router that cleaned the path itself
+	// would run the handler, and make the folder, without the header.
+	for _, path := range []string{"//api/vaults/notes/folders", "/./api/vaults/notes/folders"} {
+		t.Run("unclean path "+path, func(t *testing.T) {
+			res := a.do("POST", path, `{"path":"x"}`, with(mutating, "X-Notebook", "")).want(t, http.StatusMovedPermanently)
+			if got := res.Header.Get("Location"); got != "/api/vaults/notes/folders" {
+				t.Errorf("Location = %q, want the clean path", got)
 			}
 			if _, err := os.Stat(filepath.Join(a.dirs["notes"], "x")); err == nil {
 				t.Errorf("a folder was made")

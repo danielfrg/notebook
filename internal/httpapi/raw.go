@@ -41,8 +41,17 @@ func raw(reg *vault.Registry) http.HandlerFunc {
 			return
 		}
 		defer f.Close()
+		// OpenAsset has taken p for an image, which means that it has a type here
+		// too, as long as imageTypes and vault.IsAsset list the same extensions. If
+		// they ever do not, a file sent with no type would have its bytes sniffed
+		// for one, so it is refused.
+		contentType, ok := imageTypes[strings.ToLower(path.Ext(p))]
+		if !ok {
+			writeProblem(w, problem(vault.ErrInvalidPath))
+			return
+		}
 		h := w.Header()
-		h.Set("Content-Type", imageTypes[strings.ToLower(path.Ext(p))])
+		h.Set("Content-Type", contentType)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Content-Security-Policy", "sandbox")
 		h.Set("Cache-Control", "no-cache") // an image is stored, and asked about each time
