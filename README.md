@@ -62,7 +62,11 @@ Live Preview; remote images remain links. Tables remain Markdown text.
 ### MCP
 
 Agents can read notes through the MCP endpoint at `/mcp` (Streamable HTTP).
-Tools: `list_vaults`, `list_notes`, `get_note`, and `search_notes`.
+Tools: `list_vaults`, `list_tags`, `list_notes`, `get_note`, and `search_notes`.
+`list_tags` returns the tags used by visible notes and per-tag note counts.
+`search_notes` accepts an optional `tag` alongside its keyword query, so an
+agent can narrow a text search to a topic; nested tags count (for example,
+`project` matches `project/alpha`).
 
 The write tools `create_note`, `update_note`, and `append_to_note` exist only with
 `NOTEBOOK_MCP_WRITE=true`, and never in read-only mode. Hide paths from every MCP

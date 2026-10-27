@@ -88,6 +88,21 @@ type SearchInput struct {
 	Paging
 	Query string `json:"query" jsonschema:"Words, and \"quoted phrases\"; every one has to match, in the path or the text"`
 	Vault string `json:"vault,omitempty" jsonschema:"Name of the vault to search; all of them if left out"`
+	Tag   string `json:"tag,omitempty" jsonschema:"Only notes with this tag; nested tags count, for example project matches project/alpha"`
+}
+
+type ListTagsInput struct {
+	Vault string `json:"vault,omitempty" jsonschema:"Name of the vault; all of them if left out"`
+}
+
+type TagCount struct {
+	Vault string `json:"vault"`
+	Tag   string `json:"tag"`
+	Notes int    `json:"notes" jsonschema:"Number of visible notes with this tag"`
+}
+
+type ListTagsOutput struct {
+	Tags []TagCount `json:"tags" jsonschema:"Tags in alphabetical order, grouped by vault"`
 }
 
 type Hit struct {
@@ -254,6 +269,37 @@ func hasTag(tags []string, tag string) bool {
 	})
 }
 
+func (t *tools) listTags(ctx context.Context, _ *sdk.CallToolRequest, in ListTagsInput) (*sdk.CallToolResult, ListTagsOutput, error) {
+	out := ListTagsOutput{Tags: []TagCount{}}
+	scopes := t.scopes()
+	if in.Vault != "" {
+		s, err := t.scope(in.Vault)
+		if err != nil {
+			return nil, out, safeError(err)
+		}
+		scopes = []scope{s}
+	}
+	for _, s := range scopes {
+		counts := map[string]int{}
+		notes, err := s.Notes(ctx)
+		if err != nil {
+			return nil, out, safeError(err)
+		}
+		for _, n := range notes {
+			for _, tag := range n.Tags {
+				counts[tag]++
+			}
+		}
+		for tag, count := range counts {
+			out.Tags = append(out.Tags, TagCount{Vault: s.Name(), Tag: tag, Notes: count})
+		}
+	}
+	slices.SortFunc(out.Tags, func(a, b TagCount) int {
+		return cmp.Or(strings.Compare(strings.ToLower(a.Vault), strings.ToLower(b.Vault)), strings.Compare(strings.ToLower(a.Tag), strings.ToLower(b.Tag)), strings.Compare(a.Tag, b.Tag))
+	})
+	return nil, out, nil
+}
+
 func (t *tools) getNote(_ context.Context, _ *sdk.CallToolRequest, in NoteInput) (*sdk.CallToolResult, Note, error) {
 	return t.onNote(in.Vault, func(s scope) (vault.Note, error) { return s.Read(in.Path) })
 }
@@ -282,7 +328,23 @@ func (t *tools) searchNotes(ctx context.Context, _ *sdk.CallToolRequest, in Sear
 		if err != nil {
 			return nil, out, safeError(err)
 		}
+		allowed := map[string]bool(nil)
+		if in.Tag != "" {
+			allowed = map[string]bool{}
+			notes, err := s.Notes(ctx)
+			if err != nil {
+				return nil, out, safeError(err)
+			}
+			for _, n := range notes {
+				if hasTag(n.Tags, in.Tag) {
+					allowed[n.Path] = true
+				}
+			}
+		}
 		for _, h := range hits {
+			if allowed != nil && !allowed[h.Path] {
+				continue
+			}
 			all = append(all, found{s.Name(), h})
 		}
 	}
@@ -352,6 +414,12 @@ func NewHandler(reg *vault.Registry, options Options, hosts []string) http.Handl
 		Annotations: annotation(true),
 	}, t.listVaults)
 	sdk.AddTool(server, &sdk.Tool{
+		Name: "list_tags",
+		Description: "List the tags used by visible notes and how many notes use each tag. Searches every vault unless vault is given. " +
+			"Tags come from frontmatter and inline #tags; a changed note may take a couple of seconds to show.",
+		Annotations: annotation(true),
+	}, t.listTags)
+	sdk.AddTool(server, &sdk.Tool{
 		Name: "list_notes",
 		Description: "List the notes of a vault, newest first, with their tags. folder limits the list to a folder and the folders in it, " +
 			"and tag to the notes with that tag (nested tags count: project matches project/alpha). " +
@@ -366,7 +434,7 @@ func NewHandler(reg *vault.Registry, options Options, hosts []string) http.Handl
 	}, t.getNote)
 	sdk.AddTool(server, &sdk.Tool{
 		Name: "search_notes",
-		Description: "Search the notes for words and \"quoted phrases\"; all of them must match, in the path or the text, ignoring case and accents. " +
+		Description: "Search the notes for words and \"quoted phrases\"; all of them must match, in the path or the text, ignoring case and accents. Optional tag narrows results to notes with that tag; nested tags count. " +
 			"Best matches first, with the first lines that match. Searches every vault unless vault is given. " +
 			"A note changed in the last couple of seconds may not show yet.",
 		Annotations: annotation(true),
