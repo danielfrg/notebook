@@ -1,0 +1,115 @@
+# Notebook
+
+A Markdown notes app for Obsidian-style vaults. Ready for self-hosting.
+
+Read and edit your notes from a browser with a Live Preview editor, and let agents
+read them over MCP. Your `.md` files stay the source of truth: every edit is
+written straight back to them, and text you did not touch is never rewritten.
+
+![Notebook](docs/screenshots/homepage.png)
+
+## Installation
+
+### Docker
+
+```zsh
+docker run -it \
+  -p 127.0.0.1:8080:8080 \
+  -v ~/notes:/vaults/notes \
+  -e NOTEBOOK_VAULTS=notes=/vaults/notes \
+  ghcr.io/danielfrg/notebook:latest
+```
+
+- Open [http://localhost:8080](http://localhost:8080)
+- The container runs as UID/GID 65532, which needs write access to the mounted vault
+
+Published images support Linux AMD64 and ARM64. `latest` tracks `main`.
+
+### Standalone
+
+Build a single executable with `just build` (see [Development](#development)),
+then run:
+
+```zsh
+NOTEBOOK_VAULTS=notes=$HOME/notes ./notebook
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080).
+
+## Usage
+
+A vault is a folder of Markdown notes. List one or more in `NOTEBOOK_VAULTS` as
+`name=/path`, separated by commas. A name starts with a lowercase letter or digit,
+may also contain `_` and `-`, and is at most 32 characters.
+
+Live Preview hides Markdown markers except where the cursor is; `Mod-e` switches
+to Source mode. Changes save automatically, and a note that changed on disk in the
+meantime shows a conflict instead of being overwritten. API documentation is at
+`/api/docs`.
+
+### MCP
+
+Agents can read notes through the MCP endpoint at `/mcp` (Streamable HTTP).
+Tools: `list_vaults`, `list_notes`, `get_note`, and `search_notes`.
+
+The write tools `create_note`, `update_note`, and `append_to_note` exist only with
+`NOTEBOOK_MCP_WRITE=true`, and never in read-only mode. Hide paths from every MCP
+tool with `NOTEBOOK_MCP_EXCLUDE`, for example `notes:transcripts,notes:Private/**`.
+
+MCP only accepts requests addressed to localhost. Behind a proxy, set
+`NOTEBOOK_MCP_ALLOWED_HOSTS` to your public hostname.
+
+### Security
+
+There is no authentication: anyone who can reach the service can read and edit every
+vault, so run it on a trusted network or behind an authenticated proxy.
+
+## Configuration
+
+| Variable                     | Default                                         |
+| ---------------------------- | ----------------------------------------------- |
+| `NOTEBOOK_ADDR`              | `127.0.0.1:8080`                                |
+| `NOTEBOOK_VAULTS`            | required: `name=/path` entries, comma separated |
+| `NOTEBOOK_READONLY`          | `false`                                         |
+| `NOTEBOOK_MCP_WRITE`         | `false`                                         |
+| `NOTEBOOK_MCP_EXCLUDE`       | unset (MCP can read every visible note)         |
+| `NOTEBOOK_MCP_ALLOWED_HOSTS` | unset (MCP allows localhost only)               |
+| `NOTEBOOK_API_TARGET`        | `http://127.0.0.1:8080` (frontend dev proxy)    |
+
+Liveness is `/healthz`; readiness is `/readyz`.
+
+## Development
+
+Requires Go 1.25, Node 26, pnpm 10, and just.
+
+Create a local configuration and vault once:
+
+```zsh
+cp .env.example .env
+mkdir -p vaults/notes
+```
+
+Start the API and Frontend in two terminals:
+
+```zsh
+# Terminal 1:
+just install
+just api
+
+# Terminal 2:
+just frontend
+```
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Vite proxies API requests
+to the Go server. Run `just check` before sending changes. See `AGENTS.md` for
+project structure and conventions.
+
+## Build
+
+```zsh
+just build
+```
+
+```zsh
+just image-check
+```

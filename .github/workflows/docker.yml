@@ -1,0 +1,144 @@
+name: Docker
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.25.14'
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: '10.28.0'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Check and build embedded server
+        run: |
+          pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend test
+          pnpm --dir frontend check
+          pnpm --dir frontend build
+          cp -R frontend/dist/. internal/web/dist/
+          test -s internal/web/dist/index.html
+          go test -race ./... -count=1
+          go vet ./...
+          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o notebook ./cmd/notebook
+
+  container:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: notebook:smoke
+          build-args: VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=smoke-${{ matrix.arch }}
+          cache-to: type=gha,scope=smoke-${{ matrix.arch }},mode=max
+      - name: Verify container and persistent data
+        run: bash scripts/container-smoke.sh notebook:smoke
+
+  publish:
+    needs: [checks, container]
+    if: >-
+      github.repository == 'danielfrg/notebook' &&
+      ((github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: publish-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Validate publication ref
+        id: ref
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          if [[ "$RELEASE_REF" == refs/tags/* ]]; then
+            version="${RELEASE_REF#refs/tags/}"
+            [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+            git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          elif [[ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$RELEASE_SHA" ]]; then
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'current=true' >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.ref.outputs.current == 'true'
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        if: steps.ref.outputs.current == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        if: steps.ref.outputs.current == 'true'
+        id: meta
+        with:
+          images: ghcr.io/danielfrg/notebook
+          flavor: latest=false
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        if: steps.ref.outputs.current == 'true'
+        id: image
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=publish
+          cache-to: type=gha,scope=publish,mode=max
+      - name: Record published image
+        if: steps.ref.outputs.current == 'true'
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          printf 'Image: `ghcr.io/danielfrg/notebook@%s`\n\nTags:\n```\n%s\n```\n' "$IMAGE_DIGEST" "$IMAGE_TAGS" >> "$GITHUB_STEP_SUMMARY"
