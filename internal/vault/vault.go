@@ -51,7 +51,8 @@ type Vault struct {
 	dir      string
 	root     *os.Root
 	readOnly bool
-	mu       sync.Mutex // serializes changes (writes, creations, moves, trashing), so checking and changing are one step
+	mu       sync.Mutex  // serializes changes (writes, creations, moves, trashing), so checking and changing are one step
+	search   searchCache // in-memory snapshot of the notes that Search and Notes work on, see cache.go
 }
 
 // Open opens the directory dir as a vault called name. The name must match
