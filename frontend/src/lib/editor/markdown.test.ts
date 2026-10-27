@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, pasteURLAsLink } from "@codemirror/lang-markdown";
 import { ensureSyntaxTree } from "@codemirror/language";
-import { EditorState, type ChangeSpec } from "@codemirror/state";
+import { EditorState, type ChangeSpec, type Extension } from "@codemirror/state";
 import type { Tree } from "@lezer/common";
 import { getStyleTags, tagHighlighter, tags, type Tag } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
-import { NodeName, NodeTag, notebookMarkdown } from "./markdown.ts";
+import { NodeName, NodeTag, notebookMarkdown, pasteLink, pasteLinkHandler } from "./markdown.ts";
 
 const BOM = "\uFEFF";
 const notebook = notebookMarkdown();
@@ -244,4 +244,79 @@ test("GFM parses as it does in CodeMirror's Markdown with GFM", () => {
     assert.deepEqual(nodes, outline(gfm.parse(text)), text);
     assert.ok(nodes.some((each) => each.startsWith(node + " ")), `${text} has a ${node}`);
   }
+});
+
+/** An editor state with the note's Markdown and from..to selected, its line breaks LF or CRLF. */
+function pasteState(doc: string, from: number, to: number, crlf: boolean, extensions: Extension = []): EditorState {
+  return EditorState.create({
+    doc: crlf ? doc.replaceAll("\n", "\r\n") : doc,
+    selection: { anchor: from, head: to },
+    extensions: [notebook, crlf ? EditorState.lineSeparator.of("\r\n") : [], extensions],
+  });
+}
+
+test("a URL pasted over plain text makes it a link, and brings no line break", () => {
+  for (const crlf of [false, true]) {
+    const lineBreak = crlf ? "\r\n" : "\n";
+    const state = pasteState("see word here\nnext\n", 4, 8, crlf);
+    const paste = (text: string) => {
+      const spec = pasteLink(state, text);
+      assert.ok(spec, `${JSON.stringify(text)}${crlf ? " in CRLF" : ""}`);
+      return state.update(spec).state.sliceDoc(0);
+    };
+    // Copied with or without white space and line breaks around it, the URL is the same.
+    for (const text of ["https://example.com", "https://example.com\n", "https://example.com\r\n", "  https://example.com  ", "\thttps://example.com\n\n"]) {
+      const pasted = paste(text);
+      assert.equal(pasted, `see [word](https://example.com) here${lineBreak}next${lineBreak}`, JSON.stringify(text));
+      // Every line break is the document's: no bare LF in a CRLF note, no CR in an LF one.
+      assert.doesNotMatch(crlf ? pasted.replaceAll("\r\n", "") : pasted, crlf ? /[\r\n]/ : /\r/, JSON.stringify(text));
+    }
+    assert.equal(paste("www.example.com"), `see [word](https://www.example.com) here${lineBreak}next${lineBreak}`);
+    assert.equal(paste("mailto:a@b.c"), `see [word](mailto:a@b.c) here${lineBreak}next${lineBreak}`);
+    // Plain text inside emphasis is plain text still, as long as no mark touches the selection.
+    const emphasis = pasteState("a *some word* b\n", 4, 7, crlf);
+    assert.equal(emphasis.update(pasteLink(emphasis, "https://e.com") ?? {}).state.sliceDoc(0), `a *s[ome](https://e.com) word* b${lineBreak}`);
+  }
+});
+
+test("any other paste is left to CodeMirror's, which gives line breaks the document's", () => {
+  for (const crlf of [false, true]) {
+    const plain = pasteState("see word here\nnext\n", 4, 8, crlf);
+    // Not one URL: two words, two lines, nothing, no link target.
+    for (const text of ["https://a.com b", "https://a.com\nhttps://b.com", "https://a.com\r\nnext", "", "  ", "not a url", "example.com", "ftp://a.com"]) {
+      assert.equal(pasteLink(plain, text), null, JSON.stringify(text));
+    }
+    assert.equal(pasteLink(pasteState("see word here\n", 4, 4, crlf), "https://example.com"), null, "no selection");
+    assert.equal(
+      pasteLink(pasteState("see word here\n", 4, 8, crlf, EditorState.readOnly.of(true)), "https://example.com"),
+      null,
+      "read-only",
+    );
+    // A selection that is no plain text, or that a node starts or ends in.
+    for (const [doc, selected] of [
+      ["a [word](x) b\n", "word"],
+      ["a `word` b\n", "word"],
+      ["```\nword\n```\n", "word"],
+      ["a [[word]] b\n", "word"],
+      ["a ![[word.png]] b\n", "word"],
+      ["a #word b\n", "word"],
+      ["---\ntitle: word\n---\nbody\n", "word"],
+      ["a *word* b\n", "word"], // its marks touch it
+      ["one **two** three\n", "one **two"],
+      ["see https://e.com here\n", "e.com"],
+      ["ab\n\ncd\n", "b\n"], // a paragraph ends inside it
+      ["ab\n\ncd\n", "\nc"], // a paragraph starts inside it
+    ]) {
+      const from = doc.indexOf(selected);
+      const state = pasteState(doc, from, from + selected.length, crlf);
+      assert.equal(pasteLink(state, "https://example.com"), null, JSON.stringify([doc, selected]));
+    }
+  }
+});
+
+test("the note's Markdown pastes links with its own handler, not with lang-markdown's", () => {
+  const flat = (extension: Extension): unknown[] => (Array.isArray(extension) ? extension.flatMap(flat) : [extension]);
+  const support = flat(notebookMarkdown().support);
+  assert.ok(support.includes(pasteLinkHandler));
+  assert.ok(!support.includes(pasteURLAsLink));
 });

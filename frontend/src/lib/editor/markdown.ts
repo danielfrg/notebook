@@ -1,5 +1,7 @@
-import { markdown } from "@codemirror/lang-markdown";
-import { Language, LanguageSupport } from "@codemirror/language";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { Language, LanguageSupport, syntaxTree } from "@codemirror/language";
+import type { EditorState, Extension, TransactionSpec } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { Parser, TreeFragment, type Input, type PartialParse } from "@lezer/common";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM, type BlockParser, type InlineParser, type MarkdownConfig, type MarkdownParser } from "@lezer/markdown";
@@ -248,10 +250,73 @@ class NotebookParser extends Parser {
   }
 }
 
-/** Markdown for notes: CodeMirror's Markdown support with GFM and Obsidian's syntax. */
+/** How the text of a URL that a paste makes a link of starts, as for lang-markdown's pasteURLAsLink. */
+const LINK_TARGET = /^(?:https?:\/\/|mailto:|xmpp:|www\.)/;
+
+/**
+ * The nodes whose text is no plain text, which a pasted URL does not make a
+ * link of: lang-markdown's list, and frontmatter and tags (wikilinks and
+ * embeds match "link").
+ */
+const NOT_PLAIN_TEXT = /code|horizontalrule|html|link|comment|processing|escape|entity|image|mark|url|frontmatter|tag/i;
+
+/**
+ * What pasting text does when it is one URL and the main selection is plain
+ * text: [selection](url), as in Obsidian. It mirrors lang-markdown's
+ * pasteURLAsLink, with two differences. The text is trimmed first and then has
+ * to be one word, so a URL copied with a line break after it brings none (a
+ * string insert would keep a bare LF in a CRLF note). And a read-only state
+ * gets nothing. Null in every other case, which leaves the paste to
+ * CodeMirror, whose clipboard filters give line breaks the document's.
+ */
+export function pasteLink(state: EditorState, text: string): TransactionSpec | null {
+  const { main } = state.selection;
+  if (state.readOnly || main.empty) return null;
+  let url = text.trim();
+  if (!/^\S+$/.test(url) || !LINK_TARGET.test(url)) return null;
+  if (url.startsWith("www.")) url = `https://${url}`;
+  if (!markdownLanguage.isActiveAt(state, main.from, 1)) return null;
+  // No node starts or ends inside the selection, and none around it is anything but plain text.
+  let plain = true;
+  syntaxTree(state).iterate({
+    from: main.from,
+    to: main.to,
+    enter: (node) => {
+      if (node.from > main.from || NOT_PLAIN_TEXT.test(node.name)) plain = false;
+    },
+    leave: (node) => {
+      if (node.to < main.to) plain = false;
+    },
+  });
+  if (!plain) return null;
+  return {
+    changes: [
+      { from: main.from, insert: "[" },
+      { from: main.to, insert: `](${url})` },
+    ],
+    userEvent: "input.paste",
+    scrollIntoView: true,
+  };
+}
+
+/** Pastes a URL over a selection as a link (pasteLink); any other paste goes on to CodeMirror. */
+export const pasteLinkHandler: Extension = EditorView.domEventHandlers({
+  paste(event, view) {
+    const spec = pasteLink(view.state, event.clipboardData?.getData("text/plain") ?? "");
+    if (spec === null) return false;
+    view.dispatch(spec);
+    return true;
+  },
+});
+
+/**
+ * Markdown for notes: CodeMirror's Markdown support with GFM and Obsidian's
+ * syntax. lang-markdown's own pasteURLAsLink is off, in favour of
+ * pasteLinkHandler.
+ */
 export function notebookMarkdown(): LanguageSupport {
-  const { language, support } = markdown({ extensions: [GFM, obsidian] });
+  const { language, support } = markdown({ extensions: [GFM, obsidian], pasteURLAsLink: false });
   const withFrontmatter = language.parser as MarkdownParser;
   const parser = new NotebookParser(withFrontmatter, withFrontmatter.configure({ remove: [frontmatter.name] }));
-  return new LanguageSupport(new Language(language.data, parser, [], language.name), support);
+  return new LanguageSupport(new Language(language.data, parser, [], language.name), [support, pasteLinkHandler]);
 }
