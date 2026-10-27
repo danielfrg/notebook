@@ -45,7 +45,7 @@ func mcpTools(t *testing.T, a *app) []string {
 // The MCP tools that change notes are there when NOTEBOOK_MCP_WRITE says so and
 // the instance is not read-only: read-only wins.
 func TestMCPWriteToolsFollowReadOnly(t *testing.T) {
-	read := []string{"get_note", "list_notes", "list_vaults", "search_notes"}
+	read := []string{"get_note", "list_notes", "list_tags", "list_vaults", "search_notes"}
 	all := slices.Concat([]string{"append_to_note", "create_note"}, read, []string{"update_note"})
 	for _, tc := range []struct {
 		name    string
