@@ -19,3 +19,133 @@
     animation: none !important;
   }
 }
+
+/*
+ * Live Preview. The nb-* classes below come from lib/editor/livePreview.ts:
+ * line classes on .cm-line elements, the others on spans of text. Markers that
+ * Live Preview hides are not in the DOM; the ones it shows (on the element or
+ * line the cursor touches) keep the look of the text around them. Tokens only.
+ */
+.nb-editor .cm-line:is(.nb-h1, .nb-h2, .nb-h3, .nb-h4, .nb-h5, .nb-h6) {
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+}
+
+.nb-editor .cm-line.nb-h1 {
+  padding-top: 0.4em;
+  font-size: 1.75em;
+}
+
+.nb-editor .cm-line.nb-h2 {
+  padding-top: 0.3em;
+  font-size: 1.45em;
+}
+
+.nb-editor .cm-line.nb-h3 {
+  padding-top: 0.2em;
+  font-size: 1.25em;
+}
+
+.nb-editor .cm-line.nb-h4 {
+  font-size: 1.1em;
+}
+
+.nb-editor .cm-line.nb-h5 {
+  font-size: 1em;
+}
+
+.nb-editor .cm-line.nb-h6 {
+  font-size: 0.95em;
+  color: var(--text-secondary);
+}
+
+.nb-editor .nb-strong {
+  font-weight: var(--font-weight-bold);
+}
+
+.nb-editor .nb-em {
+  font-style: italic;
+}
+
+.nb-editor .nb-strike {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.nb-editor .nb-highlight {
+  background-color: var(--nb-highlight);
+  border-radius: var(--radius-sm);
+}
+
+.nb-editor .nb-code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-inset);
+  font-family: var(--nb-editor-mono);
+  font-size: 0.9em;
+}
+
+.nb-editor :is(.nb-link, .nb-url) {
+  color: var(--nb-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--nb-accent) 40%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.nb-editor .nb-wikilink {
+  color: var(--nb-accent);
+  cursor: pointer;
+}
+
+.nb-editor .nb-wikilink-unresolved {
+  color: color-mix(in srgb, var(--nb-accent) 60%, transparent);
+  text-decoration: underline dashed;
+  text-underline-offset: 0.2em;
+}
+
+.nb-editor .nb-tag {
+  padding: 0 0.3em;
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--accent-purple) 14%, transparent);
+  color: var(--accent-purple);
+}
+
+.nb-editor .cm-line.nb-quote {
+  padding-left: calc(var(--space-5) + 6px);
+  border-left: 3px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+/* A hanging indent: the lines of a wrapped item start under its text, not under its marker. */
+.nb-editor .cm-line.nb-list {
+  padding-left: calc(var(--nb-list-indent, 0) * 1ch + 6px);
+  text-indent: calc(var(--nb-list-indent, 0) * -1ch);
+}
+
+.nb-editor .cm-line.nb-quote.nb-list {
+  padding-left: calc(var(--nb-list-indent, 0) * 1ch + var(--space-5) + 6px);
+}
+
+.nb-editor .cm-line:is(.nb-codeblock, .nb-table, .nb-frontmatter) {
+  font-family: var(--nb-editor-mono);
+  font-size: 0.9em;
+}
+
+.nb-editor .cm-line.nb-codeblock {
+  padding-inline: var(--space-5);
+  background-color: var(--bg-inset);
+}
+
+.nb-editor .cm-line.nb-codeblock-first {
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.nb-editor .cm-line.nb-codeblock-last {
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.nb-editor .cm-line:is(.nb-frontmatter, .nb-comment-line) {
+  color: var(--text-muted);
+}
