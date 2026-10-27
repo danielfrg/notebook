@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"slices"
 	"time"
 )
@@ -22,7 +23,9 @@ type Entry struct {
 
 // Listing is everything a vault shows. Paths are slash-separated, relative to
 // the vault and sorted by byte order, and all of them pass CleanPath, so every
-// entry can be opened. The slices are never nil.
+// path is valid for the API. That does not make every note readable: one over
+// 2 MiB or not UTF-8 is listed and refused when it is opened. The slices are
+// never nil.
 type Listing struct {
 	Notes   []Entry
 	Assets  []Entry
@@ -32,70 +35,27 @@ type Listing struct {
 	Fingerprint string
 }
 
-// List walks the vault and lists only what the API can serve: regular files
-// that are notes (*.md) or images, and folders, even empty ones. Hidden names,
-// other names CleanPath rejects (a backslash, control characters, invalid
-// UTF-8, a name over 255 bytes, a path over 512) and symlinks are never listed
-// or followed, and nothing is listed beneath a skipped folder.
+// List walks the vault and lists the regular files that are notes (*.md) or
+// images, and the folders, even empty ones. Hidden names, other names CleanPath
+// rejects (a backslash, control characters, invalid UTF-8, a name over 255
+// bytes, a path over 512) and symlinks are never listed or followed, and
+// nothing is listed beneath a skipped folder, so every listed path is valid for
+// the API (it passes CleanPath).
 func (v *Vault) List(ctx context.Context) (Listing, error) {
-	// A walk of a deleted vault directory succeeds with nothing in it.
-	if err := v.Ping(); err != nil {
-		return Listing{}, err
-	}
 	list := Listing{Notes: []Entry{}, Assets: []Entry{}, Folders: []string{}}
-	err := fs.WalkDir(v.root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
-		if cerr := ctx.Err(); cerr != nil {
-			return cerr
-		}
-		if err != nil {
-			// Sync tools remove entries while we walk, and a folder this process
-			// may not read (lost+found) should not make the rest of the vault
-			// unlistable. The vault directory itself must be readable.
-			if p != "." && (errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission)) {
-				return nil
-			}
-			return err
-		}
-		if p == "." {
-			return nil
-		}
-		// Hidden names, and names the API could not serve, are not listed, and
-		// neither is anything beneath a folder that has one. A file must return
-		// nil: SkipDir for a file would skip its siblings.
-		if _, cerr := CleanPath(p); cerr != nil {
-			if d.IsDir() {
-				return fs.SkipDir
+	err := v.walk(ctx,
+		func(p string) { list.Folders = append(list.Folders, p) },
+		func(_ *os.Root, files []walkedFile) error {
+			for _, f := range files {
+				entry := Entry{Path: f.path, Size: f.info.Size(), Modified: f.info.ModTime()}
+				if IsNote(f.path) {
+					list.Notes = append(list.Notes, entry)
+				} else {
+					list.Assets = append(list.Assets, entry)
+				}
 			}
 			return nil
-		}
-		if d.IsDir() {
-			list.Folders = append(list.Folders, p)
-			return nil
-		}
-		isNote := IsNote(p)
-		if !isNote && !IsAsset(p) {
-			return nil
-		}
-		// Root.Lstat rather than d.Info(): Info is a plain lstat of the path and
-		// would leave the root.
-		info, err := v.root.Lstat(p)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() {
-			return nil // a symlink (Lstat reports the link itself), pipe, socket or device
-		}
-		entry := Entry{Path: p, Size: info.Size(), Modified: info.ModTime()}
-		if isNote {
-			list.Notes = append(list.Notes, entry)
-		} else {
-			list.Assets = append(list.Assets, entry)
-		}
-		return nil
-	})
+		})
 	if err != nil {
 		return Listing{}, err
 	}
@@ -105,6 +65,156 @@ func (v *Vault) List(ctx context.Context) (Listing, error) {
 	slices.Sort(list.Folders)
 	list.Fingerprint = list.fingerprint()
 	return list, nil
+}
+
+// walkedFile is a note or an image that walk found.
+type walkedFile struct {
+	path string      // slash-separated, relative to the vault, passes CleanPath
+	name string      // the last element of path: what the root of its folder calls it
+	info fs.FileInfo // from Lstat, so the file is a regular file and not a link
+}
+
+// walk finds what List lists, by walking the vault depth first with the names
+// in each folder in byte order, and reports it to its callbacks. folder, which
+// may be nil, is called with the path of each folder. files is called once for
+// each folder that holds notes or images, after the folders in it have been
+// walked, with those files in name order and the os.Root of their folder, which
+// is open until files returns and can be used to read them.
+//
+// Every folder is opened as an os.Root of its own, and the files in it are looked
+// at through that root. A Root re-opens every folder on the way to the file on
+// each call, so a stat of a note three folders deep through the vault's root
+// costs about 150 microseconds on a Mac (the 5,000 notes of a large vault take
+// 750 ms), against about 10 for a name in the root of its own folder. A folder
+// is entered with the root of its parent, so that nothing leaves the vault.
+// fs.DirEntry.Info would leave it: it is a plain lstat of the path.
+//
+// What goes away while the walk is under way (sync tools rename and delete all
+// the time) is skipped, and so is a folder this process may not open, which is
+// still listed; the vault directory itself must be readable.
+func (v *Vault) walk(ctx context.Context, folder func(p string), files func(dir *os.Root, files []walkedFile) error) error {
+	// A walk of a deleted vault directory succeeds with nothing in it.
+	if err := v.Ping(); err != nil {
+		return err
+	}
+	// Each entry the walk visits is a check of the context, the vault directory
+	// being the first.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	w := walker{ctx: ctx, folder: folder, files: files}
+	return w.dir(v.root, "")
+}
+
+type walker struct {
+	ctx    context.Context
+	folder func(p string)
+	files  func(dir *os.Root, files []walkedFile) error
+}
+
+func (w *walker) listFolder(p string) {
+	if w.folder != nil {
+		w.folder(p)
+	}
+}
+
+// dir walks the folder that root is open on, which is at dirPath, or "" for the
+// vault directory.
+func (w *walker) dir(root *os.Root, dirPath string) error {
+	entries, err := fs.ReadDir(root.FS(), ".")
+	if dirPath != "" {
+		// A folder this process may not read (a root-owned lost+found at the top
+		// of a mounted disk) must not make the rest of the vault unlistable.
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			return nil
+		case errors.Is(err, fs.ErrPermission):
+			w.listFolder(dirPath)
+			return nil
+		}
+	}
+	if err != nil {
+		return err
+	}
+	if dirPath != "" {
+		w.listFolder(dirPath)
+	}
+
+	var found []walkedFile
+	for _, e := range entries {
+		if err := w.ctx.Err(); err != nil {
+			return err
+		}
+		name := e.Name()
+		p := name
+		if dirPath != "" {
+			p = dirPath + "/" + name
+		}
+		// Hidden names, and names the API could not serve, are not listed, and
+		// neither is anything beneath a folder that has one.
+		if _, err := CleanPath(p); err != nil {
+			continue
+		}
+		if e.IsDir() {
+			if err := w.enter(root, name, p); err != nil {
+				return err
+			}
+			continue
+		}
+		if !IsNote(p) && !IsAsset(p) {
+			continue
+		}
+		info, err := root.Lstat(name)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			continue // removed since the folder was read
+		case errors.Is(err, fs.ErrPermission):
+			continue // a folder that can be read but not searched (mode 0o444)
+		case err != nil:
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			continue // a symlink (Lstat reports the link itself), pipe, socket or device
+		}
+		found = append(found, walkedFile{path: p, name: name, info: info})
+	}
+	if len(found) == 0 {
+		return nil
+	}
+	return w.files(root, found)
+}
+
+// enter walks the folder called name in parent, which is at p.
+func (w *walker) enter(parent *os.Root, name, p string) error {
+	child, err := parent.OpenRoot(name)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil // removed since parent was read
+	case errors.Is(err, fs.ErrPermission):
+		w.listFolder(p) // it is there, but this process may not open it
+		return nil
+	case err != nil:
+		return err
+	}
+	defer child.Close()
+
+	opened, err := child.Stat(".")
+	switch {
+	case errors.Is(err, fs.ErrPermission):
+		w.listFolder(p) // it can be opened but not searched (mode 0o444): nothing in it can be looked at
+		return nil
+	case err != nil:
+		return err
+	}
+	// OpenRoot follows a symlink that stays inside the vault, so a folder swapped
+	// for a link since parent was read would otherwise be walked, and the files
+	// of the folder it points to listed under its name. It has to be the folder
+	// that the name leads to now.
+	current, err := parent.Lstat(name)
+	if err != nil || !current.IsDir() || !os.SameFile(current, opened) {
+		return nil
+	}
+	return w.dir(child, p)
 }
 
 // fingerprint is the SHA-256 of the sorted lines "kind\x00path\x00size\x00mtime\n".

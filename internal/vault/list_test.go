@@ -17,7 +17,7 @@ import (
 var fingerprintPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // listVault lists the vault and checks the invariant every listing has: each
-// path in it passes CleanPath, so everything listed can be opened.
+// path in it passes CleanPath, so every path is valid for the API.
 func listVault(t *testing.T, v *Vault) Listing {
 	t.Helper()
 	l, err := v.List(context.Background())
@@ -227,12 +227,15 @@ func createOrSkip(t *testing.T, dir, name string) {
 	t.Fatal(err)
 }
 
-// List never advertises what the API cannot serve: a file or folder whose path
+// List never lists a path the API would reject: a file or folder whose path
 // CleanPath rejects is skipped, and with a folder everything beneath it. A
 // sub-case is skipped, and says so, when the filesystem refuses to create the
 // name at all (macOS refuses invalid UTF-8, most filesystems refuse components
 // over 255 bytes), in which case it cannot show up in a listing either.
-func TestListSkipsNamesThatCannotBeOpened(t *testing.T) {
+//
+// There is no row for a name of exactly 256 bytes: no mainstream filesystem
+// lets a test create one, so TestCleanPath is the only pin of that limit.
+func TestListSkipsPathsThatFailCleanPath(t *testing.T) {
 	for _, tc := range []struct {
 		what  string
 		files []string // created with their parents; none of them may be listed
@@ -247,8 +250,6 @@ func TestListSkipsNamesThatCannotBeOpened(t *testing.T) {
 		{"control character in a folder name", []string{"bell\x07dir/inner.md"}},
 		{"invalid UTF-8 in a file name", []string{"bad\xffname.md"}},
 		{"invalid UTF-8 in a folder name", []string{"bad\xffdir/inner.md"}},
-		{"file name of 256 bytes", []string{strings.Repeat("a", 253) + ".md"}},
-		{"folder name of 256 bytes", []string{strings.Repeat("b", 256) + "/inner.md"}},
 		{"file name of 259 bytes in 131 characters", []string{strings.Repeat("é", 128) + ".md"}},
 	} {
 		t.Run(tc.what, func(t *testing.T) {
@@ -472,7 +473,8 @@ func TestListHonorsContext(t *testing.T) {
 
 // Sync tools rename and delete files while the vault is being listed. A folder
 // is read in one go, so entries that vanish afterwards must be skipped quietly
-// rather than failing the whole listing.
+// rather than failing the whole listing, and a folder that vanished is not
+// listed, because it is no longer there.
 func TestListToleratesEntriesRemovedMidWalk(t *testing.T) {
 	v, dir := openTestVault(t, Options{})
 	for _, name := range []string{"a.md", "b.md", "c.md", "z.md", "sub/x.md"} {
@@ -502,6 +504,42 @@ func TestListToleratesEntriesRemovedMidWalk(t *testing.T) {
 	}
 	if want := []string{"a.md", "b.md"}; !slices.Equal(entryPaths(got.Notes), want) {
 		t.Errorf("Notes = %v, want %v", entryPaths(got.Notes), want)
+	}
+	if len(got.Folders) != 0 {
+		t.Errorf("Folders = %v, want none: sub was removed before the walk got to it", got.Folders)
+	}
+}
+
+// A folder can be swapped for a symlink between the time its parent is read and
+// the time it is entered. os.Root follows a symlink that stays inside the
+// vault, so entering it blindly would list the files of another folder under
+// this one's name; symlinks are never listed or followed.
+func TestListDoesNotFollowFolderSwappedForSymlink(t *testing.T) {
+	v, dir := openTestVault(t, Options{})
+	writeFile(t, dir, "a.md", "a")
+	writeFile(t, dir, "sub/x.md", "x")
+	writeFile(t, dir, "target/y.md", "y")
+
+	// Root is checked first, then a.md, then sub: by the third check the root
+	// folder has been read and sub is still a folder in that listing.
+	ctx := &hookContext{Context: context.Background(), onErr: func(call int) error {
+		if call == 3 {
+			if err := os.RemoveAll(filepath.Join(dir, "sub")); err != nil {
+				t.Error(err)
+			}
+			mustSymlink(t, "target", filepath.Join(dir, "sub"))
+		}
+		return nil
+	}}
+	got, err := v.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"a.md", "target/y.md"}; !slices.Equal(entryPaths(got.Notes), want) {
+		t.Errorf("Notes = %v, want %v: the link must not be followed", entryPaths(got.Notes), want)
+	}
+	if want := []string{"target"}; !slices.Equal(got.Folders, want) {
+		t.Errorf("Folders = %v, want %v: the link must not be listed", got.Folders, want)
 	}
 }
 
@@ -603,6 +641,41 @@ func TestListSkipsUnreadableFolders(t *testing.T) {
 		t.Errorf("Notes = %v, want %v", entryPaths(got.Notes), want)
 	}
 	if want := []string{"locked"}; !slices.Equal(got.Folders, want) {
+		t.Errorf("Folders = %v, want %v", got.Folders, want)
+	}
+}
+
+// A folder with mode 0o444 can be read but not searched: nothing in it can be
+// looked at, and a stat of its files fails with permission denied. That used to
+// abort the whole listing. It is the same kind of folder as the unreadable one
+// above, so what is in it is skipped, the folder stays listed, and the rest of
+// the vault is unaffected.
+func TestListSkipsFilesInFoldersThatCannotBeSearched(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("permission checks do not apply to root")
+	}
+	v, dir := openTestVault(t, Options{})
+	writeFile(t, dir, "a.md", "a")
+	writeFile(t, dir, "listable/secret.md", "s")
+	writeFile(t, dir, "listable/pic.png", "p")
+	writeFile(t, dir, "z.md", "z")
+	listable := filepath.Join(dir, "listable")
+	if err := os.Chmod(listable, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(listable, 0o755) })
+
+	got, err := v.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() with a folder that cannot be searched = %v", err)
+	}
+	if want := []string{"a.md", "z.md"}; !slices.Equal(entryPaths(got.Notes), want) {
+		t.Errorf("Notes = %v, want %v", entryPaths(got.Notes), want)
+	}
+	if len(got.Assets) != 0 {
+		t.Errorf("Assets = %v, want none", entryPaths(got.Assets))
+	}
+	if want := []string{"listable"}; !slices.Equal(got.Folders, want) {
 		t.Errorf("Folders = %v, want %v", got.Folders, want)
 	}
 }
