@@ -1,0 +1,131 @@
+/*
+ * Layout and interaction rules. Colors, radii, fonts and shadows come from
+ * tokens (kit-ui's, set by theme.css); nothing here carries a palette value.
+ *
+ * The --nb-* tokens are the app's own, mostly for the editor. They are defined
+ * here from generic kit-ui tokens so that a replacement theme.css does not have
+ * to know about them.
+ */
+:root {
+  --nb-editor-width: 760px;
+  --nb-editor-font: var(--font-sans);
+  --nb-editor-mono: var(--font-mono);
+  --nb-editor-size: 1rem;
+  --nb-editor-line: 1.65;
+  --nb-tree-indent: 14px;
+  --nb-accent: var(--accent-blue);
+  --nb-selection: color-mix(in srgb, var(--nb-accent) 24%, transparent);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-root);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--nb-selection);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  touch-action: manipulation;
+}
+
+a {
+  touch-action: manipulation;
+}
+
+button,
+a {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:where(a, button:not([class*="kit-"])):focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+/*
+ * App shell: a frame as tall as the window. The document never scrolls; the
+ * panes inside it do, and they keep their scrollbar gutter so that content does
+ * not shift when a scrollbar appears.
+ */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* The sidebar header is as tall and as ruled as kit-ui's TopBar, so the two
+ * bands line up across the divider. */
+.app-sidebar-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--header-height);
+  padding-inline: var(--space-6);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+
+.app-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: normal;
+  text-transform: uppercase;
+}
+
+.app-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 640px) {
+  .app-sidebar-header {
+    padding-inline: var(--space-5);
+  }
+
+  .app-title {
+    font-size: 0.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "notebook-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=26.0.0 <27",
+    "pnpm": "10.28.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "build": "vite build",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.2.0",
+    "@types/node": "26.1.2",
+    "svelte": "5.56.8",
+    "svelte-check": "4.7.4",
+    "typescript": "6.0.3",
+    "vite": "8.2.0"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "6.20.4",
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@kenn-io/kit-ui": "github:kenn-io/kit-ui#dc7a4184843343cb1fa639ea6e77b68d13e755af",
+    "@lezer/common": "1.5.4",
+    "@lezer/highlight": "1.2.5",
+    "@lezer/markdown": "1.8.1",
+    "@lucide/svelte": "1.21.0",
+    "dompurify": "^3.2.0",
+    "marked": "^18.0.0",
+    "shiki": "^4.0.0"
+  }
+}
