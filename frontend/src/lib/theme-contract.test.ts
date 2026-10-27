@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 /*
  * The theme contract (spec, Shell): src/theme.css is the only file with
  * palette values, so replacing it restyles the app without other edits. This
- * fails on a color literal in any other .css or .svelte file under src, and
- * says where: file, line and literal.
+ * fails on a color literal in any other .css, .svelte or .ts file under src
+ * (an editor theme is code too), tests aside, and says where: file, line and
+ * literal.
  *
  * The one exception is pure black or white, as #000 or #fff, inside a
  * color-mix() call. kit-ui's theming doc permits them as shade math (darken a
@@ -109,10 +110,15 @@ test("the scanner finds every kind of color literal and nothing else", () => {
   for (const source of allowed) assert.deepEqual(findColorLiterals(source), [], source);
 });
 
-/** Whether a file, named by its path under src, is held to the contract. Only src/theme.css is exempt: a theme.css anywhere else is a stylesheet like any other. */
-const isScanned = (file: string): boolean => /\.(css|svelte)$/.test(file) && file !== "theme.css";
+/**
+ * Whether a file, named by its path under src, is held to the contract. Only
+ * src/theme.css is exempt, and the tests, whose fixtures may hold any text: a
+ * theme.css anywhere else is a stylesheet like any other.
+ */
+const isScanned = (file: string): boolean =>
+  (/\.(css|svelte)$/.test(file) && file !== "theme.css") || (file.endsWith(".ts") && !file.endsWith(".test.ts"));
 
-test("every stylesheet and component is held to the contract, except src/theme.css", () => {
+test("every stylesheet, component and script is held to the contract, except src/theme.css and the tests", () => {
   for (const [file, scanned] of [
     ["app.css", true],
     ["App.svelte", true],
@@ -120,9 +126,12 @@ test("every stylesheet and component is held to the contract, except src/theme.c
     ["lib/editor.css", true],
     ["lib/theme.css", true],
     ["lib/deep/theme.css", true],
+    ["main.ts", true],
+    ["lib/paths.ts", true],
+    ["lib/editor/theme.ts", true],
     ["theme.css", false],
-    ["main.ts", false],
-    ["lib/paths.ts", false],
+    ["lib/paths.test.ts", false],
+    ["lib/editor/markdown.test.ts", false],
     ["lib/notes.css.md", false],
   ] as const) {
     assert.equal(isScanned(file), scanned, file);
@@ -140,8 +149,11 @@ test("the scanner reports the line of each literal", () => {
 test("theme.css is the only file with palette values", () => {
   const src = fileURLToPath(new URL("..", import.meta.url));
   const files = readdirSync(src, { recursive: true, encoding: "utf8" }).filter(isScanned).sort();
-  // The scan has to see the files that carry the layout and the shell.
-  assert.ok(files.includes("app.css") && files.includes("App.svelte"), `scanned: ${files.join(", ")}`);
+  // The scan has to see the files that carry the layout, the shell and the scripts.
+  assert.ok(
+    files.includes("app.css") && files.includes("App.svelte") && files.includes("main.ts"),
+    `scanned: ${files.join(", ")}`,
+  );
 
   const findings = files.flatMap((file) =>
     findColorLiterals(readFileSync(src + file, "utf8")).map(

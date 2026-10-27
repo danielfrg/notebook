@@ -13,10 +13,11 @@ export type Wikilink = {
 
 /**
  * Reads one whole wikilink, the text of its node: [[Note]], [[folder/Note]],
- * [[Note#Heading]], [[Note|alias]], ![[image.png|300]] and their mixes. Null
- * when the text is not exactly one: unclosed, empty, nothing before the "#" or
- * "|" (a link to a heading of the same note is not shown as a link), or with a
- * bracket or a line break inside, which Obsidian does not link either.
+ * [[Note#Heading]], [[Note|alias]], ![[image.png|300]] and their mixes. A link
+ * inside the note itself, [[#Heading]] or [[#^block]], has the target "". Null
+ * when the text is not exactly one: unclosed, naming neither a note nor a
+ * heading ([[]], [[#]], [[|alias]]), or with a bracket or a line break inside,
+ * which Obsidian does not link either.
  *
  * A "#" or "|" in a note's name cannot be written in a wikilink, so a link to
  * "100% #1.md" reads as the note "100% " and the heading "1".
@@ -40,7 +41,7 @@ export function parseWikilink(source: string): Wikilink | null {
   const hash = place.indexOf("#");
   const target = (hash < 0 ? place : place.slice(0, hash)).trim();
   const heading = hash < 0 ? "" : place.slice(hash + 1).trim();
-  if (target === "") return null;
+  if (target === "" && heading === "") return null;
   return { target, heading: heading || null, alias: alias || null, embed };
 }
 
@@ -90,7 +91,8 @@ function resolve(paths: readonly string[], from: string, name: string): string |
 /**
  * The note that a wikilink target names, as its path in the vault, or null.
  * notes are the note paths (with .md) of the vault, from is the path of the
- * note holding the link, and target is a Wikilink's target. Case does not
+ * note holding the link, and target is a Wikilink's target. The empty target
+ * of a link inside the note itself gives null: that note is from. Case does not
  * matter and .md is optional. A bare name finds the note with that file name
  * anywhere in the vault; "folder/Note" finds a note by the end of its path.
  * When several notes match, the winner is, in this order:

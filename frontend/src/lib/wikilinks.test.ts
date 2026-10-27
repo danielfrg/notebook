@@ -28,6 +28,10 @@ test("parseWikilink reads the target, heading, alias and embed marker", () => {
     ["[[Note\\|alias]]", link("Note", { alias: "alias" })], // a pipe escaped for a table cell
     ["[[Note#]]", link("Note")],
     ["[[Note|]]", link("Note")],
+    // a link inside the note itself has no target
+    ["[[#Heading]]", link("", { heading: "Heading" })],
+    ["[[#^abc123]]", link("", { heading: "^abc123" })],
+    ["[[ #Heading | alias ]]", link("", { heading: "Heading", alias: "alias" })],
   ];
   for (const [source, want] of cases) assert.deepEqual(parseWikilink(source), want, source);
 });
@@ -41,7 +45,9 @@ test("parseWikilink refuses anything that is not exactly one whole wikilink", ()
     "[[ ]]",
     "![[]]",
     "[[|alias]]",
-    "[[#h]]",
+    "[[#]]", // neither a note nor a heading
+    "[[ # ]]",
+    "[[#|alias]]",
     "[a]",
     "![a](b)",
     "!![[a]]",
@@ -134,7 +140,7 @@ test("resolveNote returns null when nothing matches", () => {
     [[], "x.md", "a", null],
     [["Notebook.md"], "x.md", "Note", null], // a prefix of a name is not the name
     [["My Note.md"], "x.md", "Note", null], // nor is the end of one
-    [["a.md"], "x.md", "", null],
+    [["a.md"], "x.md", "", null], // the target of [[#Heading]], which names the note itself
     [["a.md"], "x.md", "   ", null],
     [["a.md"], "x.md", ".md", null],
     [["pic.png"], "x.md", "pic.png", null], // an image is not a note
