@@ -13,12 +13,12 @@ import (
 	"context"
 	"errors"
 	"log"
+	"maps"
 	"math"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/danielfrg/notebook/internal/vault"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -190,6 +190,15 @@ func newTools(reg *vault.Registry, exclude map[string][]string) *tools {
 		}
 		t.visible[v.Name()] = visible
 	}
+	// An exclude for a vault that is not served hides nothing, which is what a
+	// mistyped name gets. The settings refuse an unknown vault, so the binary does
+	// not get here; if it is reached anyway it is not let pass in silence, because
+	// an exclude that is not applied shows what it was meant to hide.
+	for _, name := range slices.Sorted(maps.Keys(exclude)) {
+		if _, ok := reg.Get(name); !ok {
+			log.Printf("mcp: exclude for the vault %q, which is not served: it hides nothing", name)
+		}
+	}
 	return t
 }
 
@@ -234,9 +243,11 @@ func (s scope) Search(ctx context.Context, query string) ([]vault.Hit, error) {
 }
 
 // Read reads a note, unless it is excluded: then it is not found, as a note that
-// is not there is.
+// is not there is. What is wrong with the path itself is told first, by the check
+// that the vault makes first, for it is the same for every path with that fault
+// and says nothing of what is excluded.
 func (s scope) Read(p string) (vault.Note, error) {
-	if err := checkPath(p); err != nil {
+	if err := vault.CheckNotePath(p); err != nil {
 		return vault.Note{}, err
 	}
 	if !s.visible(p) {
@@ -263,36 +274,17 @@ func (s scope) Create(p, content string) (vault.Note, error) {
 	return s.v.Create(p, content)
 }
 
-// checkPath is what the vault checks first of the path of a note: that it is
-// valid and names a note.
-func checkPath(p string) error {
-	if _, err := vault.CleanPath(p); err != nil {
-		return err
-	}
-	if !vault.IsNote(p) {
-		return vault.ErrNotNote
-	}
-	return nil
-}
-
-// checkWrite is what vault.Write and vault.Create check before they look at the
-// disk, in their order, and then that p is not excluded. What is wrong with the
-// request that has nothing to do with the exclude is told first because it is the
-// same for every path with that fault: it says nothing of what is excluded. Past
-// that, an excluded path is not found, which is what the vault says of a note that
-// is not there: whatever is asked of it, there is no way to tell it from one.
+// checkWrite is what the vault checks before it looks at the disk, by its own
+// CheckWrite and so in its own order, and then that p is not excluded. What is
+// wrong with the request that has nothing to do with the exclude is told first
+// because it is the same for every path with that fault: it says nothing of what
+// is excluded. Past that, an excluded path is not found, which is what the vault
+// says of a note that is not there: whatever is asked of it, there is no way to
+// tell it from one, and no check that the vault comes to make there can change
+// that, since it is made here too.
 func (s scope) checkWrite(p, content string) error {
-	if s.v.ReadOnly() {
-		return vault.ErrReadOnly
-	}
-	if err := checkPath(p); err != nil {
+	if err := s.v.CheckWrite(p, content); err != nil {
 		return err
-	}
-	if len(content) > vault.MaxNoteBytes {
-		return vault.ErrTooLarge
-	}
-	if !utf8.ValidString(content) {
-		return vault.ErrNotNote
 	}
 	if !s.visible(p) {
 		return vault.ErrNotFound

@@ -1197,3 +1197,25 @@ func TestInvalidExcludeHidesTheVault(t *testing.T) {
 		t.Errorf("log = %q, want the pattern that was refused", logs.String())
 	}
 }
+
+// An exclude for a vault that is not served hides nothing, but it is not let pass
+// in silence: an exclude that is not applied shows what it was meant to hide. The
+// settings of the binary refuse such a name, so this is only what a caller that
+// did not check gets, as with a pattern that cannot be read.
+func TestExcludeForAVaultThatIsNotServedIsLogged(t *testing.T) {
+	logs := captureLog(t)
+	a := newAgent(t, Options{Exclude: map[string][]string{"notes": {"private"}, "nope": {"x"}, "also-nope": {"y"}}})
+	for _, name := range []string{`"nope"`, `"also-nope"`} {
+		if !strings.Contains(logs.String(), name) {
+			t.Errorf("log = %q, want a warning that names the vault %s", logs.String(), name)
+		}
+	}
+	if strings.Contains(logs.String(), `"notes"`) {
+		t.Errorf("log = %q, want no warning for a vault that is served", logs.String())
+	}
+	for _, dir := range a.dirs {
+		if strings.Contains(logs.String(), dir) {
+			t.Errorf("log = %q, want no path of a vault in it", logs.String())
+		}
+	}
+}

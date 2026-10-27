@@ -79,13 +79,7 @@ func (v *Vault) CurrentRevision(p string) (revision string, modified time.Time, 
 // replacing it or editing it in place, is overwritten. That window is one write
 // and sync wide.
 func (v *Vault) Write(p, content, expectedRevision string) (Note, error) {
-	if v.readOnly {
-		return Note{}, ErrReadOnly
-	}
-	if err := checkNotePath(p); err != nil {
-		return Note{}, err
-	}
-	if err := checkNoteContent(content); err != nil {
+	if err := v.CheckWrite(p, content); err != nil {
 		return Note{}, err
 	}
 
@@ -117,13 +111,7 @@ func (v *Vault) Write(p, content, expectedRevision string) (Note, error) {
 // note is where one of its folders would go, the error is ErrExists. Nothing is
 // created when the path or the content is refused.
 func (v *Vault) Create(p, content string) (Note, error) {
-	if v.readOnly {
-		return Note{}, ErrReadOnly
-	}
-	if err := checkNotePath(p); err != nil {
-		return Note{}, err
-	}
-	if err := checkNoteContent(content); err != nil {
+	if err := v.CheckWrite(p, content); err != nil {
 		return Note{}, err
 	}
 
@@ -198,8 +186,10 @@ func newNote(p, content string, modified time.Time) Note {
 	}
 }
 
-// checkNotePath checks that p is a valid vault path that names a note.
-func checkNotePath(p string) error {
+// CheckNotePath checks that p is a valid vault path that names a note: the first
+// thing that Read, Write and Create look at, before the disk. What it says of a
+// path does not depend on what is on the disk.
+func CheckNotePath(p string) error {
 	if _, err := CleanPath(p); err != nil {
 		return err
 	}
@@ -207,6 +197,24 @@ func checkNotePath(p string) error {
 		return ErrNotNote
 	}
 	return nil
+}
+
+// CheckWrite is what Write and Create check before they look at the disk, in this
+// order: that the vault takes writes (ErrReadOnly), that p names a note
+// (CheckNotePath) and that content is something a note may hold (ErrTooLarge,
+// ErrNotNote). Both call it, so what it refuses is what they refuse and in the
+// same order. A caller that has something of its own to say about a path, for
+// example that it is to be taken as if nothing were there, says it after this and
+// so gives every request the answer that the vault would, whatever the vault later
+// checks here.
+func (v *Vault) CheckWrite(p, content string) error {
+	if v.readOnly {
+		return ErrReadOnly
+	}
+	if err := CheckNotePath(p); err != nil {
+		return err
+	}
+	return checkNoteContent(content)
 }
 
 // checkNoteContent checks that content is something a note may hold.
@@ -223,7 +231,7 @@ func checkNoteContent(content string) error {
 // readNote reads and checks the note at p. It also returns the permission bits
 // of the file, for Write to hand on to the file that replaces it.
 func (v *Vault) readNote(p string) (Note, fs.FileMode, error) {
-	if err := checkNotePath(p); err != nil {
+	if err := CheckNotePath(p); err != nil {
 		return Note{}, 0, err
 	}
 	info, err := v.lstatPath(p)

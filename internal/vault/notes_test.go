@@ -1368,3 +1368,52 @@ func TestUnicodePaths(t *testing.T) {
 		t.Errorf("List = %q, want %q", got, notes)
 	}
 }
+
+// CheckWrite is what Write and Create check before they look at the disk, and
+// CheckNotePath is what Read checks first: a caller that wants to say something of
+// its own about a path (the MCP tools, for the paths that they hide) does so after
+// them, and so gives the answers of the vault for everything else, in its order.
+// Write and Create refuse what CheckWrite refuses, with its errors.
+func TestCheckWriteIsWhatWriteAndCreateCheckFirst(t *testing.T) {
+	big := strings.Repeat("x", MaxNoteBytes+1)
+	for _, tc := range []struct {
+		name          string
+		readOnly      bool
+		path, content string
+		want          error // nil: nothing refuses it before the disk
+	}{
+		{"nothing wrong", false, "plain/a.md", "ok", nil},
+		{"the vault is read-only, before all else", true, "../x.txt", big, ErrReadOnly},
+		{"the path, before the content", false, "../x.md", big, ErrInvalidPath},
+		{"a hidden name", false, ".git/x.md", "ok", ErrInvalidPath},
+		{"not a note, before the content", false, "x.txt", big, ErrNotNote},
+		{"too large", false, "plain/a.md", big, ErrTooLarge},
+		{"not UTF-8", false, "plain/a.md", "\xff", ErrNotNote},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v, _ := openTestVault(t, Options{ReadOnly: tc.readOnly})
+			err := v.CheckWrite(tc.path, tc.content)
+			if !errors.Is(err, tc.want) || (err == nil) != (tc.want == nil) {
+				t.Fatalf("CheckWrite(%q) = %v, want %v", tc.path, err, tc.want)
+			}
+			_, write := v.Write(tc.path, tc.content, "revision")
+			_, create := v.Create(tc.path, tc.content)
+			if tc.want != nil && (!errors.Is(write, tc.want) || !errors.Is(create, tc.want)) {
+				t.Errorf("Write = %v and Create = %v, want what CheckWrite says, %v", write, create, tc.want)
+			}
+			// Where nothing refuses it, Write finds no note to replace and Create makes one.
+			if tc.want == nil && (!errors.Is(write, ErrNotFound) || create != nil) {
+				t.Errorf("Write = %v and Create = %v, want not found and a note made", write, create)
+			}
+		})
+	}
+
+	for path, want := range map[string]error{
+		"a.md": nil, "dir/a.md": nil, "a.txt": ErrNotNote, "a": ErrNotNote, "": ErrInvalidPath, "../a.md": ErrInvalidPath,
+		"/a.md": ErrInvalidPath, ".hidden/a.md": ErrInvalidPath, "a//b.md": ErrInvalidPath,
+	} {
+		if err := CheckNotePath(path); !errors.Is(err, want) || (err == nil) != (want == nil) {
+			t.Errorf("CheckNotePath(%q) = %v, want %v", path, err, want)
+		}
+	}
+}
