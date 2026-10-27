@@ -119,6 +119,17 @@ const cases: [command: FormatCommand, before: string, after: string][] = [
   ["code", "a {`b`} c", "a {b} c"],
   ["code", "|", "`|`"],
   ["code", "``|``", "|"],
+  // The marks go around the text of a range, not the white space or line break at its ends
+  // (a triple click selects a line with its line break); white space alone is a cursor.
+  ["bold", "{a\n}- b", "**{a}**\n- b"],
+  ["bold", "{a line\n}# N", "**{a line}**\n# N"],
+  ["italic", "{word }x", "*{word}* x"],
+  ["italic", "{ word}", " *{word}*"],
+  ["bold", "{**a**\n}x", "{a}\nx"],
+  ["bold", "{ \n}x", "**|** \nx"],
+  ["bold", "{ }", "**|** "],
+  ["code", "{a\n}b", "`{a}`\nb"],
+  ["bold", "{a\n}b {c} |", "**{a}**\nb **{c}** **|**"],
 
   // A heading cycles none, #, ##, ###, none, on the text of the line only.
   ["heading", "a|", "# a|"],
@@ -180,6 +191,8 @@ const cases: [command: FormatCommand, before: string, after: string][] = [
   ["link", "a | c", "a [|]() c"],
   ["link", "{a} {b}", "[a](|) [b](|)"],
   ["link", "{a\nb}", "[a\nb](|)"],
+  ["link", "{a line\n}- b", "[a line](|)\n- b"],
+  ["link", "{ }", "[|]() "],
 ];
 
 test("format commands edit the Markdown of every selected range or line, in one undoable transaction", () => {

@@ -6,6 +6,7 @@ import {
   type Line,
   type SelectionRange,
   type StateCommand,
+  type Text,
   type Transaction,
 } from "@codemirror/state";
 import type { Command, KeyBinding } from "@codemirror/view";
@@ -77,11 +78,31 @@ const trailing = (text: string, char: string): number => {
 const facing = (range: SelectionRange, from: number, to: number): SelectionRange =>
   range.anchor <= range.head ? EditorSelection.range(from, to) : EditorSelection.range(to, from);
 
+/** What the ends of a range may hold that marks do not go around. */
+const BLANK = /[ \t\n]/;
+
 /**
- * Toggles an inline mark around each range: off when the range starts and ends
- * with it or sits right between two of it, else on, the empty pair for a
- * cursor. Whatever was selected stays selected. Positions are read with
- * doc.sliceString, where a line break is one character, as in the document.
+ * The text of a range that marks go around: the range without the spaces, tabs
+ * and line breaks at its ends (a triple click selects a line with its line
+ * break), or the cursor at its start when it holds nothing else, which leaves
+ * that white space alone. Read with doc.sliceString, where a line break is one
+ * character, as in the document, CRLF or not.
+ */
+function content(doc: Text, range: SelectionRange): { from: number; to: number; text: string } {
+  const text = doc.sliceString(range.from, range.to);
+  let start = 0;
+  let end = text.length;
+  while (start < end && BLANK.test(text[start])) start++;
+  while (end > start && BLANK.test(text[end - 1])) end--;
+  if (start === end) return { from: range.from, to: range.from, text: "" };
+  return { from: range.from + start, to: range.from + end, text: text.slice(start, end) };
+}
+
+/**
+ * Toggles an inline mark around the text of each range: off when the text
+ * starts and ends with it or sits right between two of it, else on, the empty
+ * pair for a cursor. The text stays selected, without the white space that
+ * was around it.
  */
 function toggleWrapper({ mark, taken }: Wrapper): StateCommand {
   const char = mark[0];
@@ -89,8 +110,7 @@ function toggleWrapper({ mark, taken }: Wrapper): StateCommand {
     if (state.readOnly) return false;
     const { doc } = state;
     const spec = state.changeByRange((range) => {
-      const { from, to } = range;
-      const text = doc.sliceString(from, to);
+      const { from, to, text } = content(doc, range);
       const half = Math.floor(text.length / 2);
       const inside = taken(Math.min(leading(text, char), half), Math.min(trailing(text, char), half));
       if (inside > 0) {
@@ -273,16 +293,22 @@ const quote: StateCommand = ({ state, dispatch }) => {
   return editLines(state, dispatch, specs);
 };
 
-/** Makes each range the text of a link, [text](), with the cursor where the URL goes (in the brackets for a cursor). */
+/**
+ * Makes the text of each range the text of a link, [text](), with the cursor
+ * where the URL goes (in the brackets for a cursor).
+ */
 const link: StateCommand = ({ state, dispatch }) => {
   if (state.readOnly) return false;
-  const spec = state.changeByRange((range) => ({
-    changes: [
-      { from: range.from, insert: "[" },
-      { from: range.to, insert: "]()" },
-    ],
-    range: EditorSelection.cursor(range.empty ? range.from + 1 : range.to + 3),
-  }));
+  const spec = state.changeByRange((range) => {
+    const { from, to } = content(state.doc, range);
+    return {
+      changes: [
+        { from, insert: "[" },
+        { from: to, insert: "]()" },
+      ],
+      range: EditorSelection.cursor(from === to ? from + 1 : to + 3),
+    };
+  });
   dispatch(state.update(spec, { scrollIntoView: true, userEvent: FORMAT }));
   return true;
 };
