@@ -198,6 +198,11 @@ function* lines(input: Input, to: number): Generator<string> {
  * Whether input, read up to `to`, starts with frontmatter: null when its first
  * line is no opening fence, else where that line ends and whether a later line
  * closes it. Only a text that starts with "---" is read past its first characters.
+ *
+ * The cost: when the first line is "---" and no line closes it, every parse
+ * (every keystroke too) reads to the end of the document, about 1.3 ms more per
+ * MB (measured 15.5 ms a keystroke against 9.0 ms at 5 MB). The API refuses
+ * notes over 2 MiB, so that stays a few milliseconds.
  */
 function readFrontmatter(input: Input, to: number): { firstLineEnd: number; closed: boolean } | null {
   if (!/^\uFEFF?---/.test(input.read(0, Math.min(to, 4)))) return null;
