@@ -84,7 +84,7 @@ test("resolveNote finds a note by path, by file name or by the end of its path",
     [["a,b [c].md"], "x.md", "a,b [c]", "a,b [c].md"],
     [["Dario Z - El amor - Clase 1.md"], "x.md", "Dario Z - El amor - Clase 1", "Dario Z - El amor - Clase 1.md"],
     // composed and decomposed accents are the same name
-    [["Café.md"], "x.md", "Café", "Café.md"],
+    [["Cafe\u0301.md"], "x.md", "Caf\u00e9", "Cafe\u0301.md"],
     // folder/Note matches the end of a path, on whole segments
     [["x/folder/Note.md", "other/Note.md"], "y.md", "folder/Note", "x/folder/Note.md"],
     [["xfolder/Note.md"], "y.md", "folder/Note", null],
@@ -102,6 +102,29 @@ test("resolveNote breaks ties by the folder of the linking note, then the fewest
     [["b/Note.md", "a/Note.md"], "z/x.md", "Note", "a/Note.md"],
     [["B/Note.md", "a/Note.md"], "z/x.md", "Note", "a/Note.md"], // the alphabet ignores case
     [["a/Note.md", "A/note.md"], "z/x.md", "Note", "A/note.md"], // and a tie left is settled by the path itself
+  ]);
+});
+
+test("resolveNote takes the exact path from the vault root over any other match, for a target with a folder", () => {
+  const both = ["a/Note.md", "x/a/Note.md"];
+  check(resolveNote, [
+    // the linking note sits beside the longer path, which is not the path the target spells
+    [both, "x/a/other.md", "a/Note", "a/Note.md"],
+    [both, "x/a/other.md", "a/Note.md", "a/Note.md"],
+    [both, "x/a/other.md", "A/note", "a/Note.md"], // in any case
+    [["a/b/Note.md", "x/a/b/Note.md"], "x/a/b/other.md", "a/b/Note", "a/b/Note.md"],
+    // from the folder above, the exact path is also the shortest
+    [both, "x/other.md", "a/Note", "a/Note.md"],
+    [both, "x/other.md", "a/Note.md", "a/Note.md"],
+    [both, "x/other.md", "A/note", "a/Note.md"],
+    // without an exact path the usual order applies to the ends of paths
+    [["x/a/Note.md", "y/a/Note.md"], "y/a/other.md", "a/Note", "y/a/Note.md"],
+    [["x/a/Note.md", "y/a/Note.md"], "z/other.md", "a/Note", "x/a/Note.md"],
+    // two exact paths that differ in case alone are settled by the usual order
+    [["a/Note.md", "A/note.md"], "q.md", "a/note", "A/note.md"],
+    // a bare name has no folder to be exact about: a note at the root gets no preference
+    [["Note.md", "a/Note.md"], "a/x.md", "Note", "a/Note.md"],
+    [["Note.md", "a/Note.md"], "a/x.md", "Note.md", "a/Note.md"],
   ]);
 });
 
@@ -130,5 +153,16 @@ test("resolveAsset follows the same rules on images, whose name keeps its extens
     [["img/100% #1 (copy).png"], "x.md", "100% #1 (copy).png", "img/100% #1 (copy).png"],
     [["img/pic.png"], "x.md", "nope.png", null],
     [[], "x.md", "pic.png", null],
+  ]);
+});
+
+test("resolveAsset takes the exact path from the vault root first too", () => {
+  const both = ["img/pic.png", "x/img/pic.png"];
+  check(resolveAsset, [
+    [both, "x/img/other.md", "img/pic.png", "img/pic.png"],
+    [both, "x/img/other.md", "IMG/Pic.PNG", "img/pic.png"], // in any case
+    [both, "x/other.md", "img/pic.png", "img/pic.png"],
+    [["x/img/pic.png", "y/img/pic.png"], "y/img/other.md", "img/pic.png", "y/img/pic.png"], // no exact path: the usual order
+    [["pic.png", "a/pic.png"], "a/x.md", "pic.png", "a/pic.png"], // a bare name: no preference for the root
   ]);
 });
