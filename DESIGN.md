@@ -11,9 +11,9 @@ colors:
   light-text-primary: "#25262a"
   light-text-secondary: "#44464c"
   light-text-muted: "#6a6d75"
-  light-accent-blue: "#7965ce"
+  light-accent-blue: "#3b6ede"
   light-accent-amber: "#b45309"
-  light-accent-purple: "#7965ce"
+  light-accent-purple: "#3b6ede"
   light-accent-red: "#c62828"
   dark-bg-primary: "#1f2023"
   dark-bg-surface: "#25262b"
@@ -24,9 +24,9 @@ colors:
   dark-text-primary: "#f4f4f5"
   dark-text-secondary: "#e5e6ea"
   dark-text-muted: "#9c9da1"
-  dark-accent-blue: "#7965ce"
+  dark-accent-blue: "#3b6ede"
   dark-accent-amber: "#f0a64a"
-  dark-accent-purple: "#7965ce"
+  dark-accent-purple: "#3b6ede"
   dark-accent-red: "#f27474"
 typography:
   interface:
@@ -85,7 +85,7 @@ Use tonal layering and subtle one-pixel dividers. Controls stay flat and station
 
 ## Shapes
 
-Action buttons and mode buttons use full pill corners; 28px icon utilities are circular. Fields and compact 30px select triggers use 8px corners. Menus and the document frame use 12px corners; dialogs use 14px corners. File rows, inline code, and tags use the small radius. Status dots and list bullets remain circular.
+Action buttons use full pill corners; 28px icon utilities are circular. Related modes share a rounded 32px track with an inset selected segment, so they read as one control. Fields and compact 30px select triggers use 8px corners. Menus and the document frame use 12px corners; dialogs use 14px corners. File rows, inline code, and tags use the small radius. Status dots and list bullets remain circular.
 
 ## Components
 

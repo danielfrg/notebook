@@ -273,29 +273,35 @@
   color: var(--text-muted);
 }
 
-/* Each mode is a compact pill with a neutral selected state. */
+/* One shared track makes related modes read as a single choice. */
 :root .kit-segmented {
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--kit-control-radius, 9999px);
+  background: var(--bg-inset);
   box-shadow: none;
 }
 
 :root .kit-segmented .kit-segmented__btn {
-  min-height: 28px;
-  padding: 0 12px;
-  border: 1px solid var(--border-muted);
+  min-height: 24px;
+  padding: 0 10px;
+  border: 0;
   border-radius: var(--kit-control-radius, 9999px);
-  background: var(--bg-inset);
+  background: transparent;
   color: var(--text-muted);
 }
 
 :root .kit-segmented .kit-segmented__btn.active {
-  border-color: var(--border-default);
-  background: var(--bg-surface-hover);
+  background: var(--bg-popover-selected, var(--bg-surface-hover));
   color: var(--text-primary);
   box-shadow: none;
+}
+
+/* The track's padding leaves space for keyboard focus outside the segment. */
+:root .kit-segmented .kit-segmented__btn:focus-visible {
+  outline: 2px solid var(--text-accent, var(--accent-blue));
+  outline-offset: 0;
 }
 
 :root .kit-modal-panel {
