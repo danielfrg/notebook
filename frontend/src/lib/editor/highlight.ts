@@ -20,7 +20,7 @@ const sourceStyle = HighlightStyle.define([
   { tag: tags.monospace, color: "var(--accent-teal)", fontFamily: "var(--nb-editor-mono)" },
   { tag: NodeTag.Frontmatter, color: "var(--text-muted)", fontFamily: "var(--nb-editor-mono)" },
   { tag: [NodeTag.Wikilink, NodeTag.Embed], color: "var(--nb-accent)" },
-  { tag: NodeTag.Tag, color: "var(--accent-purple)" },
+  { tag: NodeTag.Tag, color: "var(--nb-accent)" },
   { tag: NodeTag.Highlight, backgroundColor: "var(--nb-highlight)" },
   // The [ ] and [x] of a task.
   { tag: tags.atom, color: "var(--nb-accent)" },

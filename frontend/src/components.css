@@ -1,0 +1,336 @@
+/*
+ * Reusable kit-ui presentation from the approved Linear reference.
+ * Palette values live in theme.css. Optional generic tokens always fall back
+ * to kit-ui tokens so replacing that file with the homelab theme is supported.
+ * Selection, focus management, dismissal and keyboard behavior remain kit-ui's.
+ */
+
+/* Actions are pills; icon utilities are circles. Keep their focus indicators. */
+:root .kit-button {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--kit-control-radius, 9999px);
+  font-size: var(--kit-control-font-size, var(--font-size-xs));
+  font-weight: var(--font-weight-medium);
+  line-height: 26px;
+  box-shadow: none;
+}
+
+:root .kit-button.kit-button--sm {
+  min-height: 24px;
+  padding-inline: 10px;
+  line-height: 22px;
+}
+
+:root .kit-button.kit-button--lg {
+  min-height: 32px;
+  line-height: 30px;
+}
+
+:root .kit-button.kit-button--solid:is(.kit-button--workflow, .kit-button--info) {
+  color: var(--brand-accent-foreground, var(--bg-surface));
+}
+
+:root .kit-button.kit-button--outline.kit-button--neutral {
+  background: transparent;
+  border-color: var(--border-default);
+}
+
+:root :is(.kit-icon-button, .kit-sidebar-toggle, .kit-copy-btn, .kit-theme-toggle) {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--kit-control-radius, 9999px);
+  box-shadow: none;
+}
+
+/* A single colored border is the field focus indicator. Inherit the disabled
+ * focus-ring token into the inner input to avoid a second wrapper/inner ring. */
+:root .kit-text-input {
+  --focus-ring: none;
+  border-color: var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-inset);
+  font-size: var(--font-size-sm);
+  outline: none;
+  box-shadow: none;
+}
+
+:root .kit-text-input.kit-text-input--md {
+  height: 32px;
+  padding-inline: 10px;
+}
+
+:root .kit-text-input.kit-text-input--lg {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: var(--font-size-sm);
+}
+
+:root .kit-text-input .kit-text-input__control {
+  appearance: none;
+  outline: none;
+  box-shadow: none;
+}
+
+/* The field has one focus border, while embedded actions such as Clear
+ * still need their own keyboard focus indicator. */
+:root .kit-text-input :is(button, a) {
+  --focus-ring: 2px solid var(--brand-accent, var(--accent-blue));
+}
+
+:root .kit-text-input:focus-within:not(.kit-text-input--invalid) {
+  border-color: var(--brand-accent, var(--accent-blue));
+}
+
+:root .kit-text-input.kit-text-input--invalid {
+  border-color: var(--accent-red);
+}
+
+/* Intrinsic trigger width keeps short choices compact. The reserved trailing
+ * space fixes the chevron at the right edge even when labels truncate. */
+:root .kit-select-dropdown {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:root .kit-select-dropdown .kit-select-dropdown__trigger {
+  position: relative;
+  width: auto;
+  max-width: 100%;
+  height: 30px;
+  min-height: 30px;
+  gap: 0;
+  padding: 1px 28px 1px 10px;
+  border: 0.5px solid transparent;
+  border-radius: 8px;
+  background: var(--bg-control, var(--bg-inset));
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: normal;
+  box-shadow: none;
+}
+
+:root .kit-select-dropdown__trigger:hover:not(:disabled),
+:root .kit-select-dropdown__trigger[aria-expanded="true"] {
+  border-color: transparent;
+  background: var(--bg-control-hover, var(--bg-surface-hover));
+}
+
+:root .kit-select-dropdown__trigger:focus-visible:not(:disabled) {
+  border-color: var(--brand-accent, var(--accent-blue));
+  outline: none;
+}
+
+:root .kit-select-dropdown__trigger > svg {
+  position: absolute;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin: 0;
+  opacity: 0.7;
+}
+
+:root :is(.kit-select-dropdown__list, .kit-menu__content, .kit-typeahead__panel, .kit-filter-dropdown__panel) {
+  border: 0.5px solid var(--border-popover, var(--border-default));
+  border-radius: 12px;
+  padding: 4px;
+  background: var(--bg-popover, var(--bg-surface));
+  box-shadow: var(--shadow-popover, var(--shadow-md));
+}
+
+/* The row keeps its full hit area; its neutral fill is inset by 4px. */
+:root .kit-select-dropdown .kit-select-dropdown__list {
+  --focus-ring: none;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: min(384px, calc(100vh - 16px));
+  max-height: min(384px, calc(100dvh - 16px));
+  padding: 4px 0;
+}
+
+:root .kit-select-dropdown__list .kit-select-dropdown__option {
+  position: relative;
+  isolation: isolate;
+  height: 32px;
+  min-height: 32px;
+  gap: 0;
+  padding: 0 35px 0 12px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+:root .kit-select-dropdown__option::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 4px;
+  border-radius: 8px;
+}
+
+:root .kit-select-dropdown__option-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .kit-select-dropdown__option-label .kit-select-dropdown__indicator {
+  display: inline-block;
+  margin-left: var(--space-3);
+  vertical-align: middle;
+}
+
+:root .kit-select-dropdown__list .kit-select-dropdown__option.selected {
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+:root .kit-select-dropdown__option.selected::before,
+:root .kit-select-dropdown__option:is(.highlighted, :hover):not(:disabled)::before {
+  background: var(--bg-popover-selected, var(--bg-surface-hover));
+}
+
+:root .kit-select-dropdown__list .kit-select-dropdown__option:is(.highlighted, :hover):not(:disabled) {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+:root .kit-select-dropdown__check {
+  position: absolute;
+  right: 12px;
+  width: 16px;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+:root .kit-select-dropdown__check svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.8;
+}
+
+:root .kit-menu__content .kit-menu__item {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+}
+
+:root .kit-menu__content .kit-menu__item:is(:hover, :focus-visible):not([aria-disabled="true"]) {
+  outline: none;
+  background: var(--bg-popover-hover, var(--bg-surface-hover));
+}
+
+:root .kit-menu__content .kit-menu__radio-item[aria-checked="true"] {
+  background: var(--bg-popover-selected, var(--bg-surface-hover));
+}
+
+:root .kit-menu__content .kit-menu__radio-content {
+  flex: 1;
+  order: 0;
+}
+
+:root .kit-menu__content .kit-menu__indicator {
+  order: 1;
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+:root .kit-typeahead__panel .kit-typeahead__option,
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__item {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+}
+
+:root .kit-typeahead__panel .kit-typeahead__option.selected,
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__item.active {
+  background: var(--bg-popover-selected, var(--bg-surface-hover));
+  color: var(--text-secondary);
+}
+
+:root .kit-typeahead__panel .kit-typeahead__option:is(.highlighted, :hover):not(:disabled),
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__item:hover:not(:disabled) {
+  background: var(--bg-popover-hover, var(--bg-surface-hover));
+  color: var(--text-primary);
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__check {
+  color: var(--text-muted);
+}
+
+/* Each mode is a compact pill with a neutral selected state. */
+:root .kit-segmented {
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root .kit-segmented .kit-segmented__btn {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--kit-control-radius, 9999px);
+  background: var(--bg-inset);
+  color: var(--text-muted);
+}
+
+:root .kit-segmented .kit-segmented__btn.active {
+  border-color: var(--border-default);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+:root .kit-modal-panel {
+  border-radius: 14px;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+:root .kit-modal-header {
+  padding: 16px 20px;
+  background: transparent;
+}
+
+:root .kit-modal-title {
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+}
+
+:root .kit-modal-body {
+  padding: 20px;
+}
+
+:root .kit-modal-footer {
+  padding: 12px 20px;
+  background: transparent;
+}
+
+:root .kit-form-field label {
+  font-weight: var(--font-weight-medium);
+}
+
+/* Preserve kit-ui's larger touch type so focus cannot zoom the page on iOS. */
+@media (hover: none) and (pointer: coarse) {
+  :root .kit-text-input,
+  :root .kit-text-input.kit-text-input--lg {
+    font-size: 1rem;
+  }
+}

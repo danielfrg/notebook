@@ -59,6 +59,13 @@ Search the current vault from the sidebar. `Mod-o` opens the quick switcher,
 the vault; Command/Control-click follows a link. Local image embeds render in
 Live Preview; remote images remain links. Tables remain Markdown text.
 
+### Appearance
+
+The theme control switches between dark, light, and system appearance. The accent
+is configured with `--brand-accent` in `frontend/src/theme.css`; controls and note
+links follow that variable. The theme file remains replaceable with the shared
+homelab theme.
+
 ### MCP
 
 Agents can read notes through the MCP endpoint at `/mcp` (Streamable HTTP).

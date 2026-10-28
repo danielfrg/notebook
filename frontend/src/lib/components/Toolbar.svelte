@@ -2,12 +2,12 @@
   import { IconButton } from "@kenn-io/kit-ui";
   import BoldIcon from "@lucide/svelte/icons/bold";
   import ItalicIcon from "@lucide/svelte/icons/italic";
-  import HeadingIcon from "@lucide/svelte/icons/heading";
+  import HeadingIcon from "@lucide/svelte/icons/heading-2";
   import ListIcon from "@lucide/svelte/icons/list";
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import LinkIcon from "@lucide/svelte/icons/link";
-  import UndoIcon from "@lucide/svelte/icons/undo";
-  import RedoIcon from "@lucide/svelte/icons/redo";
+  import UndoIcon from "@lucide/svelte/icons/undo-2";
+  import RedoIcon from "@lucide/svelte/icons/redo-2";
   import type { EditorCommand } from "../editor/commands.ts";
 
   let { run, disabled = false }: { run: (command: EditorCommand) => void; disabled?: boolean } = $props();

@@ -4,6 +4,7 @@ import "@kenn-io/kit-ui/theme.css";
 import "./theme.css";
 import App from "./App.svelte";
 import "./app.css";
+import "./components.css";
 
 const themeKey = "notebook-theme";
 

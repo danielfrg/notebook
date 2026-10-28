@@ -191,7 +191,7 @@
   padding: 0 0.3em;
   border-radius: var(--radius-sm);
   background-color: color-mix(in srgb, var(--accent-purple) 14%, transparent);
-  color: var(--accent-purple);
+  color: var(--nb-accent);
 }
 
 .nb-editor .cm-line.nb-quote {

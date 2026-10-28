@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, FlashBanner, SearchInput, CommandPalette, Menu, MenuTrigger, MenuContent, MenuItem, appShortcuts, initShortcuts, getThemeMode, setThemeMode, type PaletteCommand } from "@kenn-io/kit-ui";
+  import { CollapsibleSidebar, EmptyState, Spinner, SidebarToggle, Button, SearchInput, CommandPalette, Menu, MenuTrigger, MenuContent, MenuItem, appShortcuts, initShortcuts, getThemeMode, setThemeMode, type PaletteCommand } from "@kenn-io/kit-ui";
   import NotebookTextIcon from "@lucide/svelte/icons/notebook-text";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import { onMount, tick } from "svelte";
@@ -10,6 +10,7 @@
   import DiscardDialog from "./lib/components/DiscardDialog.svelte";
   import EntryDialog from "./lib/components/EntryDialog.svelte";
   import NoteHeader from "./lib/components/NoteHeader.svelte";
+  import Notifications from "./lib/components/Notifications.svelte";
   import Palette from "./lib/components/Palette.svelte";
   import SearchResults from "./lib/components/SearchResults.svelte";
   import Toolbar from "./lib/components/Toolbar.svelte";
@@ -20,7 +21,7 @@
   import { parseWikilink, resolveNote, wikilinkCreation } from "./lib/wikilinks.ts";
 
   let collapsed = $state(window.innerWidth < 900);
-  let sidebarWidth = $state(264);
+  let sidebarWidth = $state(244);
   let editor = $state<Editor>();
   let saveAsNew = $state(false);
   let discardConfirm = $state(false);
@@ -142,7 +143,7 @@
   }
 </script>
 
-<div class="app-shell">
+<div class="app-shell" class:sidebar-collapsed={collapsed}>
   <CollapsibleSidebar
     isCollapsed={collapsed}
     overlayOnNarrow
@@ -233,7 +234,7 @@
       {/if}
     </main>
   </CollapsibleSidebar>
-  <FlashBanner />
+  <Notifications />
 </div>
 
 {#if quickOpen}<Palette notes={notePaths} onopen={(path) => { quickOpen = false; workspace.openNote(path); }} onclose={() => quickOpen = false} />{/if}

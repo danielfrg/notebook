@@ -13,7 +13,7 @@
   --nb-editor-size: 1rem;
   --nb-editor-line: 1.7;
   --nb-tree-indent: 14px;
-  --nb-accent: var(--accent-blue);
+  --nb-accent: var(--text-accent, var(--accent-blue));
   --nb-selection: color-mix(in srgb, var(--nb-accent) 24%, transparent);
   --nb-highlight: color-mix(in srgb, var(--accent-amber) 30%, transparent);
 }
@@ -22,14 +22,32 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#app {
+  height: 100%;
+  min-width: 0;
+}
+
 body {
   margin: 0;
-  background: var(--bg-primary);
+  overflow: hidden;
+  background: var(--bg-sidebar, var(--bg-primary));
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-md);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+input,
+textarea {
+  caret-color: var(--nb-accent);
 }
 
 ::selection {
@@ -78,24 +96,29 @@ pre {
   height: 100vh;
   height: 100dvh;
   min-width: 0;
-  background: var(--bg-primary);
+  padding: var(--space-4) var(--space-4) var(--space-4) 0;
+  background: var(--bg-sidebar, var(--bg-primary));
+}
+
+.app-shell.sidebar-collapsed {
+  padding-left: var(--space-4);
 }
 
 .app-shell .kit-sidebar-layout > .kit-sidebar-layout__sidebar {
-  background: var(--bg-primary);
+  background: var(--bg-sidebar, var(--bg-primary));
   border-right: 0;
 }
 
 .app-shell .kit-sidebar-layout > .kit-sidebar-layout__main {
   margin: 0;
-  border: 0;
-  border-radius: 0;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-lg);
   background: var(--bg-primary);
 }
 
 .app-shell .kit-split-resize-handle {
-  --split-handle-size: 1px;
-  background: var(--border-muted);
+  --split-handle-size: 4px;
+  background: transparent;
 }
 .app-shell .kit-split-resize-handle:hover,
 .app-shell .kit-split-resize-handle:focus-visible {
@@ -109,11 +132,10 @@ pre {
   min-height: var(--header-height);
   margin-top: auto;
   padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--border-muted);
 }
 
 .sidebar-footer .vault-switcher { min-width: 0; max-width: 100%; }
-.sidebar-footer .vault-switcher .kit-select-dropdown__trigger { padding-inline: var(--space-2); border-color: transparent; background: transparent; font-weight: var(--font-weight-medium); font-size: var(--font-size-md); }
+.sidebar-footer .vault-switcher .kit-select-dropdown__trigger { border-color: transparent; background: transparent; font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
 .sidebar-footer .vault-switcher .kit-select-dropdown__trigger:hover,
 .sidebar-footer .vault-switcher .kit-select-dropdown__trigger[aria-expanded="true"] { background: var(--bg-surface-hover); }
 
@@ -141,7 +163,7 @@ pre {
   overflow: hidden;
 }
 
-.sidebar-search { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; min-height: var(--header-height); padding: var(--space-4) var(--space-5); }
+.sidebar-search { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; min-height: var(--header-height); padding: var(--space-3) var(--space-5); }
 .sidebar-search .kit-text-input { flex: 1; min-width: 0; background: color-mix(in srgb, var(--bg-surface-hover) 35%, transparent); border-color: var(--border-default); }
 .sidebar-search .kit-text-input:focus-within { border-color: var(--accent-blue); outline: none; }
 .sidebar-search .kit-text-input:has(.kit-text-input__control:focus-visible) { outline: none; }
@@ -185,7 +207,7 @@ pre {
   min-height: 28px;
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill, 9999px);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -198,17 +220,18 @@ pre {
   color: var(--text-primary);
 }
 .file-tree-actions { width: 28px; padding: 0; opacity: 0; }
+.note-actions-trigger { width: 28px; padding: 0; }
 .sidebar-search .sidebar-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
   flex: none;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill, 9999px);
   background: transparent;
   box-shadow: none;
   color: var(--text-muted);
@@ -237,7 +260,7 @@ pre {
   min-height: 32px;
   padding: var(--space-2) var(--space-3);
   padding-left: calc(var(--space-3) + var(--depth) * var(--nb-tree-indent));
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -300,8 +323,6 @@ pre {
 .note-location-divider { color: var(--text-muted); flex: none; }
 .note-location .app-title { flex: 0 1 auto; }
 .app-shell .note-header .kit-top-bar__right { gap: var(--space-3); }
-.app-shell .note-header .kit-segmented { border: 1px solid var(--border-muted); background: var(--bg-inset); }
-.app-shell .note-header .kit-segmented__btn.active { background: var(--bg-surface-hover); }
 .note-toolbar {
   display: flex;
   align-items: center;
@@ -309,7 +330,7 @@ pre {
   flex-shrink: 0;
   width: min(100%, var(--nb-editor-width));
   margin-inline: auto;
-  padding: var(--space-3) var(--space-6) 0;
+  padding: var(--space-5) var(--space-6) 0;
 }
 .toolbar-group { display: flex; align-items: center; gap: 2px; }
 .toolbar-divider { width: 1px; height: 15px; margin-inline: var(--space-1); background: var(--border-default); }
@@ -347,9 +368,19 @@ pre {
  * with the document. Buttons and other controls retain their own focus rings. */
 .app-content .editor-host .nb-editor .cm-editor.cm-focused { outline: none; }
 
+@media (max-width: 900px) {
+  .app-shell,
+  .app-shell.sidebar-collapsed { padding-left: var(--space-4); }
+  .app-shell .kit-sidebar-layout > .kit-sidebar-layout__sidebar {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+  }
+}
+
 @media (max-width: 640px) {
   .note-location { display: none; }
-  .app-shell .kit-sidebar-layout > .kit-sidebar-layout__main { margin: 0; border: 0; border-radius: 0; }
+  .app-shell,
+  .app-shell.sidebar-collapsed { padding: var(--space-3); }
   .app-shell .note-header { padding-inline: var(--space-3); }
   .app-shell .note-header .kit-top-bar__right { gap: var(--space-2); }
   .status-pill { inline-size: 12px; }
