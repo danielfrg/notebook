@@ -340,3 +340,65 @@
     font-size: 1rem;
   }
 }
+
+/* Local refinements preserved by sync:theme. */
+/* Borderless edge rules in kit-ui otherwise square off the inner corners. */
+:root .kit-segmented.kit-segmented--borderless .kit-segmented__btn:is(:first-child, :last-child) {
+  border-radius: var(--kit-control-radius, 9999px);
+}
+
+/* Keep the calendar's 8px inset without the fixed panel's empty side gutters. */
+:root .kit-date-picker__panel {
+  /* Override kit-ui's inline width so the panel can grow again after resize. */
+  width: max-content !important;
+  max-width: calc(100vw - 16px);
+}
+
+:root .kit-date-picker__trigger:focus-visible:not(:disabled) {
+  border-color: var(--brand-accent, var(--accent-blue));
+  outline: none;
+}
+
+/* Filter selection is conveyed by checks, without a persistent row fill. */
+:root .kit-filter-dropdown__panel {
+  --kit-filter-divider: color-mix(in srgb, var(--text-primary) 12%, var(--bg-popover, var(--bg-surface)));
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__item.active {
+  background: transparent;
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__item:not(:disabled) {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__item:hover:not(:disabled) {
+  background: var(--bg-popover-hover, var(--bg-surface-hover));
+}
+
+:root .kit-filter-dropdown__panel :is(.kit-filter-dropdown__count, .kit-filter-dropdown__check, .kit-filter-dropdown__section-title, .kit-filter-dropdown__empty, .kit-filter-dropdown__reset) {
+  color: var(--text-secondary);
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__bulk-btn {
+  color: color-mix(in srgb, var(--text-accent, var(--accent-blue)) 75%, var(--text-primary));
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__bulk-btn:hover:not(:disabled) {
+  background: var(--bg-popover-hover, var(--bg-surface-hover));
+  color: var(--text-primary);
+}
+
+:root .kit-filter-dropdown__panel :is(.kit-filter-dropdown__bulk-actions, .kit-filter-dropdown__reset) {
+  border-color: var(--kit-filter-divider);
+}
+
+:root .kit-filter-dropdown__panel .kit-filter-dropdown__divider {
+  background: var(--kit-filter-divider);
+}
+
+/* Give shortcut labels a little breathing room above and below the text. */
+:root .kit-kbd-badge {
+  padding-block: 3px;
+}
