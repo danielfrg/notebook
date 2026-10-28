@@ -1,21 +1,10 @@
 /*
- * Notebook theme. This is the only file with palette values.
+ * Shared theme tokens. This is the only file with palette values.
  *
  * It overrides generic design tokens: light on :root, dark on :root.dark.
- * Replace this file as a whole with the shared homelab theme (for example,
- * golinks/frontend/src/theme.css) to adopt that palette. components.css and
- * app.css give optional tokens kit-ui fallbacks; no sibling theme needs
- * Notebook-specific tokens. --brand-accent is the single brand color.
- *
- * Surface colors follow Linear's in-app
- * light and dark themes. The underlying token vocabulary is adapted from docbank's
- * frontend/palette.css (https://github.com/kenn-io/docbank, Copyright 2026
- * Kenn Software LLC, Apache License 2.0,
- * https://www.apache.org/licenses/LICENSE-2.0). Changes from the original:
- * Inter and IBM Plex Mono replace the system font stacks, controls are flat
- * (no depth shadows, no press movement), and the docbank-only tokens (folders,
- * navigation and panel widths) are left out. The current palette and compact
- * control tokens follow the approved Linear reference from October 2026.
+ * Replace this file as a whole to adopt another palette. components.css and
+ * app.css give optional tokens kit-ui fallbacks. --brand-accent is the single
+ * editable brand color.
  */
 :root {
   color-scheme: light;

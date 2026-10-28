@@ -1,8 +1,6 @@
 /*
- * Reusable kit-ui presentation from the approved Linear reference.
- * Palette values live in theme.css. Optional generic tokens always fall back
- * to kit-ui tokens so replacing that file with the homelab theme is supported.
- * Selection, focus management, dismissal and keyboard behavior remain kit-ui's.
+ * Shared kit-ui component styles.
+ * Palette values live in theme.css.
  */
 
 /* Actions are pills; icon utilities are circles. Keep their focus indicators. */
@@ -341,7 +339,7 @@
   }
 }
 
-/* Local refinements preserved by sync:theme. */
+/* Additional component refinements. */
 /* Borderless edge rules in kit-ui otherwise square off the inner corners. */
 :root .kit-segmented.kit-segmented--borderless .kit-segmented__btn:is(:first-child, :last-child) {
   border-radius: var(--kit-control-radius, 9999px);
