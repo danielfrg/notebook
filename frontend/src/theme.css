@@ -23,6 +23,9 @@
   --border-popover: #d2d3d7;
   --bg-popover-selected: #e4e5e9;
   --bg-popover-hover: #eeeef1;
+  --border-popover-divider: #e7e7e9;
+  --text-popover: #25262a;
+  --text-popover-icon: #6a6d75;
   --bg-notification: #ffffff;
   --border-notification: #d9dade;
   --bg-notification-action: #f0f0f2;
@@ -95,10 +98,13 @@
 
   --bg-control: lch(21.504 3.034 272.695);
   --bg-control-hover: lch(25.504 3.034 272.695);
-  --bg-popover: #393a3e;
-  --border-popover: #686a72;
-  --bg-popover-selected: #505158;
-  --bg-popover-hover: #45464d;
+  --bg-popover: #303134;
+  --border-popover: lch(30.761 3.913 272.695);
+  --bg-popover-selected: #4a4b50;
+  --bg-popover-hover: #444549;
+  --border-popover-divider: #424449;
+  --text-popover: #e7e8ec;
+  --text-popover-icon: #a5a6aa;
   --bg-notification: #303134;
   --border-notification: #4c4d50;
   --bg-notification-action: #3b3c40;

@@ -14,6 +14,11 @@
   box-shadow: none;
 }
 
+:root .kit-button .kit-button__label-text {
+  /* Center the capital height, not the x-height, so title-case labels sit in the middle. */
+  text-box-edge: cap alphabetic;
+}
+
 :root .kit-button.kit-button--sm {
   min-height: 24px;
   padding-inline: 10px;
@@ -219,17 +224,50 @@
   stroke-width: 1.8;
 }
 
+/* Menus: at least 180px wide (the menu sets its trigger's
+ * width inline as a minimum), 32px rows with 9px insets, a 16px icon column
+ * and a 10px gap, a hairline divider running edge to edge, and no red items. */
+:root .kit-menu__content {
+  min-width: 180px !important;
+  padding: 6px;
+}
+
 :root .kit-menu__content .kit-menu__item {
   min-height: 32px;
-  padding: 0 8px;
+  gap: 10px;
+  padding: 0 9px;
   border-radius: 8px;
+  color: var(--text-popover, var(--text-primary));
   font-size: var(--font-size-sm);
-  font-weight: 400;
+  font-weight: 450;
 }
 
 :root .kit-menu__content .kit-menu__item:is(:hover, :focus-visible):not([aria-disabled="true"]) {
   outline: none;
   background: var(--bg-popover-hover, var(--bg-surface-hover));
+  color: var(--text-primary);
+}
+
+:root .kit-menu__content .kit-menu__item--danger {
+  color: var(--text-popover, var(--text-primary));
+}
+
+:root .kit-menu__content .kit-menu__icon {
+  --menu-icon-width: 16px;
+  color: var(--text-popover-icon, var(--text-muted));
+}
+
+:root .kit-menu__content .kit-menu__icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+
+:root .kit-menu__content .kit-menu__separator {
+  height: 0;
+  margin: 6px -6px;
+  border-top: 0.5px solid var(--border-popover-divider, var(--border-muted));
+  background: none;
 }
 
 :root .kit-menu__content .kit-menu__radio-item[aria-checked="true"] {
@@ -302,29 +340,73 @@
   outline-offset: 0;
 }
 
+/* Dialogs are one plain surface, spaced rather than divided: no header band
+ * or divider lines, a 15px title, 13px muted body text, and 32px buttons
+ * 24px below the content. kit-ui scopes its band and borders to the
+ * component, so these selectors carry the panel class to win. */
 :root .kit-modal-panel {
-  border-radius: 14px;
-  background: var(--bg-primary);
+  overflow: hidden;
+  border: 0.5px solid var(--border-popover, var(--border-default));
+  border-radius: 12px;
+  background: var(--bg-surface);
   box-shadow: var(--shadow-lg);
 }
 
-:root .kit-modal-header {
-  padding: 16px 20px;
+:root .kit-modal-panel .kit-modal-header {
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
 }
 
-:root .kit-modal-title {
-  font-size: 14px;
+/* A toned dialog (danger) keeps its colored title but loses the band;
+ * the repeated class outweighs kit-ui's scoped tone rule. */
+:root .kit-modal-panel[data-kit-tone] .kit-modal-header.kit-modal-header.kit-modal-header {
+  border: 0;
+  background: transparent;
+}
+
+:root .kit-modal-panel .kit-modal-title {
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
+  line-height: 1.4375rem;
 }
 
-:root .kit-modal-body {
-  padding: 20px;
-}
-
-:root .kit-modal-footer {
-  padding: 12px 20px;
+:root .kit-modal-panel .kit-modal-header .kit-modal-close {
+  margin-right: -4px;
   background: transparent;
+}
+
+:root .kit-modal-panel .kit-modal-body {
+  padding: 0 16px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+:root .kit-modal-panel .kit-modal-body:first-child {
+  padding-top: 16px;
+}
+
+:root .kit-modal-panel .kit-modal-body label {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+:root .kit-modal-panel .kit-modal-footer {
+  gap: 8px;
+  padding: 24px 16px 12px;
+  border-top: 0;
+  background: transparent;
+}
+
+:root .kit-modal-panel .kit-modal-footer .kit-button {
+  min-height: 32px;
+  padding-inline: 12px;
+  font-size: var(--font-size-sm);
+  line-height: 30px;
 }
 
 :root .kit-form-field label {
