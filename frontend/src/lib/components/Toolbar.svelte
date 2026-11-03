@@ -6,11 +6,13 @@
   import ListIcon from "@lucide/svelte/icons/list";
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import LinkIcon from "@lucide/svelte/icons/link";
+  import StatusPill from "./StatusPill.svelte";
+  import CopyIcon from "@lucide/svelte/icons/copy";
   import UndoIcon from "@lucide/svelte/icons/undo-2";
   import RedoIcon from "@lucide/svelte/icons/redo-2";
   import type { EditorCommand } from "../editor/commands.ts";
 
-  let { run, disabled = false }: { run: (command: EditorCommand) => void; disabled?: boolean } = $props();
+  let { run, oncopy, disabled = false }: { run: (command: EditorCommand) => void; oncopy: () => void; disabled?: boolean } = $props();
 </script>
 
 <div class="note-toolbar" role="toolbar" aria-label="Formatting">
@@ -26,6 +28,8 @@
   <IconButton ariaLabel="Link" {disabled} onclick={() => run("link")}><LinkIcon size={15} /></IconButton>
   </div>
   <span class="toolbar-spacer"></span>
+  <StatusPill />
+  <IconButton ariaLabel="Copy note as Markdown" title="Copy as Markdown" onclick={oncopy}><CopyIcon size={15} /></IconButton>
   <IconButton ariaLabel="Undo" {disabled} onclick={() => run("undo")}><UndoIcon size={15} /></IconButton>
   <IconButton ariaLabel="Redo" {disabled} onclick={() => run("redo")}><RedoIcon size={15} /></IconButton>
 </div>

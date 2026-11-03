@@ -51,6 +51,8 @@
     onwikilink?: (source: string) => void;
     /** The line separator of every document loaded; "mixed" is read-only, and the host says why. */
     onlineseparator?: (separator: LineSeparator) => void;
+    /** Whether the text is scrolled away from its top, each time that changes. */
+    onscrolled?: (scrolled: boolean) => void;
   };
 
   let {
@@ -64,6 +66,7 @@
     notes = [],
     onwikilink,
     onlineseparator,
+    onscrolled,
   }: Props = $props();
 
   let host: HTMLDivElement;
@@ -111,6 +114,7 @@
       }),
     });
     editor.scrollDOM.addEventListener("mousedown", clickInMargin);
+    editor.scrollDOM.addEventListener("scroll", reportScroll, { passive: true });
     editor.dom.addEventListener("notebook:wikilink", widgetWikilink as EventListener);
     editor.contentDOM.addEventListener("mousedown", modifierClick);
     view = editor;
@@ -118,6 +122,8 @@
     return () => {
       editor.dom.removeEventListener("notebook:wikilink", widgetWikilink as EventListener);
       editor.contentDOM.removeEventListener("mousedown", modifierClick);
+      editor.scrollDOM.removeEventListener("scroll", reportScroll);
+      onscrolled?.(false);
       view = undefined;
       editor.destroy();
     };
@@ -153,6 +159,15 @@
       if (view && text !== getValue()) load(view, text);
     });
   });
+
+  let scrolled = false;
+  /** Tells the host whether the text is scrolled away from its top, when that changes. */
+  function reportScroll(): void {
+    const now = (view?.scrollDOM.scrollTop ?? 0) > 0;
+    if (now === scrolled) return;
+    scrolled = now;
+    onscrolled?.(now);
+  }
 
   /** Makes text the document, as another version of the note, with its own line separator. */
   function load(editor: EditorView, text: string): void {

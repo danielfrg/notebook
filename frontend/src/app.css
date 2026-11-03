@@ -125,19 +125,15 @@ pre {
   background: var(--border-default);
 }
 
-.sidebar-footer {
+.sidebar-header {
   display: flex;
   flex-shrink: 0;
   align-items: center;
+  gap: 2px;
   min-height: var(--header-height);
-  margin-top: auto;
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-4) var(--space-3) var(--space-5);
 }
-
-.sidebar-footer .vault-switcher { min-width: 0; max-width: 100%; }
-.sidebar-footer .vault-switcher .kit-select-dropdown__trigger { border-color: transparent; background: transparent; font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
-.sidebar-footer .vault-switcher .kit-select-dropdown__trigger:hover,
-.sidebar-footer .vault-switcher .kit-select-dropdown__trigger[aria-expanded="true"] { background: var(--bg-surface-hover); }
+.sidebar-header-spacer { flex: 1; min-width: 0; }
 
 .app-title {
   margin: 0;
@@ -219,9 +215,9 @@ pre {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
 }
-.file-tree-actions { width: 28px; padding: 0; opacity: 0; }
+.file-tree-actions { width: 22px; height: 24px; min-height: 24px; padding: 0; border-radius: var(--radius-sm); opacity: 0; }
 .note-actions-trigger { width: 28px; padding: 0; }
-.sidebar-search .sidebar-action {
+.sidebar-header .sidebar-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -237,8 +233,8 @@ pre {
   color: var(--text-muted);
   transition: color var(--transition-fast) var(--transition-ease, ease), background var(--transition-fast) var(--transition-ease, ease);
 }
-.sidebar-search .sidebar-action:hover:not(:disabled),
-.sidebar-search .sidebar-action[aria-expanded="true"] {
+.sidebar-header .sidebar-action:hover:not(:disabled),
+.sidebar-header .sidebar-action[aria-expanded="true"] {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
 }
@@ -255,16 +251,17 @@ pre {
 .file-tree-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
-  min-height: 32px;
-  padding: var(--space-2) var(--space-3);
+  min-height: 30px;
+  padding: 3px var(--space-2) 3px var(--space-3);
   padding-left: calc(var(--space-3) + var(--depth) * var(--nb-tree-indent));
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md, 0.875rem);
   cursor: pointer;
 }
+.file-tree-spacer { flex: none; width: 14px; }
 .file-tree-row:hover { background: color-mix(in srgb, var(--bg-surface-hover) 60%, transparent); color: var(--text-primary); }
 .file-tree-row.is-current { background: var(--bg-surface-hover); color: var(--text-primary); }
 .file-tree-row > svg { flex: none; color: var(--text-muted); }
@@ -273,8 +270,7 @@ pre {
 .file-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-tree-name { flex: 1; }
 
-.entry-form { display: grid; gap: var(--space-2); }
-.entry-form label { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.entry-form { display: grid; gap: var(--space-4); }
 .dialog-description { margin: 0; overflow-wrap: anywhere; }
 .dialog-error { margin: 0; color: var(--accent-red); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
 .conflict-banner {
@@ -330,23 +326,23 @@ pre {
   flex-shrink: 0;
   width: min(100%, var(--nb-editor-width));
   margin-inline: auto;
-  padding: var(--space-5) var(--space-6) 0;
+  padding: var(--space-4) var(--space-6);
 }
 .toolbar-group { display: flex; align-items: center; gap: 2px; }
 .toolbar-divider { width: 1px; height: 15px; margin-inline: var(--space-1); background: var(--border-default); }
 .toolbar-spacer { flex: 1; }
+/* Save state is a light: its word is the tooltip and the accessible name. */
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  inline-size: 116px;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 28px;
   flex-shrink: 0;
-  justify-content: flex-end;
-  white-space: nowrap;
-  font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
-.status-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--text-muted); }
+.status-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.status-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--text-muted) 60%, transparent); }
 .status-pill[data-state="dirty"] .status-dot { background: var(--accent-amber); }
 .status-pill[data-state="saving"] .status-dot { background: var(--nb-accent); }
 .status-pill-alert { color: var(--accent-amber); }
@@ -363,7 +359,10 @@ pre {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* A dashed edge under the toolbar, across the pane, once the text scrolls under it. */
+  border-top: 1px dashed transparent;
 }
+.editor-host.is-scrolled { border-top-color: var(--border-default); }
 /* The writing surface is identified by its caret; a pane-sized ring competes
  * with the document. Buttons and other controls retain their own focus rings. */
 .app-content .editor-host .nb-editor .cm-editor.cm-focused { outline: none; }
@@ -383,8 +382,6 @@ pre {
   .app-shell.sidebar-collapsed { padding: var(--space-3); }
   .app-shell .note-header { padding-inline: var(--space-3); }
   .app-shell .note-header .kit-top-bar__right { gap: var(--space-2); }
-  .status-pill { inline-size: 12px; }
-  .status-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .mobile-note-context {
     display: block;
     padding: var(--space-2) var(--space-4);
@@ -426,3 +423,96 @@ pre {
     scroll-behavior: auto !important;
   }
 }
+
+.note-history { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; }
+.note-history .kit-icon-button { color: var(--text-muted); }
+
+
+.start-page { display: flex; flex: 1; align-items: center; justify-content: center; padding: var(--space-6); overflow: auto; }
+.start-options { display: grid; gap: var(--space-1); width: min(360px, 100%); }
+.start-option { display: flex; align-items: center; gap: var(--space-4); min-width: 0; padding: var(--space-3) var(--space-4); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); font-size: var(--font-size-sm); text-align: left; cursor: pointer; }
+.start-option svg { flex: none; color: var(--text-muted); }
+.start-option > span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-option:hover, .start-option:focus-visible { background: var(--bg-surface-hover); color: var(--text-primary); }
+.start-heading { margin: var(--space-5) var(--space-4) var(--space-2); color: var(--text-muted); font-size: var(--font-size-xs); }
+.start-folder { max-width: 40%; overflow: hidden; color: var(--text-muted); font-size: var(--font-size-xs); text-overflow: ellipsis; white-space: nowrap; }
+
+.recent-list { min-height: 0; flex: 1; overflow: auto; scrollbar-gutter: stable; padding: var(--space-2) var(--space-5) var(--space-4); }
+.recent-heading { margin: var(--space-7, 24px) var(--space-3) var(--space-3); color: var(--text-primary); font-size: var(--font-size-md, 0.875rem); font-weight: var(--font-weight-semibold, 600); }
+.recent-heading:first-child { margin-top: var(--space-3); }
+.recent-row { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-width: 0; min-height: 30px; padding: 3px var(--space-2) 3px var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font-size: var(--font-size-md, 0.875rem); text-align: left; cursor: pointer; }
+.recent-row:hover { background: color-mix(in srgb, var(--bg-surface-hover) 60%, transparent); color: var(--text-primary); }
+.recent-row.is-current { background: var(--bg-surface-hover); color: var(--text-primary); }
+.recent-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The vault menu reads as the sidebar's title: bold name, up/down chevrons, no box until hovered. */
+.sidebar-header .vault-trigger.kit-menu__trigger {
+  min-width: 0;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold, 600);
+}
+.sidebar-header .vault-trigger.kit-menu__trigger:disabled { opacity: 1; cursor: default; }
+.sidebar-header .vault-trigger.kit-menu__trigger:hover:not(:disabled),
+.sidebar-header .vault-trigger.kit-menu__trigger[aria-expanded="true"] { background: var(--bg-surface-hover); }
+.sidebar-header .vault-trigger svg { flex: none; color: var(--text-muted); }
+.vault-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-header .sidebar-action[aria-pressed="true"] { background: transparent; color: var(--text-muted); }
+.sidebar-header .sidebar-action[aria-pressed="true"]:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+
+/* Ghost menu triggers: no fill or border until hovered or open (kit's trigger draws both). */
+.kit-menu__trigger:is(.file-tree-actions, .note-actions-trigger) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+.kit-menu__trigger:is(.file-tree-actions, .note-actions-trigger):hover,
+.kit-menu__trigger:is(.file-tree-actions, .note-actions-trigger)[aria-expanded="true"] {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+.kit-menu__trigger:is(.file-tree-actions, .note-actions-trigger) svg { flex: none; }
+.kit-menu__trigger:is(.file-tree-actions, .note-actions-trigger):focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+
+/* An editable title that looks like the title until it is clicked. */
+.note-title[contenteditable="plaintext-only"] { padding: 2px var(--space-2); margin-inline: calc(-1 * var(--space-2)); border-radius: var(--radius-sm); outline: none; cursor: text; }
+.note-title[contenteditable="plaintext-only"]:hover { background: color-mix(in srgb, var(--bg-surface-hover) 60%, transparent); }
+.note-title[contenteditable="plaintext-only"]:focus { background: var(--bg-inset); text-overflow: clip; overflow-x: auto; scrollbar-width: none; }
+
+.quick-palette-section { margin: var(--space-3) var(--space-3) var(--space-1); color: var(--text-muted); font-size: var(--font-size-xs); }
+.quick-palette-section:first-child { margin-top: var(--space-1); }
+.quick-palette-row { display: flex; align-items: flex-start; gap: var(--space-4); }
+.quick-palette-row > svg { flex: none; margin-top: 3px; color: var(--text-muted); }
+.quick-palette-row > .quick-palette-title { flex: 1; min-width: 0; }
+.quick-palette-row .quick-palette-path { flex: none; max-width: 40%; }
+.quick-palette-row.is-disabled { opacity: 0.5; }
+.quick-palette-body { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.quick-palette-head { display: flex; gap: var(--space-4); min-width: 0; }
+.quick-palette-head .quick-palette-title { flex: 1; min-width: 0; }
+.quick-palette-snippet { overflow: hidden; color: var(--text-muted); font-size: var(--font-size-xs); text-overflow: ellipsis; white-space: nowrap; }
+.quick-palette-snippet mark { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+.quick-palette { max-height: min(560px, 75vh); width: min(640px, calc(100vw - 32px)); }
+.quick-palette-hint { gap: var(--space-3); }
+
+/* The bottom bar under the note: the word count at the right. */
+.editor-status {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+}
+/* The sidebar's row menu button only changes color on hover, without a fill. */
+.kit-menu__trigger.file-tree-actions:is(:hover, [aria-expanded="true"]) { background: transparent; }

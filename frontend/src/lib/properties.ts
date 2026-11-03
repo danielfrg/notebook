@@ -15,10 +15,10 @@
  */
 export type Property = { key: string; values: string[]; list: boolean };
 
-const isIndented = (line: string): boolean => line.startsWith(" ") || line.startsWith("\t");
+export const isIndented = (line: string): boolean => line.startsWith(" ") || line.startsWith("\t");
 /** A line that says nothing: blank, or a comment. */
-const isNoise = (line: string): boolean => line.trim() === "" || line.trimStart().startsWith("#");
-const isItem = (line: string): boolean => {
+export const isNoise = (line: string): boolean => line.trim() === "" || line.trimStart().startsWith("#");
+export const isItem = (line: string): boolean => {
   const text = line.trimStart();
   return text === "-" || text.startsWith("- ") || text.startsWith("-\t");
 };
@@ -56,7 +56,7 @@ export function parseProperties(yaml: string): Property[] {
   return properties;
 }
 
-function readValue(key: string, value: string, body: string[]): Property | null {
+export function readValue(key: string, value: string, body: string[]): Property | null {
   if (value === "") {
     if (body.length === 0) return { key, values: [], list: false };
     return body.every(isItem) ? readItems(key, body) : null; // else a nested mapping
@@ -86,7 +86,7 @@ function readItems(key: string, items: string[]): Property | null {
  * line, so that "source: https://x.y/z" and "at: 10:30" keep their colons. Null
  * for a line that is no key: a list item, no colon, an empty or unreadable key.
  */
-function splitEntry(line: string): { key: string; value: string } | null {
+export function splitEntry(line: string): { key: string; value: string } | null {
   if (isItem(line)) return null;
   for (let colon = line.indexOf(":"); colon >= 0; colon = line.indexOf(":", colon + 1)) {
     const next = line.charAt(colon + 1);
@@ -104,7 +104,7 @@ function splitEntry(line: string): { key: string; value: string } | null {
  * Escapes are read where they matter for display: \" and \\ in double
  * quotes, '' in single quotes.
  */
-function scalar(text: string): string | null {
+export function scalar(text: string): string | null {
   const first = text.charAt(0);
   if (first === '"' || first === "'") {
     const end = closingQuote(text, 0);
@@ -116,7 +116,7 @@ function scalar(text: string): string | null {
 }
 
 /** The index of the quote that closes the one at text[start], or -1. */
-function closingQuote(text: string, start: number): number {
+export function closingQuote(text: string, start: number): number {
   const quote = text[start];
   for (let i = start + 1; i < text.length; i++) {
     if (quote === '"' && text[i] === "\\") i++; // an escaped character

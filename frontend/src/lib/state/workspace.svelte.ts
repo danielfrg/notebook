@@ -43,6 +43,10 @@ class Workspace {
   searchLoading = $state(false);
   searchError: string | null = $state(null);
   searchTarget: { path: string; line: number } | null = $state(null);
+  /** The notes visited in this session, for Back and Forward; kept in memory only. */
+  backStack: { vault: string; path: string }[] = $state([]);
+  forwardStack: { vault: string; path: string }[] = $state([]);
+  private traversal: "back" | "forward" | null = null;
   bom = "";
   controller: SaveController | null = null;
   private api: ApiClient = createApi();
@@ -123,6 +127,45 @@ class Workspace {
     this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "vault", name }, this.vaults.map((v) => v.name)));
   }
 
+  get canGoBack(): boolean { return this.backStack.length > 0; }
+  get canGoForward(): boolean { return this.forwardStack.length > 0; }
+
+  goBack(): void { this.traverse("back"); }
+  goForward(): void { this.traverse("forward"); }
+
+  private traverse(direction: "back" | "forward"): void {
+    const target = (direction === "back" ? this.backStack : this.forwardStack).at(-1);
+    if (!target) return;
+    this.traversal = direction;
+    this.searchTarget = null;
+    this.navigate(target);
+  }
+
+  /** Records where the session was before a route is followed, or moves along the trail for Back and Forward. */
+  private recordVisit(): void {
+    const direction = this.traversal;
+    this.traversal = null;
+    const here = this.vault && this.path ? { vault: this.vault, path: this.path } : null;
+    if (direction === "back") {
+      this.backStack = this.backStack.slice(0, -1);
+      if (here) this.forwardStack = [...this.forwardStack, here];
+    } else if (direction === "forward") {
+      this.forwardStack = this.forwardStack.slice(0, -1);
+      if (here) this.backStack = [...this.backStack, here];
+    } else if (here) {
+      this.backStack = [...this.backStack, here].slice(-50);
+      this.forwardStack = [];
+    }
+  }
+
+  /** Keeps Back and Forward pointing at a note or folder that moved. */
+  private renameInTrail(vault: string, from: string, to: string): void {
+    const move = (entry: { vault: string; path: string }) => entry.vault === vault && (entry.path === from || entry.path.startsWith(`${from}/`))
+      ? { vault, path: to + entry.path.slice(from.length) } : entry;
+    this.backStack = this.backStack.map(move);
+    this.forwardStack = this.forwardStack.map(move);
+  }
+
   openNote(path: string | null): void {
     this.searchTarget = null;
     this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "note", path }, this.vaults.map((v) => v.name)));
@@ -156,6 +199,11 @@ class Workspace {
         this.searchLoading = false;
       });
     }, 250);
+  }
+
+  /** Full-text search of the open vault, apart from the sidebar's search. */
+  searchContent(query: string, limit = 20): Promise<SearchHit[]> {
+    return this.vault && query.trim() ? this.api.search(this.vault, query, limit) : Promise.resolve([]);
   }
 
   assetUrl(path: string): string {
@@ -224,6 +272,7 @@ class Workspace {
     try {
       if (open) await this.ensureSafeMutation();
       await this.api.move(vault, path, to);
+      this.renameInTrail(vault, path, to);
       await this.refreshAfterMutation();
       if (this.vault !== vault) return;
       if (isFolder) {
@@ -485,11 +534,13 @@ class Workspace {
     if (this.controller && this.controller.state !== "clean") {
       this.navigationBlocked = true;
       this.pendingExit = { vault, path };
+      this.traversal = null;
       if (this.vault) location.replace(formatRoute(this.vault, this.path));
       return;
     }
     this.navigationBlocked = false;
     this.pendingExit = null;
+    this.recordVisit();
     if (vault !== this.vault) await this.loadVault(vault, path);
     else await this.loadNote(path);
   }

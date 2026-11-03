@@ -524,8 +524,8 @@ test("widgets compare payloads and expose interactive task and wikilink events",
   assert.ok(!new LivePreviewWidget({ kind: "task", checked: false }).eq(new LivePreviewWidget({ kind: "task", checked: true })));
   assert.ok(!new LivePreviewWidget({ kind: "task", checked: false }, 0, 5).eq(new LivePreviewWidget({ kind: "task", checked: false }, 6, 11)), "task positions participate in DOM reuse");
   assert.ok(!new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }, 0, 9).eq(new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }, 4, 13)), "wikilink positions participate in DOM reuse");
-  assert.equal(new LivePreviewWidget({ kind: "task", checked: false }).ignoreEvent(), false);
-  assert.equal(new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }).ignoreEvent(), false);
+  assert.equal(new LivePreviewWidget({ kind: "task", checked: false }).ignoreEvent(new Event("mousedown")), false);
+  assert.equal(new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }).ignoreEvent(new Event("mousedown")), false);
 });
 
 test("a task widget after an edit above it toggles the shifted source marker", () => {

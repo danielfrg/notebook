@@ -164,7 +164,7 @@
  */
 .nb-editor .nb-properties {
   padding: var(--space-2) 0 var(--space-7);
-  cursor: text;
+  cursor: default;
 }
 
 .nb-editor .nb-properties::after {
@@ -174,28 +174,143 @@
   border-bottom: 1px solid var(--border-muted);
 }
 
+.nb-editor .nb-properties {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .nb-editor .nb-property {
+  display: grid;
+  grid-template-columns: 28px minmax(7rem, 0.75fr) 2fr 28px;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 28px;
+}
+
+.nb-editor .nb-property + .nb-property { margin-top: 2px; }
+
+.nb-editor .nb-prop-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+
+.nb-editor .nb-prop-type svg,
+.nb-editor .nb-prop-icon svg { width: 14px; height: 14px; }
+.nb-editor .nb-prop-icon { display: inline-flex; }
+
+.nb-editor .nb-property-value {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35em;
-  align-items: baseline;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
 }
 
-.nb-editor .nb-property + .nb-property {
-  margin-top: 0.3em;
-}
-
-.nb-editor .nb-property-key {
-  min-width: 7em;
-  color: var(--text-secondary);
-}
-
+/* A chip reads as plain text; its fill and its × show when it is hovered or focused. */
 .nb-editor .nb-property-chip {
-  padding-inline: 0.35em;
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  padding: 2px 2px 2px 6px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--nb-accent) 12%, transparent);
-  color: var(--nb-accent);
+  background: transparent;
+  color: var(--text-primary);
 }
+
+.nb-editor .nb-property-chip:is(:hover, :focus-within) { background: var(--bg-surface-hover); }
+.nb-editor .nb-property-chip .nb-prop-remove { opacity: 0; }
+.nb-editor .nb-property-chip:is(:hover, :focus-within) .nb-prop-remove { opacity: 1; }
+
+.nb-editor .nb-prop-input,
+.nb-editor .nb-prop-new,
+.nb-editor .nb-prop-remove,
+.nb-editor .nb-prop-delete {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.nb-editor .nb-prop-input {
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  outline: none;
+  color: var(--text-primary);
+}
+
+.nb-editor .nb-prop-key { width: 100%; color: var(--text-secondary); }
+.nb-editor .nb-prop-text { flex: 1; }
+.nb-editor .nb-prop-add { flex: 1; min-width: 5em; }
+.nb-editor .nb-prop-input::placeholder { color: var(--text-muted); }
+.nb-editor .nb-prop-input:not([readonly]):hover { background: var(--bg-surface-hover); }
+.nb-editor .nb-prop-input:focus { background: var(--bg-inset); }
+.nb-editor .nb-property-value > .nb-prop-input[type="date"] { flex: none; }
+
+.nb-editor .nb-prop-remove {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.nb-editor .nb-prop-remove:hover { color: var(--text-primary); }
+
+.nb-editor .nb-prop-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.nb-editor .nb-property:hover .nb-prop-delete,
+.nb-editor .nb-property:focus-within .nb-prop-delete { opacity: 1; }
+.nb-editor .nb-prop-delete:hover,
+.nb-editor .nb-prop-delete:focus-visible { background: var(--bg-surface-hover); color: var(--text-primary); }
+
+.nb-editor .nb-prop-check {
+  width: 14px;
+  height: 14px;
+  margin-left: var(--space-3);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-inset);
+  color: var(--nb-accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.nb-editor .nb-prop-check[aria-checked="true"]::after {
+  content: "✓";
+  display: block;
+  line-height: 1;
+}
+
+.nb-editor .nb-prop-new {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 28px;
+  margin-top: 2px;
+  padding: 0 var(--space-3) 0 0;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.nb-editor .nb-prop-new:hover { color: var(--text-primary); }
 
 .nb-editor .nb-tag {
   padding: 0 0.3em;
