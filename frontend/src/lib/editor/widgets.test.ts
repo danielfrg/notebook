@@ -29,3 +29,11 @@ test("a focused wikilink widget activates on Enter and Space before CodeMirror h
     else Reflect.deleteProperty(globalThis, "document");
   }
 });
+
+test("the properties panel, a block widget, keeps its space in padding: CodeMirror does not measure margins", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const css = await readFile(new URL("../../editor.css", import.meta.url), "utf8");
+  const rules = [...css.matchAll(/([^{}]*\.nb-properties)\s*\{([^{}]*)\}/g)];
+  assert.ok(rules.length > 0, "editor.css styles the properties panel");
+  for (const [, selector, body] of rules) assert.doesNotMatch(body, /\bmargin(?:-(?:top|bottom|block\S*))?\s*:/, selector.trim());
+});

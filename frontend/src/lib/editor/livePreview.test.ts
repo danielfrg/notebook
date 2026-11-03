@@ -6,6 +6,8 @@ import {
   MAX_DECORATED_LENGTH,
   collectDecorations,
   livePreview,
+  pointerHeld,
+  propertiesAbove,
   previewContext,
   type DecoSpec,
   type PreviewContext,
@@ -537,4 +539,33 @@ test("a task widget after an edit above it toggles the shifted source marker", (
   assert.deepEqual(tasks, [{ from: 6, to: 11 }]);
   state = state.update(toggleTaskAt(state, tasks[0].to - 2)!).state;
   assert.equal(state.doc.toString(), "intro\n- [x] task\n[[Known]]\nend");
+});
+
+test("a held mouse keeps the decorations through its selections, and the release or a key rebuilds them", () => {
+  const doc = "> quote\n\n# Title";
+  const title = doc.indexOf("Title");
+  let state = stateOf(doc, title, { extensions: livePreview() });
+  const before = rendered(state).set;
+  state = state.update({ effects: pointerHeld.of(true) }).state;
+  state = state.update({ selection: { anchor: 3 }, userEvent: "select.pointer" }).state;
+  assert.equal(rendered(state).set, before, "the markers stay as they were while the mouse is held");
+  state = state.update({ effects: pointerHeld.of(false) }).state;
+  assert.ok(rendered(state).ranges.includes(`replace ${doc.indexOf("#")}-${title}`), "the release hides the heading marker");
+  assert.ok(!rendered(state).ranges.includes("replace 0-2"), "and shows the quote marker");
+
+  state = stateOf(doc, title, { extensions: livePreview() });
+  state = state.update({ effects: pointerHeld.of(true) }).state;
+  state = state.update({ selection: { anchor: 3 }, userEvent: "select" }).state;
+  assert.notEqual(rendered(state).set, before, "a move by the keyboard rebuilds them");
+});
+
+test("propertiesAbove finds the closing line of a shown properties panel from the line just below it", () => {
+  const doc = "---\ntags: [a]\n---\n# Title\n\nText";
+  const body = doc.indexOf("# Title");
+  let state = stateOf(doc, body + 2, { extensions: livePreview() });
+  assert.deepEqual(propertiesAbove(state, body + 2), { from: doc.indexOf("---\n#"), to: body - 1 });
+  assert.equal(propertiesAbove(state, doc.indexOf("Text")), null);
+  // With the selection in the frontmatter the panel is raw text, and there is nothing to step over.
+  state = stateOf(doc, 5, { extensions: livePreview() });
+  assert.equal(propertiesAbove(state, body + 2), null);
 });

@@ -1,6 +1,6 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
-import { Facet, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
-import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import { Facet, Prec, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
+import { Decoration, EditorView, keymap, type DecorationSet } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { parseProperties } from "../properties.ts";
 import { parseWikilink, resolveAsset, resolveNote, type Wikilink } from "../wikilinks.ts";
@@ -473,26 +473,91 @@ function toRangeSet(specs: readonly DecoSpec[]): DecorationSet {
   return Decoration.set(ranges);
 }
 
+/** A press of the mouse in the text begins (true) or ends (false). */
+export const pointerHeld = StateEffect.define<boolean>();
+
 /**
  * The decorations, rebuilt when what they are made of changes: the document,
  * the selection, the syntax tree (a parse that finished in the background),
  * or the configuration (the preview context among it).
+ *
+ * While the mouse is held they stay as they are, the document aside: the
+ * markers a new selection shows and the frontmatter it folds move the text,
+ * and CodeMirror, which reads the pointer again until the release, would put
+ * the cursor on whatever text came under it. A move by the keyboard, or the
+ * release, rebuilds them.
  */
-const decorations = StateField.define<DecorationSet>({
-  create: (state) => toRangeSet(collectDecorations(state)),
+const decorations = StateField.define<{ set: DecorationSet; held: boolean }>({
+  create: (state) => ({ set: toRangeSet(collectDecorations(state)), held: false }),
   update(value, tr) {
+    let held = value.held;
+    for (const effect of tr.effects) if (effect.is(pointerHeld)) held = effect.value;
+    if (tr.docChanged || (tr.isUserEvent("select") && !tr.isUserEvent("select.pointer"))) held = false;
+    if (held) return value.held ? value : { set: value.set, held };
     const stale =
+      value.held ||
       tr.docChanged ||
       tr.selection !== undefined ||
       tr.reconfigured ||
       syntaxTree(tr.startState) !== syntaxTree(tr.state) ||
       tr.startState.facet(previewContext) !== tr.state.facet(previewContext);
-    return stale ? toRangeSet(collectDecorations(tr.state)) : value;
+    return stale ? { set: toRangeSet(collectDecorations(tr.state)), held } : value;
   },
-  provide: (field) => EditorView.decorations.from(field),
+  provide: (field) => EditorView.decorations.from(field, (value) => value.set),
 });
+
+/**
+ * Holds the decorations from a press in the text to its release. The release
+ * is heard on the window, after CodeMirror's own listener on the document has
+ * read the pointer one last time.
+ */
+const holdWhilePressed = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    if (event.button !== 0 || event.defaultPrevented) return false;
+    view.dispatch({ effects: pointerHeld.of(true) });
+    view.dom.ownerDocument.defaultView?.addEventListener("mouseup", () => {
+      if (view.state.field(decorations, false)?.held) view.dispatch({ effects: pointerHeld.of(false) });
+    }, { once: true });
+    return false;
+  },
+});
+
+/**
+ * The line that closes the properties panel, when the panel is shown and ends
+ * on the line before the one at pos; else null.
+ */
+export function propertiesAbove(state: EditorState, pos: number): { from: number; to: number } | null {
+  const line = state.doc.lineAt(pos);
+  if (line.number === 1) return null;
+  const above = state.doc.line(line.number - 1);
+  let found = false;
+  state.field(decorations, false)?.set.between(above.from, above.to, (_from, to, decoration) => {
+    const widget = decoration.spec.widget;
+    if (widget instanceof LivePreviewWidget && widget.kind.kind === "properties" && to === above.to) found = true;
+  });
+  return found ? { from: above.from, to: above.to } : null;
+}
+
+/**
+ * ArrowUp from the line below the properties panel. CodeMirror moves into a
+ * block widget at its start, which would put the cursor on the first line of
+ * the note; the cursor goes to the closing line instead, at its column, as it
+ * would in the raw text. A move that stays in its own line (a wrapped one) is
+ * CodeMirror's.
+ */
+function upIntoProperties(view: EditorView): boolean {
+  const { state } = view;
+  const range = state.selection.main;
+  if (state.selection.ranges.length > 1 || !range.empty) return false;
+  const closing = propertiesAbove(state, range.head);
+  const line = state.doc.lineAt(range.head);
+  if (closing === null || view.moveVertically(range, false).head >= line.from) return false;
+  const anchor = Math.min(closing.from + (range.head - line.from), closing.to);
+  view.dispatch({ selection: { anchor }, scrollIntoView: true, userEvent: "select" });
+  return true;
+}
 
 /** Live Preview: the decorations of collectDecorations on the editor, for documents up to MAX_DECORATED_LENGTH. */
 export function livePreview(): Extension {
-  return [decorations, taskToggleExtension()];
+  return [decorations, taskToggleExtension(), holdWhilePressed, Prec.high(keymap.of([{ key: "ArrowUp", run: upIntoProperties }]))];
 }

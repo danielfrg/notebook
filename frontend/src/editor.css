@@ -157,11 +157,21 @@
   vertical-align: middle;
 }
 
+/*
+ * A block widget: CodeMirror measures its border box and not its margins, so
+ * the space below the rule is padding; with a margin every click and vertical
+ * move below it would land a line off. The rule is drawn inside, by ::after.
+ */
 .nb-editor .nb-properties {
-  margin-bottom: var(--space-7);
-  padding: var(--space-2) 0 var(--space-6);
-  border-bottom: 1px solid var(--border-muted);
+  padding: var(--space-2) 0 var(--space-7);
   cursor: text;
+}
+
+.nb-editor .nb-properties::after {
+  content: "";
+  display: block;
+  margin-top: var(--space-6);
+  border-bottom: 1px solid var(--border-muted);
 }
 
 .nb-editor .nb-property {
