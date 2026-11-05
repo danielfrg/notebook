@@ -589,9 +589,10 @@ func TestGuard(t *testing.T) {
 	// /api/) from being served without the guard having looked at them. These
 	// pin that nothing dispatches them: a router that cleaned the path itself
 	// would run the handler, and make the folder, without the header.
+	// Since Go 1.27 the mux redirects non-GET requests with 307, keeping the method.
 	for _, path := range []string{"//api/vaults/notes/folders", "/./api/vaults/notes/folders"} {
 		t.Run("unclean path "+path, func(t *testing.T) {
-			res := a.do("POST", path, `{"path":"x"}`, with(mutating, "X-Notebook", "")).want(t, http.StatusMovedPermanently)
+			res := a.do("POST", path, `{"path":"x"}`, with(mutating, "X-Notebook", "")).want(t, http.StatusTemporaryRedirect)
 			if got := res.Header.Get("Location"); got != "/api/vaults/notes/folders" {
 				t.Errorf("Location = %q, want the clean path", got)
 			}

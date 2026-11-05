@@ -105,7 +105,7 @@ Liveness is `/healthz`; readiness is `/readyz`.
 
 ## Development
 
-Requires Go 1.25, Node 26, pnpm 10, and just.
+Requires Go 1.27, Node 26, pnpm 10, and just.
 
 Create a local configuration and vault once:
 
