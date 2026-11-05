@@ -139,7 +139,13 @@
   opacity: 0.7;
 }
 
-:root :is(.kit-select-dropdown__list, .kit-menu__content, .kit-typeahead__panel, .kit-filter-dropdown__panel) {
+:root
+  :is(
+    .kit-select-dropdown__list,
+    .kit-menu__content,
+    .kit-typeahead__panel,
+    .kit-filter-dropdown__panel
+  ) {
   border: 0.5px solid var(--border-popover, var(--border-default));
   border-radius: 12px;
   padding: 4px;
@@ -205,7 +211,9 @@
   background: var(--bg-popover-selected, var(--bg-surface-hover));
 }
 
-:root .kit-select-dropdown__list .kit-select-dropdown__option:is(.highlighted, :hover):not(:disabled) {
+:root
+  .kit-select-dropdown__list
+  .kit-select-dropdown__option:is(.highlighted, :hover):not(:disabled) {
   background: transparent;
   color: var(--text-secondary);
 }
@@ -441,7 +449,11 @@
 
 /* Filter selection is conveyed by checks, without a persistent row fill. */
 :root .kit-filter-dropdown__panel {
-  --kit-filter-divider: color-mix(in srgb, var(--text-primary) 12%, var(--bg-popover, var(--bg-surface)));
+  --kit-filter-divider: color-mix(
+    in srgb,
+    var(--text-primary) 12%,
+    var(--bg-popover, var(--bg-surface))
+  );
 }
 
 :root .kit-filter-dropdown__panel .kit-filter-dropdown__item.active {
@@ -457,7 +469,15 @@
   background: var(--bg-popover-hover, var(--bg-surface-hover));
 }
 
-:root .kit-filter-dropdown__panel :is(.kit-filter-dropdown__count, .kit-filter-dropdown__check, .kit-filter-dropdown__section-title, .kit-filter-dropdown__empty, .kit-filter-dropdown__reset) {
+:root
+  .kit-filter-dropdown__panel
+  :is(
+    .kit-filter-dropdown__count,
+    .kit-filter-dropdown__check,
+    .kit-filter-dropdown__section-title,
+    .kit-filter-dropdown__empty,
+    .kit-filter-dropdown__reset
+  ) {
   color: var(--text-secondary);
 }
 
@@ -470,7 +490,9 @@
   color: var(--text-primary);
 }
 
-:root .kit-filter-dropdown__panel :is(.kit-filter-dropdown__bulk-actions, .kit-filter-dropdown__reset) {
+:root
+  .kit-filter-dropdown__panel
+  :is(.kit-filter-dropdown__bulk-actions, .kit-filter-dropdown__reset) {
   border-color: var(--kit-filter-divider);
 }
 

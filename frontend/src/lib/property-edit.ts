@@ -10,7 +10,15 @@
  * start: line breaks count as one position whatever they are in the file. An
  * inserted "\n" is a line break of the document, for the caller to spell.
  */
-import { closingQuote, isIndented, isItem, isNoise, readValue, scalar, splitEntry } from "./properties.ts";
+import {
+  closingQuote,
+  isIndented,
+  isItem,
+  isNoise,
+  readValue,
+  scalar,
+  splitEntry,
+} from "./properties.ts";
 
 export type Line = { text: string; from: number };
 export type Span = { from: number; to: number };
@@ -94,7 +102,11 @@ export function locateProperties(lines: Line[]): EditableProperty[] {
       if (!isNoise(next)) bodyAt.push(i + 1);
       i++;
     }
-    const read = readValue(entry.key, value, bodyAt.map((at) => lines[at].text));
+    const read = readValue(
+      entry.key,
+      value,
+      bodyAt.map((at) => lines[at].text),
+    );
     if (read === null) continue;
 
     const key = read.key;
@@ -107,30 +119,69 @@ export function locateProperties(lines: Line[]): EditableProperty[] {
     const start = line.from + valueStart;
 
     if (value === "" && bodyAt.length > 0) {
-      const items = bodyAt.map((at) => {
-        const item = lines[at];
-        const text = scalar(item.text.trimStart().slice(1).trim()) ?? "";
-        const previous = lines[at - 1];
-        return { value: text, line: { from: item.from, to: lineEnd(item) }, breakBefore: lineEnd(previous) };
-      }).filter((item) => item.value !== "");
+      const items = bodyAt
+        .map((at) => {
+          const item = lines[at];
+          const text = scalar(item.text.trimStart().slice(1).trim()) ?? "";
+          const previous = lines[at - 1];
+          return {
+            value: text,
+            line: { from: item.from, to: lineEnd(item) },
+            breakBefore: lineEnd(previous),
+          };
+        })
+        .filter((item) => item.value !== "");
       const last = lines[bodyAt[bodyAt.length - 1]];
       const prefix = /^\s*-[ \t]*/.exec(lines[bodyAt[0]].text)?.[0] ?? "  - ";
-      properties.push({ ...base, type: "list", values: read.values, items, append: { at: lineEnd(last), prefix: prefix.endsWith(" ") ? prefix : `${prefix} ` } });
+      properties.push({
+        ...base,
+        type: "list",
+        values: read.values,
+        items,
+        append: { at: lineEnd(last), prefix: prefix.endsWith(" ") ? prefix : `${prefix} ` },
+      });
     } else if (value.startsWith("[")) {
       const close = flowClose(line.text, valueStart);
       if (close < 0) continue;
-      properties.push({ ...base, type: "list", values: read.values, flow: { from: start, to: line.from + close, empty: false } });
+      properties.push({
+        ...base,
+        type: "list",
+        values: read.values,
+        flow: { from: start, to: line.from + close, empty: false },
+      });
     } else if (read.values.length === 0 && LIST_KEYS.has(key.toLowerCase())) {
-      properties.push({ ...base, type: "list", values: [], flow: { from: line.from + colon + 1, to: line.from + colon + 1, empty: true } });
+      properties.push({
+        ...base,
+        type: "list",
+        values: [],
+        flow: { from: line.from + colon + 1, to: line.from + colon + 1, empty: true },
+      });
     } else if (read.values.length === 0) {
-      properties.push({ ...base, type: "text", values: [], value: { from: line.from + colon + 1, to: line.from + colon + 1, quote: "", empty: true } });
+      properties.push({
+        ...base,
+        type: "text",
+        values: [],
+        value: { from: line.from + colon + 1, to: line.from + colon + 1, quote: "", empty: true },
+      });
     } else {
       const first = value.charAt(0);
       const quote = first === '"' || first === "'" ? first : "";
-      const end = quote ? line.from + closingQuote(line.text, valueStart) + 1 : line.from + plainEnd(line.text, valueStart);
+      const end = quote
+        ? line.from + closingQuote(line.text, valueStart) + 1
+        : line.from + plainEnd(line.text, valueStart);
       const text = read.values[0];
-      const type: PropertyType = !quote && (text === "true" || text === "false") ? "checkbox" : DATE.test(text) ? "date" : "text";
-      properties.push({ ...base, type, values: read.values, value: { from: start, to: end, quote, empty: false } });
+      const type: PropertyType =
+        !quote && (text === "true" || text === "false")
+          ? "checkbox"
+          : DATE.test(text)
+            ? "date"
+            : "text";
+      properties.push({
+        ...base,
+        type,
+        values: read.values,
+        value: { from: start, to: end, quote, empty: false },
+      });
     }
   }
   return properties;
@@ -149,11 +200,13 @@ function needsQuotes(text: string, inList: boolean): boolean {
 export function formatScalar(text: string, quote: "" | '"' | "'" = "", inList = false): string {
   const clean = text.replace(/[\r\n]+/g, " ");
   if (quote === "'") return `'${clean.replaceAll("'", "''")}'`;
-  if (quote === '"' || needsQuotes(clean, inList)) return `"${clean.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  if (quote === '"' || needsQuotes(clean, inList))
+    return `"${clean.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
   return clean;
 }
 
-const flowText = (values: string[]): string => `[${values.map((value) => formatScalar(value, "", true)).join(", ")}]`;
+const flowText = (values: string[]): string =>
+  `[${values.map((value) => formatScalar(value, "", true)).join(", ")}]`;
 
 /** Sets a single value: only the text of the value changes. */
 export function setValue(property: EditableProperty, text: string): PropertyEdit | null {
@@ -168,7 +221,11 @@ export function setValue(property: EditableProperty, text: string): PropertyEdit
 export function toggleValue(property: EditableProperty): PropertyEdit | null {
   const value = property.value;
   if (property.type !== "checkbox" || !value) return null;
-  return { from: value.from, to: value.to, insert: property.values[0] === "true" ? "false" : "true" };
+  return {
+    from: value.from,
+    to: value.to,
+    insert: property.values[0] === "true" ? "false" : "true",
+  };
 }
 
 /** Adds an item at the end of a list. */
@@ -181,7 +238,11 @@ export function addItem(property: EditableProperty, text: string): PropertyEdit 
     return { from, to, insert: empty ? ` ${insert}` : insert };
   }
   if (property.append) {
-    return { from: property.append.at, to: property.append.at, insert: `\n${property.append.prefix}${formatScalar(item)}` };
+    return {
+      from: property.append.at,
+      to: property.append.at,
+      insert: `\n${property.append.prefix}${formatScalar(item)}`,
+    };
   }
   return null;
 }
@@ -190,7 +251,11 @@ export function addItem(property: EditableProperty, text: string): PropertyEdit 
 export function removeItem(property: EditableProperty, index: number): PropertyEdit | null {
   if (property.type !== "list" || index < 0 || index >= property.values.length) return null;
   if (property.flow && !property.flow.empty) {
-    return { from: property.flow.from, to: property.flow.to, insert: flowText(property.values.filter((_, at) => at !== index)) };
+    return {
+      from: property.flow.from,
+      to: property.flow.to,
+      insert: flowText(property.values.filter((_, at) => at !== index)),
+    };
   }
   const item = property.items?.[index];
   return item ? { from: item.breakBefore, to: item.line.to, insert: "" } : null;
@@ -198,7 +263,11 @@ export function removeItem(property: EditableProperty, index: number): PropertyE
 
 /** Whether a key can be written as a new property: not empty, plain, and not there yet. */
 export function validKey(key: string, existing: readonly string[]): boolean {
-  return key !== "" && !/^[-#[\]{}>|*&!%@`'"?:,]|:|^\s|\s$/.test(key) && !existing.some((name) => name.toLowerCase() === key.toLowerCase());
+  return (
+    key !== "" &&
+    !/^[-#[\]{}>|*&!%@`'"?:,]|:|^\s|\s$/.test(key) &&
+    !existing.some((name) => name.toLowerCase() === key.toLowerCase())
+  );
 }
 
 /** A new, empty property after the last line of the frontmatter's content. */
@@ -207,10 +276,20 @@ export function addProperty(at: number, key: string): PropertyEdit {
 }
 
 /** Renames a property: only its key changes. Null when the name cannot be used. */
-export function renameKey(property: EditableProperty, name: string, existing: readonly string[]): PropertyEdit | null {
+export function renameKey(
+  property: EditableProperty,
+  name: string,
+  existing: readonly string[],
+): PropertyEdit | null {
   const key = name.trim();
   if (key === property.key) return null;
-  if (!validKey(key, existing.filter((other) => other !== property.key))) return null;
+  if (
+    !validKey(
+      key,
+      existing.filter((other) => other !== property.key),
+    )
+  )
+    return null;
   return { from: property.keySpan.from, to: property.keySpan.to, insert: key };
 }
 

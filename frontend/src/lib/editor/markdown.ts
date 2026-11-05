@@ -4,7 +4,13 @@ import type { EditorState, Extension, TransactionSpec } from "@codemirror/state"
 import { EditorView } from "@codemirror/view";
 import { Parser, TreeFragment, type Input, type PartialParse } from "@lezer/common";
 import { Tag, tags } from "@lezer/highlight";
-import { GFM, type BlockParser, type InlineParser, type MarkdownConfig, type MarkdownParser } from "@lezer/markdown";
+import {
+  GFM,
+  type BlockParser,
+  type InlineParser,
+  type MarkdownConfig,
+  type MarkdownParser,
+} from "@lezer/markdown";
 import { parseWikilink } from "../wikilinks.ts";
 
 /*
@@ -158,8 +164,10 @@ const highlight: InlineParser = {
     if (cx.char(pos - 1) === EQUALS || cx.char(pos + 2) === EQUALS) return -1;
     const before = cx.slice(pos - 1, pos);
     const after = cx.slice(pos + 2, pos + 3);
-    const opens = !isSpace(after) && (!PUNCTUATION.test(after) || isSpace(before) || PUNCTUATION.test(before));
-    const closes = !isSpace(before) && (!PUNCTUATION.test(before) || isSpace(after) || PUNCTUATION.test(after));
+    const opens =
+      !isSpace(after) && (!PUNCTUATION.test(after) || isSpace(before) || PUNCTUATION.test(before));
+    const closes =
+      !isSpace(before) && (!PUNCTUATION.test(before) || isSpace(after) || PUNCTUATION.test(after));
     return cx.addDelimiter(highlightMark, pos, pos + 2, opens, closes);
   },
 };
@@ -184,7 +192,11 @@ function* lines(input: Input, to: number): Generator<string> {
   for (let pos = 0; pos < to; pos += 4096) {
     const block = input.read(pos, Math.min(to, pos + 4096));
     let start = 0;
-    for (let lineBreak = block.indexOf("\n"); lineBreak >= 0; lineBreak = block.indexOf("\n", start)) {
+    for (
+      let lineBreak = block.indexOf("\n");
+      lineBreak >= 0;
+      lineBreak = block.indexOf("\n", start)
+    ) {
       yield line + block.slice(start, lineBreak);
       line = "";
       start = lineBreak + 1;
@@ -204,7 +216,10 @@ function* lines(input: Input, to: number): Generator<string> {
  * MB (measured 15.5 ms a keystroke against 9.0 ms at 5 MB). The API refuses
  * notes over 2 MiB, so that stays a few milliseconds.
  */
-function readFrontmatter(input: Input, to: number): { firstLineEnd: number; closed: boolean } | null {
+function readFrontmatter(
+  input: Input,
+  to: number,
+): { firstLineEnd: number; closed: boolean } | null {
   if (!/^\uFEFF?---/.test(input.read(0, Math.min(to, 4)))) return null;
   let firstLineEnd = -1;
   for (const line of lines(input, to)) {
@@ -243,7 +258,8 @@ class NotebookParser extends Parser {
     ranges: readonly { from: number; to: number }[],
   ): PartialParse {
     // Only a whole text has frontmatter, not one range of it parsed apart.
-    const found = ranges.length === 1 && ranges[0].from === 0 ? readFrontmatter(input, ranges[0].to) : null;
+    const found =
+      ranges.length === 1 && ranges[0].from === 0 ? readFrontmatter(input, ranges[0].to) : null;
     if (found === null) return this.#withoutFrontmatter.createParse(input, fragments, ranges);
     // The old tree may be reused from the end of the first line on. A fragment
     // keeps its openEnd, which says whether a change follows it.
@@ -252,7 +268,16 @@ class NotebookParser extends Parser {
       fragment.from >= end
         ? [fragment]
         : fragment.to > end
-          ? [new TreeFragment(end, fragment.to, fragment.tree, fragment.offset, true, fragment.openEnd)]
+          ? [
+              new TreeFragment(
+                end,
+                fragment.to,
+                fragment.tree,
+                fragment.offset,
+                true,
+                fragment.openEnd,
+              ),
+            ]
           : [],
     );
     const parser = found.closed ? this.#withFrontmatter : this.#withoutFrontmatter;
@@ -268,7 +293,8 @@ const LINK_TARGET = /^(?:https?:\/\/|mailto:|xmpp:|www\.)/;
  * link of: lang-markdown's list, and frontmatter and tags (wikilinks and
  * embeds match "link").
  */
-const NOT_PLAIN_TEXT = /code|horizontalrule|html|link|comment|processing|escape|entity|image|mark|url|frontmatter|tag/i;
+const NOT_PLAIN_TEXT =
+  /code|horizontalrule|html|link|comment|processing|escape|entity|image|mark|url|frontmatter|tag/i;
 
 /**
  * What pasting text does when it is one URL and the main selection is plain
@@ -327,6 +353,12 @@ export const pasteLinkHandler: Extension = EditorView.domEventHandlers({
 export function notebookMarkdown(): LanguageSupport {
   const { language, support } = markdown({ extensions: [GFM, obsidian], pasteURLAsLink: false });
   const withFrontmatter = language.parser as MarkdownParser;
-  const parser = new NotebookParser(withFrontmatter, withFrontmatter.configure({ remove: [frontmatter.name] }));
-  return new LanguageSupport(new Language(language.data, parser, [], language.name), [support, pasteLinkHandler]);
+  const parser = new NotebookParser(
+    withFrontmatter,
+    withFrontmatter.configure({ remove: [frontmatter.name] }),
+  );
+  return new LanguageSupport(new Language(language.data, parser, [], language.name), [
+    support,
+    pasteLinkHandler,
+  ]);
 }

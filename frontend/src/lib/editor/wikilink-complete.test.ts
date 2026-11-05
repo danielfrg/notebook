@@ -16,8 +16,11 @@ test("duplicate basenames carry distinguishing folder details and honor limit", 
 });
 
 test("a root note with a duplicate basename is identified as the vault root", () => {
-  assert.deepEqual(wikilinkCompletions(["Ideas.md", "a/Ideas.md"], "idea")[0],
-    { label: "Ideas", detail: "Vault root", apply: "Ideas" });
+  assert.deepEqual(wikilinkCompletions(["Ideas.md", "a/Ideas.md"], "idea")[0], {
+    label: "Ideas",
+    detail: "Vault root",
+    apply: "Ideas",
+  });
 });
 
 test("source starts only after opening brackets and inserts missing closing brackets", () => {
@@ -30,7 +33,15 @@ test("source starts only after opening brackets and inserts missing closing brac
   assert.equal(typeof option?.apply, "function");
   if (typeof option.apply !== "function") throw new Error("Expected a completion callback");
   const calls: { from: number; to: number; insert: string }[] = [];
-  option.apply({ state, dispatch: (change: { changes: typeof calls[number] }) => calls.push(change.changes) } as never, option, 9, 12);
+  option.apply(
+    {
+      state,
+      dispatch: (change: { changes: (typeof calls)[number] }) => calls.push(change.changes),
+    } as never,
+    option,
+    9,
+    12,
+  );
   assert.deepEqual(calls, [{ from: 9, to: 12, insert: "Known]]" }]);
   assert.equal(source(new CompletionContext(EditorState.create({ doc: "Known" }), 5, false)), null);
 });
@@ -43,6 +54,16 @@ test("completion keeps closing brackets that already follow the cursor", () => {
   const option = result.options[0];
   if (typeof option.apply !== "function") throw new Error("Expected a completion callback");
   let insert = "";
-  option.apply({ state, dispatch: (spec: { changes: { insert: string } }) => { insert = spec.changes.insert; } } as never, option, 2, 5);
+  option.apply(
+    {
+      state,
+      dispatch: (spec: { changes: { insert: string } }) => {
+        insert = spec.changes.insert;
+      },
+    } as never,
+    option,
+    2,
+    5,
+  );
   assert.equal(insert, "Known");
 });

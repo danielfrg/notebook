@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { history, indentMore, redo, selectAll, selectParentSyntax, undo } from "@codemirror/commands";
+import {
+  history,
+  indentMore,
+  redo,
+  selectAll,
+  selectParentSyntax,
+  undo,
+} from "@codemirror/commands";
 import { insertNewlineContinueMarkup } from "@codemirror/lang-markdown";
 import {
   EditorSelection,
@@ -33,7 +40,10 @@ function parse(marked: string): { doc: string; selection: EditorSelection } {
     else if (char === "}") ranges.push(EditorSelection.range(start, doc.length));
     else doc += char;
   }
-  return { doc, selection: EditorSelection.create(ranges.length > 0 ? ranges : [EditorSelection.cursor(0)]) };
+  return {
+    doc,
+    selection: EditorSelection.create(ranges.length > 0 ? ranges : [EditorSelection.cursor(0)]),
+  };
 }
 
 /** The document of state with its selection marked, its line breaks written "\n". */
@@ -74,7 +84,10 @@ function stateOf(marked: string, crlf: boolean, extensions: Extension[] = []): E
  * Runs a command on a stand-in for the view with only what a command may use,
  * its state and dispatch, and says what it did.
  */
-function run(command: Command, state: EditorState): { handled: boolean; state: EditorState; transactions: Transaction[] } {
+function run(
+  command: Command,
+  state: EditorState,
+): { handled: boolean; state: EditorState; transactions: Transaction[] } {
   const transactions: Transaction[] = [];
   const target = {
     state,
@@ -249,7 +262,11 @@ test("code wraps a text with backticks in it in one code span, as the parser rea
 
 test("a format command is an undo step of its own, apart from the typing before it", () => {
   let state = stateOf("a|", false);
-  state = state.update({ changes: { from: 1, insert: "b" }, selection: { anchor: 2 }, userEvent: "input.type" }).state;
+  state = state.update({
+    changes: { from: 1, insert: "b" },
+    selection: { anchor: 2 },
+    userEvent: "input.type",
+  }).state;
   state = run(formatCommands.bold, state).state;
   state = run(formatCommands.italic, state).state;
   assert.equal(mark(state), "ab***|***");
@@ -266,7 +283,9 @@ test("no command changes a read-only document", () => {
     state = state.update({ changes: { from: 0, insert: "x" }, userEvent: "input" }).state;
     state = state.update({ changes: { from: 0, insert: "y" }, userEvent: "input" }).state;
     state = run(undo, state).state;
-    state = state.update({ effects: StateEffect.appendConfig.of(EditorState.readOnly.of(true)) }).state;
+    state = state.update({
+      effects: StateEffect.appendConfig.of(EditorState.readOnly.of(true)),
+    }).state;
     const { handled, transactions } = run(command, state);
     assert.equal(handled, false, name);
     assert.equal(transactions.length, 0, name);
@@ -288,7 +307,8 @@ test("every editor command has a command, undo and redo those of the history", (
     "task",
     "undo",
   ]);
-  for (const name of Object.keys(formatCommands) as FormatCommand[]) assert.equal(editorCommands[name], formatCommands[name]);
+  for (const name of Object.keys(formatCommands) as FormatCommand[])
+    assert.equal(editorCommands[name], formatCommands[name]);
   assert.equal(editorCommands.undo, undo);
   assert.equal(editorCommands.redo, redo);
 });
@@ -320,7 +340,8 @@ function bindings(state: EditorState, key: string, platform: Platform): [Command
     const name = binding[platform] || binding.key;
     if (!name) continue;
     if (binding.run && normalize(name, platform) === want) found.push([binding.run, binding]);
-    if (binding.shift && normalize(`Shift-${name}`, platform) === want) found.push([binding.shift, binding]);
+    if (binding.shift && normalize(`Shift-${name}`, platform) === want)
+      found.push([binding.shift, binding]);
   }
   return found;
 }
@@ -328,7 +349,9 @@ function bindings(state: EditorState, key: string, platform: Platform): [Command
 test("the keymap runs the notebook's commands first and leaves the host's shortcuts and search alone", () => {
   let saves = 0;
   // The editor's keys: the Markdown keymap that comes with the language, then the editor's own.
-  const state = EditorState.create({ extensions: [notebookMarkdown(), keymap.of(editorKeymap(() => saves++))] });
+  const state = EditorState.create({
+    extensions: [notebookMarkdown(), keymap.of(editorKeymap(() => saves++))],
+  });
   for (const platform of ["mac", "win", "linux"] as const) {
     const first = (key: string) => bindings(state, key, platform)[0]?.[0];
     assert.equal(first("Mod-b"), formatCommands.bold, platform);
@@ -346,7 +369,11 @@ test("the keymap runs the notebook's commands first and leaves the host's shortc
     assert.equal(first("Mod-z"), undo, platform);
     assert.equal(first("Mod-Shift-z"), redo, platform);
     for (const key of ["Mod-e", "Mod-o", "Mod-p", "Mod-Shift-f", "Mod-f"]) {
-      assert.deepEqual(bindings(state, key, platform), [], `${platform} ${key} is not the editor's`);
+      assert.deepEqual(
+        bindings(state, key, platform),
+        [],
+        `${platform} ${key} is not the editor's`,
+      );
     }
     // Mod-s saves, and the event goes no further: not to the browser, nor to a shortcut of the page.
     const [save, binding] = bindings(state, "Mod-s", platform)[0];
@@ -372,7 +399,10 @@ test("Enter continues a list or a quote with the document's own line break", () 
   for (const crlf of [false, true]) {
     for (const [before, after] of cases) {
       const label = `${JSON.stringify(before)}${crlf ? " in CRLF" : ""}`;
-      const { handled, state } = run(insertNewlineContinueMarkup, stateOf(before, crlf, [notebookMarkdown()]));
+      const { handled, state } = run(
+        insertNewlineContinueMarkup,
+        stateOf(before, crlf, [notebookMarkdown()]),
+      );
       assert.equal(handled, true, label);
       assert.equal(mark(state), after, label);
       const text = parse(after).doc;

@@ -23,7 +23,8 @@ test("detectLineSeparator names the one line break a text uses, or says it mixes
     [BOM + "a\nb", "\n"],
     [BOM, "\n"],
   ];
-  for (const [text, separator] of cases) assert.equal(detectLineSeparator(text), separator, JSON.stringify(text));
+  for (const [text, separator] of cases)
+    assert.equal(detectLineSeparator(text), separator, JSON.stringify(text));
 });
 
 test("a CRLF text comes back whole from an editor state that uses CRLF", () => {
@@ -31,6 +32,10 @@ test("a CRLF text comes back whole from an editor state that uses CRLF", () => {
     const crlf = EditorState.create({ doc, extensions: [EditorState.lineSeparator.of("\r\n")] });
     assert.equal(crlf.sliceDoc(0), doc, JSON.stringify(doc));
     // Without the separator the state keeps the lines but joins them with LF.
-    assert.equal(EditorState.create({ doc }).sliceDoc(0), doc.replaceAll("\r\n", "\n"), JSON.stringify(doc));
+    assert.equal(
+      EditorState.create({ doc }).sliceDoc(0),
+      doc.replaceAll("\r\n", "\n"),
+      JSON.stringify(doc),
+    );
   }
 });

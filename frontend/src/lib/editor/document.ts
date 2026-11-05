@@ -43,7 +43,9 @@ const crlf: Extension = [
 const mixed: Extension = Prec.highest([
   EditorState.readOnly.of(true),
   EditorView.editable.of(false),
-  EditorState.changeFilter.of((transaction) => !transaction.docChanged || transaction.annotation(replacement) === true),
+  EditorState.changeFilter.of(
+    (transaction) => !transaction.docChanged || transaction.annotation(replacement) === true,
+  ),
 ]);
 
 /**
@@ -70,8 +72,14 @@ export function toDocument(text: string, separator: LineSeparator): Text {
 }
 
 /** The extensions that come with a document, each in its compartment: its separator's, and a history. */
-export function documentExtensions(separator: LineSeparator, compartments: DocumentCompartments): Extension {
-  return [compartments.separator.of(separatorExtension(separator)), compartments.history.of(history())];
+export function documentExtensions(
+  separator: LineSeparator,
+  compartments: DocumentCompartments,
+): Extension {
+  return [
+    compartments.separator.of(separatorExtension(separator)),
+    compartments.history.of(history()),
+  ];
 }
 
 const sharedStart = (a: string, b: string): number => {
@@ -94,7 +102,10 @@ const sharedEnd = (a: string, b: string): number => {
  * do. It is compared line by line, the line breaks included, so whatever both
  * have at their start and end is left alone, and positions there do not move.
  */
-export function replaceDocumentSpec(current: Text, next: Text): { from: number; to: number; insert: Text } | null {
+export function replaceDocumentSpec(
+  current: Text,
+  next: Text,
+): { from: number; to: number; insert: Text } | null {
   if (current.eq(next)) return null;
   const a = current.toJSON();
   const b = next.toJSON();
@@ -143,7 +154,10 @@ export function replaceDocument(
 ): readonly Transaction[] {
   const replaced = state.update({
     changes: replaceDocumentSpec(state.doc, toDocument(text, separator)) ?? [],
-    effects: [compartments.separator.reconfigure(separatorExtension(separator)), compartments.history.reconfigure([])],
+    effects: [
+      compartments.separator.reconfigure(separatorExtension(separator)),
+      compartments.history.reconfigure([]),
+    ],
     annotations: replacement.of(true),
   });
   const fresh = replaced.state.update({
@@ -158,5 +172,7 @@ export function replaceDocument(
  * or by a command, and not by a replacement.
  */
 export function changedByUser(transactions: readonly Transaction[]): boolean {
-  return transactions.some((transaction) => transaction.docChanged && transaction.annotation(replacement) !== true);
+  return transactions.some(
+    (transaction) => transaction.docChanged && transaction.annotation(replacement) !== true,
+  );
 }

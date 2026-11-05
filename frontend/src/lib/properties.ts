@@ -17,7 +17,8 @@ export type Property = { key: string; values: string[]; list: boolean };
 
 export const isIndented = (line: string): boolean => line.startsWith(" ") || line.startsWith("\t");
 /** A line that says nothing: blank, or a comment. */
-export const isNoise = (line: string): boolean => line.trim() === "" || line.trimStart().startsWith("#");
+export const isNoise = (line: string): boolean =>
+  line.trim() === "" || line.trimStart().startsWith("#");
 export const isItem = (line: string): boolean => {
   const text = line.trimStart();
   return text === "-" || text.startsWith("- ") || text.startsWith("-\t");

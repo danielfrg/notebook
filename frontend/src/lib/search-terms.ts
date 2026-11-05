@@ -4,7 +4,9 @@
  * matching ignores case and accents, as the server's search does.
  */
 export function termParts(text: string, query: string): { text: string; match: boolean }[] {
-  const terms = [...query.matchAll(/"([^"]+)"|(\S+)/g)].map((match) => match[1] ?? match[2]).filter(Boolean);
+  const terms = [...query.matchAll(/"([^"]+)"|(\S+)/g)]
+    .map((match) => match[1] ?? match[2])
+    .filter(Boolean);
   if (!terms.length) return [{ text, match: false }];
   const folded: string[] = [];
   const offsets: number[] = [];

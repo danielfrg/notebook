@@ -35,7 +35,11 @@ export function parseRoute(hash: string): Route {
     return { vault, path: null };
   }
   const parts = segments.map(decode);
-  if (new TextEncoder().encode(parts.join("/")).length > 512 || parts.some((part) => !part || validateEntryName(part) !== null)) return { vault, path: null };
+  if (
+    new TextEncoder().encode(parts.join("/")).length > 512 ||
+    parts.some((part) => !part || validateEntryName(part) !== null)
+  )
+    return { vault, path: null };
   return { vault, path: parts.join("/") };
 }
 

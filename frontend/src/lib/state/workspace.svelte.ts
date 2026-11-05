@@ -1,4 +1,11 @@
-import { ApiError, createApi, type ApiClient, type Listing, type SearchHit, type VaultInfo } from "../api.ts";
+import {
+  ApiError,
+  createApi,
+  type ApiClient,
+  type Listing,
+  type SearchHit,
+  type VaultInfo,
+} from "../api.ts";
 import { noteFileName, renameTarget, validateNoteName } from "../entry-names.ts";
 import { detectLineSeparator } from "../editor/linesep.ts";
 import { joinPath, parentFolder, validateEntryName } from "../paths.ts";
@@ -11,10 +18,18 @@ const VAULT_KEY = "notebook-vault";
 const MODE_KEY = "notebook-mode";
 
 function stored(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 function remember(key: string, value: string): void {
-  try { localStorage.setItem(key, value); } catch { /* Storage may be disabled. */ }
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* Storage may be disabled. */
+  }
 }
 
 class Workspace {
@@ -68,7 +83,9 @@ class Workspace {
   private searchSequence = 0;
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-  get dirty(): boolean { return this.controller?.state !== "clean" && this.controller !== null; }
+  get dirty(): boolean {
+    return this.controller?.state !== "clean" && this.controller !== null;
+  }
 
   async init(): Promise<void> {
     if (this.started) return;
@@ -83,16 +100,25 @@ class Workspace {
       window.addEventListener("hashchange", this.handleHashChange);
       const parsed = parseRoute(location.hash);
       const preferred = parsed.vault ?? stored(VAULT_KEY);
-      const route = nextRoute({ vault: preferred, path: parsed.path }, { type: "note", path: parsed.path }, result.vaults.map((v) => v.name));
+      const route = nextRoute(
+        { vault: preferred, path: parsed.path },
+        { type: "note", path: parsed.path },
+        result.vaults.map((v) => v.name),
+      );
       if (route.vault && location.hash !== formatRoute(route.vault, route.path)) {
         location.replace(formatRoute(route.vault, route.path));
       }
       await this.followRoute(route.vault, route.path);
       if (!this.started) return;
       window.addEventListener("focus", this.handleFocus);
-      if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.handleVisibilityChange);
-      this.noteTimer = setInterval(() => { if (this.visible()) void this.pollNote(); }, 5000);
-      this.filesTimer = setInterval(() => { if (this.visible()) void this.refreshFiles().catch(() => {}); }, 15000);
+      if (typeof document !== "undefined")
+        document.addEventListener("visibilitychange", this.handleVisibilityChange);
+      this.noteTimer = setInterval(() => {
+        if (this.visible()) void this.pollNote();
+      }, 5000);
+      this.filesTimer = setInterval(() => {
+        if (this.visible()) void this.refreshFiles().catch(() => {});
+      }, 15000);
     } catch (error) {
       if (generation !== this.generation) return;
       this.error = error instanceof Error ? error.message : "Could not load vaults";
@@ -105,7 +131,8 @@ class Workspace {
     this.generation++;
     window.removeEventListener("hashchange", this.handleHashChange);
     window.removeEventListener("focus", this.handleFocus);
-    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+    if (typeof document !== "undefined")
+      document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     if (this.noteTimer !== undefined) clearInterval(this.noteTimer);
     if (this.filesTimer !== undefined) clearInterval(this.filesTimer);
     this.noteTimer = undefined;
@@ -120,18 +147,35 @@ class Workspace {
 
   async retry(): Promise<void> {
     if (this.vault) await this.loadVault(this.vault, parseRoute(location.hash).path);
-    else { this.dispose(); await this.init(); }
+    else {
+      this.dispose();
+      await this.init();
+    }
   }
 
   selectVault(name: string): void {
-    this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "vault", name }, this.vaults.map((v) => v.name)));
+    this.navigate(
+      nextRoute(
+        { vault: this.vault, path: this.path },
+        { type: "vault", name },
+        this.vaults.map((v) => v.name),
+      ),
+    );
   }
 
-  get canGoBack(): boolean { return this.backStack.length > 0; }
-  get canGoForward(): boolean { return this.forwardStack.length > 0; }
+  get canGoBack(): boolean {
+    return this.backStack.length > 0;
+  }
+  get canGoForward(): boolean {
+    return this.forwardStack.length > 0;
+  }
 
-  goBack(): void { this.traverse("back"); }
-  goForward(): void { this.traverse("forward"); }
+  goBack(): void {
+    this.traverse("back");
+  }
+  goForward(): void {
+    this.traverse("forward");
+  }
 
   private traverse(direction: "back" | "forward"): void {
     const target = (direction === "back" ? this.backStack : this.forwardStack).at(-1);
@@ -160,20 +204,34 @@ class Workspace {
 
   /** Keeps Back and Forward pointing at a note or folder that moved. */
   private renameInTrail(vault: string, from: string, to: string): void {
-    const move = (entry: { vault: string; path: string }) => entry.vault === vault && (entry.path === from || entry.path.startsWith(`${from}/`))
-      ? { vault, path: to + entry.path.slice(from.length) } : entry;
+    const move = (entry: { vault: string; path: string }) =>
+      entry.vault === vault && (entry.path === from || entry.path.startsWith(`${from}/`))
+        ? { vault, path: to + entry.path.slice(from.length) }
+        : entry;
     this.backStack = this.backStack.map(move);
     this.forwardStack = this.forwardStack.map(move);
   }
 
   openNote(path: string | null): void {
     this.searchTarget = null;
-    this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "note", path }, this.vaults.map((v) => v.name)));
+    this.navigate(
+      nextRoute(
+        { vault: this.vault, path: this.path },
+        { type: "note", path },
+        this.vaults.map((v) => v.name),
+      ),
+    );
   }
 
   openSearchHit(hit: SearchHit): void {
     this.searchTarget = { path: hit.path, line: hit.snippets[0]?.line ?? 1 };
-    this.navigate(nextRoute({ vault: this.vault, path: this.path }, { type: "note", path: hit.path }, this.vaults.map((v) => v.name)));
+    this.navigate(
+      nextRoute(
+        { vault: this.vault, path: this.path },
+        { type: "note", path: hit.path },
+        this.vaults.map((v) => v.name),
+      ),
+    );
   }
 
   setSearchQuery(query: string): void {
@@ -184,26 +242,34 @@ class Workspace {
     this.searchHits = [];
     this.searchError = null;
     this.searchLoading = !!query.trim();
-    if (!query.trim() || !this.vault) { this.searchLoading = false; return; }
+    if (!query.trim() || !this.vault) {
+      this.searchLoading = false;
+      return;
+    }
     const sequence = this.searchSequence;
     const vault = this.vault;
     this.searchTimer = setTimeout(() => {
       this.searchTimer = undefined;
-      void this.api.search(vault, query, 50).then((hits) => {
-        if (sequence !== this.searchSequence || vault !== this.vault) return;
-        this.searchHits = hits;
-        this.searchLoading = false;
-      }).catch((error: unknown) => {
-        if (sequence !== this.searchSequence || vault !== this.vault) return;
-        this.searchError = error instanceof Error ? error.message : "Search failed";
-        this.searchLoading = false;
-      });
+      void this.api
+        .search(vault, query, 50)
+        .then((hits) => {
+          if (sequence !== this.searchSequence || vault !== this.vault) return;
+          this.searchHits = hits;
+          this.searchLoading = false;
+        })
+        .catch((error: unknown) => {
+          if (sequence !== this.searchSequence || vault !== this.vault) return;
+          this.searchError = error instanceof Error ? error.message : "Search failed";
+          this.searchLoading = false;
+        });
     }, 250);
   }
 
   /** Full-text search of the open vault, apart from the sidebar's search. */
   searchContent(query: string, limit = 20): Promise<SearchHit[]> {
-    return this.vault && query.trim() ? this.api.search(this.vault, query, limit) : Promise.resolve([]);
+    return this.vault && query.trim()
+      ? this.api.search(this.vault, query, limit)
+      : Promise.resolve([]);
   }
 
   assetUrl(path: string): string {
@@ -217,11 +283,14 @@ class Workspace {
 
   toggleFolder(path: string): void {
     const next = new Set(this.expanded);
-    if (next.has(path)) next.delete(path); else next.add(path);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
     this.expanded = next;
   }
 
-  saveNow(): Promise<void> { return this.controller?.flush() ?? Promise.resolve(); }
+  saveNow(): Promise<void> {
+    return this.controller?.flush() ?? Promise.resolve();
+  }
 
   /** Refresh both resources on focus; intervals call each half separately. */
   async pollNow(): Promise<void> {
@@ -276,8 +345,11 @@ class Workspace {
       await this.refreshAfterMutation();
       if (this.vault !== vault) return;
       if (isFolder) {
-        this.expanded = new Set([...this.expanded].map((entry) =>
-          entry === path || entry.startsWith(`${path}/`) ? to + entry.slice(path.length) : entry));
+        this.expanded = new Set(
+          [...this.expanded].map((entry) =>
+            entry === path || entry.startsWith(`${path}/`) ? to + entry.slice(path.length) : entry,
+          ),
+        );
       }
       if (open && openPath && this.path === openPath && this.controller === openController) {
         const next = to + openPath.slice(path.length);
@@ -301,7 +373,12 @@ class Workspace {
       if (open) await this.ensureSafeMutation();
       await this.api.remove(vault, path);
       await this.refreshAfterMutation();
-      if (this.vault === vault && open && this.path === openPath && this.controller === openController) {
+      if (
+        this.vault === vault &&
+        open &&
+        this.path === openPath &&
+        this.controller === openController
+      ) {
         this.navigate({ vault, path: null });
         await this.loadNote(null);
       }
@@ -324,7 +401,12 @@ class Workspace {
       this.pendingExit = null;
       this.lastExternalRevision = null;
     } catch (error) {
-      if (this.sameOpen(vault, path, controller, noteAbort) && error instanceof ApiError && error.status === 404) this.markMissing();
+      if (
+        this.sameOpen(vault, path, controller, noteAbort) &&
+        error instanceof ApiError &&
+        error.status === 404
+      )
+        this.markMissing();
       else if (!noteAbort.signal.aborted) throw error;
     }
   }
@@ -335,7 +417,10 @@ class Workspace {
     if (controller.state === "saving") await controller.flush();
     const current = await this.api.revision(vault, path, noteAbort.signal);
     if (!this.sameOpen(vault, path, controller, noteAbort)) return;
-    if (!current) { this.markMissing(); return; }
+    if (!current) {
+      this.markMissing();
+      return;
+    }
     await controller.overwrite(current.revision);
   }
 
@@ -383,7 +468,11 @@ class Workspace {
 
   private handleHashChange = (): void => {
     const parsed = parseRoute(location.hash);
-    const route = nextRoute(parsed, { type: "note", path: parsed.path }, this.vaults.map((v) => v.name));
+    const route = nextRoute(
+      parsed,
+      { type: "note", path: parsed.path },
+      this.vaults.map((v) => v.name),
+    );
     if (route.vault && location.hash !== formatRoute(route.vault, route.path)) {
       location.replace(formatRoute(route.vault, route.path));
     }
@@ -396,8 +485,12 @@ class Workspace {
     void this.pollNow();
   }
 
-  private handleFocus = (): void => { this.refreshOnReturn(); };
-  private handleVisibilityChange = (): void => { this.refreshOnReturn(); };
+  private handleFocus = (): void => {
+    this.refreshOnReturn();
+  };
+  private handleVisibilityChange = (): void => {
+    this.refreshOnReturn();
+  };
 
   private visible(): boolean {
     return typeof document === "undefined" || document.visibilityState === "visible";
@@ -412,13 +505,35 @@ class Workspace {
     if (this.readOnly) throw new Error("This vault is read-only");
   }
 
-  private openContext(): { vault: string; path: string; controller: SaveController; noteAbort: AbortController } {
-    if (!this.vault || !this.path || !this.controller || !this.noteAbort) throw new Error("No note is open");
-    return { vault: this.vault, path: this.path, controller: this.controller, noteAbort: this.noteAbort };
+  private openContext(): {
+    vault: string;
+    path: string;
+    controller: SaveController;
+    noteAbort: AbortController;
+  } {
+    if (!this.vault || !this.path || !this.controller || !this.noteAbort)
+      throw new Error("No note is open");
+    return {
+      vault: this.vault,
+      path: this.path,
+      controller: this.controller,
+      noteAbort: this.noteAbort,
+    };
   }
 
-  private sameOpen(vault: string, path: string, controller: SaveController, abort: AbortController): boolean {
-    return !abort.signal.aborted && this.vault === vault && this.path === path && this.controller === controller && this.noteAbort === abort;
+  private sameOpen(
+    vault: string,
+    path: string,
+    controller: SaveController,
+    abort: AbortController,
+  ): boolean {
+    return (
+      !abort.signal.aborted &&
+      this.vault === vault &&
+      this.path === path &&
+      this.controller === controller &&
+      this.noteAbort === abort
+    );
   }
 
   private expandTo(path: string): void {
@@ -462,17 +577,31 @@ class Workspace {
   }
 
   private async pollNoteOnce(): Promise<void> {
-    if (!this.visible() || this.fileMutationPending > 0 || !this.vault || !this.path || !this.controller || !this.noteAbort || this.controller.state === "saving") return;
+    if (
+      !this.visible() ||
+      this.fileMutationPending > 0 ||
+      !this.vault ||
+      !this.path ||
+      !this.controller ||
+      !this.noteAbort ||
+      this.controller.state === "saving"
+    )
+      return;
     const { vault, path, controller, noteAbort } = this.openContext();
     const sequence = ++this.notePollSequence;
     const saveCompletion = this.saveCompletion;
-    const current = () => this.sameOpen(vault, path, controller, noteAbort) &&
-      sequence === this.notePollSequence && saveCompletion === this.saveCompletion;
+    const current = () =>
+      this.sameOpen(vault, path, controller, noteAbort) &&
+      sequence === this.notePollSequence &&
+      saveCompletion === this.saveCompletion;
     const saving = () => controller.state === "saving";
     try {
       const revision = await this.api.revision(vault, path, noteAbort.signal);
       if (!current() || saving()) return;
-      if (!revision) { this.markMissing(); return; }
+      if (!revision) {
+        this.markMissing();
+        return;
+      }
       this.missingNote = false;
       // This is the usual result of our own save; external() must not run for it.
       if (revision.revision === controller.revision) {
@@ -565,7 +694,10 @@ class Workspace {
     this.noteError = null;
     this.error = null;
     this.loading = true;
-    if (!vault) { this.loading = false; return; }
+    if (!vault) {
+      this.loading = false;
+      return;
+    }
     remember(VAULT_KEY, vault);
     try {
       const result = await this.api.files(vault);
@@ -603,7 +735,10 @@ class Workspace {
     this.pendingExit = null;
     this.noteError = null;
     this.lineSeparatorIssue = null;
-    if (!path || !this.vault) { this.noteLoading = false; return; }
+    if (!path || !this.vault) {
+      this.noteLoading = false;
+      return;
+    }
     this.expandTo(path);
     this.noteLoading = true;
     const vault = this.vault;
@@ -611,33 +746,41 @@ class Workspace {
       const note = await this.api.note(vault, path, this.noteAbort?.signal);
       if (generation !== this.generation) return;
       this.adoptContent(note.content);
-      const controller = new SaveController({
-        debounceMs: 1000,
-        save: async (content, revision) => {
-          const result = await this.api.save(vault, path, content, revision);
-          this.saveCompletion++;
-          if (this.controller === controller) {
-            this.missingNote = false;
-            this.externalConflict = false;
-            this.navigationBlocked = false;
-            this.pendingExit = null;
-            this.lastExternalRevision = null;
-          }
-          return result;
+      const controller = new SaveController(
+        {
+          debounceMs: 1000,
+          save: async (content, revision) => {
+            const result = await this.api.save(vault, path, content, revision);
+            this.saveCompletion++;
+            if (this.controller === controller) {
+              this.missingNote = false;
+              this.externalConflict = false;
+              this.navigationBlocked = false;
+              this.pendingExit = null;
+              this.lastExternalRevision = null;
+            }
+            return result;
+          },
+          onstate: (state, detail) => {
+            if (this.controller !== controller) return;
+            this.saveState = state;
+            this.saveDetail = detail ?? null;
+            if (state === "clean") {
+              this.externalConflict = false;
+              this.lastExternalRevision = null;
+            }
+            if (state === "conflict") this.externalConflict = true;
+            if (state === "error" && detail === "missing") this.markMissing();
+          },
         },
-        onstate: (state, detail) => {
-          if (this.controller !== controller) return;
-          this.saveState = state;
-          this.saveDetail = detail ?? null;
-          if (state === "clean") { this.externalConflict = false; this.lastExternalRevision = null; }
-          if (state === "conflict") this.externalConflict = true;
-          if (state === "error" && detail === "missing") this.markMissing();
-        },
-      }, { content: note.content, revision: note.revision });
+        { content: note.content, revision: note.revision },
+      );
       this.controller = controller;
     } catch (error) {
       if (generation !== this.generation) return;
-      this.noteError = readOnlyReason({ error }) ?? (error instanceof Error ? error.message : "Could not open note");
+      this.noteError =
+        readOnlyReason({ error }) ??
+        (error instanceof Error ? error.message : "Could not open note");
     } finally {
       if (generation === this.generation) this.noteLoading = false;
     }

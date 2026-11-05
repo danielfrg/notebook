@@ -188,7 +188,9 @@
   min-height: 28px;
 }
 
-.nb-editor .nb-property + .nb-property { margin-top: 2px; }
+.nb-editor .nb-property + .nb-property {
+  margin-top: 2px;
+}
 
 .nb-editor .nb-prop-type {
   display: inline-flex;
@@ -200,8 +202,13 @@
 }
 
 .nb-editor .nb-prop-type svg,
-.nb-editor .nb-prop-icon svg { width: 14px; height: 14px; }
-.nb-editor .nb-prop-icon { display: inline-flex; }
+.nb-editor .nb-prop-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.nb-editor .nb-prop-icon {
+  display: inline-flex;
+}
 
 .nb-editor .nb-property-value {
   display: flex;
@@ -222,9 +229,15 @@
   color: var(--text-primary);
 }
 
-.nb-editor .nb-property-chip:is(:hover, :focus-within) { background: var(--bg-surface-hover); }
-.nb-editor .nb-property-chip .nb-prop-remove { opacity: 0; }
-.nb-editor .nb-property-chip:is(:hover, :focus-within) .nb-prop-remove { opacity: 1; }
+.nb-editor .nb-property-chip:is(:hover, :focus-within) {
+  background: var(--bg-surface-hover);
+}
+.nb-editor .nb-property-chip .nb-prop-remove {
+  opacity: 0;
+}
+.nb-editor .nb-property-chip:is(:hover, :focus-within) .nb-prop-remove {
+  opacity: 1;
+}
 
 .nb-editor .nb-prop-input,
 .nb-editor .nb-prop-new,
@@ -245,13 +258,29 @@
   color: var(--text-primary);
 }
 
-.nb-editor .nb-prop-key { width: 100%; color: var(--text-secondary); }
-.nb-editor .nb-prop-text { flex: 1; }
-.nb-editor .nb-prop-add { flex: 1; min-width: 5em; }
-.nb-editor .nb-prop-input::placeholder { color: var(--text-muted); }
-.nb-editor .nb-prop-input:not([readonly]):hover { background: var(--bg-surface-hover); }
-.nb-editor .nb-prop-input:focus { background: var(--bg-inset); }
-.nb-editor .nb-property-value > .nb-prop-input[type="date"] { flex: none; }
+.nb-editor .nb-prop-key {
+  width: 100%;
+  color: var(--text-secondary);
+}
+.nb-editor .nb-prop-text {
+  flex: 1;
+}
+.nb-editor .nb-prop-add {
+  flex: 1;
+  min-width: 5em;
+}
+.nb-editor .nb-prop-input::placeholder {
+  color: var(--text-muted);
+}
+.nb-editor .nb-prop-input:not([readonly]):hover {
+  background: var(--bg-surface-hover);
+}
+.nb-editor .nb-prop-input:focus {
+  background: var(--bg-inset);
+}
+.nb-editor .nb-property-value > .nb-prop-input[type="date"] {
+  flex: none;
+}
 
 .nb-editor .nb-prop-remove {
   display: inline-flex;
@@ -261,7 +290,9 @@
   cursor: pointer;
 }
 
-.nb-editor .nb-prop-remove:hover { color: var(--text-primary); }
+.nb-editor .nb-prop-remove:hover {
+  color: var(--text-primary);
+}
 
 .nb-editor .nb-prop-delete {
   display: inline-flex;
@@ -276,9 +307,14 @@
 }
 
 .nb-editor .nb-property:hover .nb-prop-delete,
-.nb-editor .nb-property:focus-within .nb-prop-delete { opacity: 1; }
+.nb-editor .nb-property:focus-within .nb-prop-delete {
+  opacity: 1;
+}
 .nb-editor .nb-prop-delete:hover,
-.nb-editor .nb-prop-delete:focus-visible { background: var(--bg-surface-hover); color: var(--text-primary); }
+.nb-editor .nb-prop-delete:focus-visible {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
 
 .nb-editor .nb-prop-check {
   width: 14px;
@@ -310,7 +346,9 @@
   cursor: pointer;
 }
 
-.nb-editor .nb-prop-new:hover { color: var(--text-primary); }
+.nb-editor .nb-prop-new:hover {
+  color: var(--text-primary);
+}
 
 .nb-editor .nb-tag {
   padding: 0 0.3em;

@@ -49,7 +49,15 @@ test("notes are ordered by title, as they are shown, not by file name", () => {
 
 test("the order does not depend on the order of the listing, and the listing is left alone", () => {
   const folders = ["b", "a", "A"];
-  const paths = ["résumé.md", "Resume.md", "resume.md", "Note 02.md", "Note 2.md", "b/x.md", "a/y.md"];
+  const paths = [
+    "résumé.md",
+    "Resume.md",
+    "resume.md",
+    "Note 02.md",
+    "Note 2.md",
+    "b/x.md",
+    "a/y.md",
+  ];
   // Frozen, so that sorting or changing the listing in place throws.
   const build = (folders: string[], paths: string[]) =>
     buildTree(
@@ -66,13 +74,26 @@ test("empty folders are listed, and notes land in their folder even when a paren
     folders: ["a", "a/b", "empty"],
     notes: [note("a/b/c.md"), note("a/d.md"), note("top.md"), note("x/y/z.md")],
   });
-  assert.deepEqual(outline(tree), ["a/", "  b/", "    c", "  d", "empty/", "x/", "  y/", "    z", "top"]);
+  assert.deepEqual(outline(tree), [
+    "a/",
+    "  b/",
+    "    c",
+    "  d",
+    "empty/",
+    "x/",
+    "  y/",
+    "    z",
+    "top",
+  ]);
   assert.deepEqual(buildTree({ folders: [], notes: [] }), []);
 });
 
 test("nodes carry what the sidebar needs: a title, the path, and for a note its size and time", () => {
   const modified = "2026-10-26T12:00:00Z";
-  const tree = buildTree({ folders: ["a"], notes: [{ path: "a/¿Qué es?.md", size: 42, modified }] });
+  const tree = buildTree({
+    folders: ["a"],
+    notes: [{ path: "a/¿Qué es?.md", size: 42, modified }],
+  });
   assert.deepEqual(tree, [
     {
       kind: "folder",
@@ -93,7 +114,14 @@ test("visibleRows lists the children of expanded folders only, with their depth"
   const closed = ["0:a", "0:empty", "0:top.md"];
   assert.deepEqual(rows([]), closed);
   assert.deepEqual(rows(["a"]), ["0:a", "1:a/b", "1:a/d.md", "0:empty", "0:top.md"]);
-  assert.deepEqual(rows(["a", "a/b"]), ["0:a", "1:a/b", "2:a/b/c.md", "1:a/d.md", "0:empty", "0:top.md"]);
+  assert.deepEqual(rows(["a", "a/b"]), [
+    "0:a",
+    "1:a/b",
+    "2:a/b/c.md",
+    "1:a/d.md",
+    "0:empty",
+    "0:top.md",
+  ]);
   assert.deepEqual(rows(["a/b"]), closed, "a folder inside a closed one stays hidden");
   assert.deepEqual(rows(["empty"]), closed, "an empty folder has nothing to show");
   assert.deepEqual(visibleRows([], new Set(["a"])), []);
@@ -113,7 +141,10 @@ test("ancestors lists the folders above a path, outermost first", () => {
 });
 
 test("tree tab stop falls back to a visible row after refresh or collapse", () => {
-  const tree = buildTree({ folders: ["folder"], notes: [note("folder/child.md"), note("other.md")] });
+  const tree = buildTree({
+    folders: ["folder"],
+    notes: [note("folder/child.md"), note("other.md")],
+  });
   const open = visibleRows(tree, new Set(["folder"]));
   const closed = visibleRows(tree, new Set());
   assert.equal(tabStopPath(open, "folder/child.md"), "folder/child.md");

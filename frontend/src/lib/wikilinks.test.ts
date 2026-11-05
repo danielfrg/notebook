@@ -1,10 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWikilink, resolveAsset, resolveNote, wikilinkCreation, type Wikilink } from "./wikilinks.ts";
+import {
+  parseWikilink,
+  resolveAsset,
+  resolveNote,
+  wikilinkCreation,
+  type Wikilink,
+} from "./wikilinks.ts";
 
 test("unresolved nested wikilink creation retains its vault-relative folder", () => {
-  assert.deepEqual(wikilinkCreation("Home.md", "Projects/New"), { folder: "Projects", initial: "New" });
-  assert.deepEqual(wikilinkCreation("Notes/Home.md", "Missing/Deep/New.md"), { folder: "Missing/Deep", initial: "New" });
+  assert.deepEqual(wikilinkCreation("Home.md", "Projects/New"), {
+    folder: "Projects",
+    initial: "New",
+  });
+  assert.deepEqual(wikilinkCreation("Notes/Home.md", "Missing/Deep/New.md"), {
+    folder: "Missing/Deep",
+    initial: "New",
+  });
   assert.deepEqual(wikilinkCreation("Notes/Home.md", "New"), { folder: "Notes", initial: "New" });
 });
 
@@ -25,7 +37,10 @@ test("parseWikilink reads the target, heading, alias and embed marker", () => {
     ["![[img.png|300]]", link("img.png", { alias: "300", embed: true })],
     ["![[Note#Heading]]", link("Note", { heading: "Heading", embed: true })],
     ["[[¿Qué es el Estoicismo?]]", link("¿Qué es el Estoicismo?")],
-    ["[[Course Z - On love - Lesson 1|Lesson 1]]", link("Course Z - On love - Lesson 1", { alias: "Lesson 1" })],
+    [
+      "[[Course Z - On love - Lesson 1|Lesson 1]]",
+      link("Course Z - On love - Lesson 1", { alias: "Lesson 1" }),
+    ],
     ["[[ Note | alias ]]", link("Note", { alias: "alias" })],
     ["[[Note#a#b]]", link("Note", { heading: "a#b" })], // a path of headings stays whole
     ["[[Note#^abc123]]", link("Note", { heading: "^abc123" })], // a block reference
@@ -91,10 +106,20 @@ test("resolveNote finds a note by path, by file name or by the end of its path",
     [["Notes/Stoicism.md"], "x.md", "  Stoicism ", "Notes/Stoicism.md"],
     [["Release v1.2.md"], "x.md", "Release v1.2", "Release v1.2.md"],
     // names that are ordinary files
-    [["a/¿Qué es el Estoicismo?.md"], "x.md", "¿qué es el estoicismo?", "a/¿Qué es el Estoicismo?.md"],
+    [
+      ["a/¿Qué es el Estoicismo?.md"],
+      "x.md",
+      "¿qué es el estoicismo?",
+      "a/¿Qué es el Estoicismo?.md",
+    ],
     [["100% #1.md", "100.md"], "x.md", "100% #1", "100% #1.md"],
     [["a,b [c].md"], "x.md", "a,b [c]", "a,b [c].md"],
-    [["Course Z - On love - Lesson 1.md"], "x.md", "Course Z - On love - Lesson 1", "Course Z - On love - Lesson 1.md"],
+    [
+      ["Course Z - On love - Lesson 1.md"],
+      "x.md",
+      "Course Z - On love - Lesson 1",
+      "Course Z - On love - Lesson 1.md",
+    ],
     // composed and decomposed accents are the same name
     [["Cafe\u0301.md"], "x.md", "Caf\u00e9", "Cafe\u0301.md"],
     // folder/Note matches the end of a path, on whole segments

@@ -116,7 +116,8 @@ test("the scanner finds every kind of color literal and nothing else", () => {
  * theme.css anywhere else is a stylesheet like any other.
  */
 const isScanned = (file: string): boolean =>
-  (/\.(css|svelte)$/.test(file) && file !== "theme.css") || (file.endsWith(".ts") && !file.endsWith(".test.ts"));
+  (/\.(css|svelte)$/.test(file) && file !== "theme.css") ||
+  (file.endsWith(".ts") && !file.endsWith(".test.ts"));
 
 test("every stylesheet, component and script is held to the contract, except src/theme.css and the tests", () => {
   for (const [file, scanned] of [
@@ -162,7 +163,11 @@ test("theme.css is the only file with palette values", () => {
   );
   const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
   for (const style of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) {
-    findings.push(...findColorLiterals(style[1]).map(({ line, literal }) => `index.html:<style>+${line}: ${literal}`));
+    findings.push(
+      ...findColorLiterals(style[1]).map(
+        ({ line, literal }) => `index.html:<style>+${line}: ${literal}`,
+      ),
+    );
   }
   assert.equal(
     findings.length,
@@ -177,6 +182,9 @@ test("app background tokens are defined in both themes", () => {
   const used = [...app.matchAll(/var\((--bg-[\w-]+)/g)].map((match) => match[1]);
   const defined = [...theme.matchAll(/(--bg-[\w-]+)\s*:/g)].map((match) => match[1]);
   for (const token of used) {
-    assert.ok(defined.filter((candidate) => candidate === token).length >= 2, `${token} is missing from a theme`);
+    assert.ok(
+      defined.filter((candidate) => candidate === token).length >= 2,
+      `${token} is missing from a theme`,
+    );
   }
 });

@@ -5,7 +5,13 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import { noteTitle, parentFolder } from "../paths.ts";
 
-  let { recent, readOnly, onnew, onsearch, onopen }: {
+  let {
+    recent,
+    readOnly,
+    onnew,
+    onsearch,
+    onopen,
+  }: {
     recent: readonly string[];
     readOnly: boolean;
     onnew: () => void;
@@ -27,9 +33,17 @@
 
 <div class="start-page">
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div class="start-options" role="group" aria-label="Start" bind:this={options} onkeydown={keydown}>
+  <div
+    class="start-options"
+    role="group"
+    aria-label="Start"
+    bind:this={options}
+    onkeydown={keydown}
+  >
     {#if !readOnly}
-      <button type="button" class="start-option" onclick={onnew}><FilePlusIcon size={16} aria-hidden="true" /><span>New note</span></button>
+      <button type="button" class="start-option" onclick={onnew}
+        ><FilePlusIcon size={16} aria-hidden="true" /><span>New note</span></button
+      >
     {/if}
     <button type="button" class="start-option" onclick={onsearch}>
       <SearchIcon size={16} aria-hidden="true" /><span>Search notes</span>

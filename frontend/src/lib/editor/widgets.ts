@@ -1,7 +1,20 @@
 import { syntaxTree } from "@codemirror/language";
 import type { EditorState, Extension, TransactionSpec } from "@codemirror/state";
 import { EditorView, WidgetType } from "@codemirror/view";
-import { addItem, addProperty, locateProperties, removeItem, removeProperty, renameKey, setValue, toggleValue, validKey, type EditableProperty, type Line, type PropertyEdit } from "../property-edit.ts";
+import {
+  addItem,
+  addProperty,
+  locateProperties,
+  removeItem,
+  removeProperty,
+  renameKey,
+  setValue,
+  toggleValue,
+  validKey,
+  type EditableProperty,
+  type Line,
+  type PropertyEdit,
+} from "../property-edit.ts";
 import type { WidgetKind } from "./livePreview.ts";
 import { NodeName } from "./markdown.ts";
 
@@ -9,11 +22,23 @@ import { NodeName } from "./markdown.ts";
 export function toggleTaskAt(state: EditorState, pos: number): TransactionSpec | null {
   if (state.readOnly) return null;
   const marker = syntaxTree(state).resolveInner(pos, 1);
-  const taskMarker = marker.name === "TaskMarker" ? marker : marker.parent?.name === "TaskMarker" ? marker.parent : null;
+  const taskMarker =
+    marker.name === "TaskMarker"
+      ? marker
+      : marker.parent?.name === "TaskMarker"
+        ? marker.parent
+        : null;
   if (!taskMarker || pos < taskMarker.from || pos > taskMarker.to) return null;
   const char = state.sliceDoc(taskMarker.from + 1, taskMarker.from + 2);
   if (char !== " " && char !== "x" && char !== "X") return null;
-  return { changes: { from: taskMarker.from + 1, to: taskMarker.from + 2, insert: char === " " ? "x" : " " }, userEvent: "input.toggle" };
+  return {
+    changes: {
+      from: taskMarker.from + 1,
+      to: taskMarker.from + 2,
+      insert: char === " " ? "x" : " ",
+    },
+    userEvent: "input.toggle",
+  };
 }
 
 /** Activate source-backed widgets before CodeMirror can move the selection into their replacements. */
@@ -24,7 +49,8 @@ export function taskToggleExtension(): Extension {
     if (checkbox && view.dom.contains(checkbox)) {
       const pos = view.posAtDOM(checkbox);
       const listItem = syntaxTree(view.state).resolveInner(pos, 1).parent;
-      const marker = listItem?.name === "ListItem" ? listItem.getChild("Task")?.getChild("TaskMarker") : null;
+      const marker =
+        listItem?.name === "ListItem" ? listItem.getChild("Task")?.getChild("TaskMarker") : null;
       const change = marker && toggleTaskAt(view.state, marker.from + 1);
       if (change) view.dispatch(change);
       return true;
@@ -34,21 +60,30 @@ export function taskToggleExtension(): Extension {
     if (!modifier) return false;
     const node = syntaxTree(view.state).resolveInner(view.posAtDOM(link), 1);
     if (node.name !== NodeName.Wikilink) return true;
-    view.dom.dispatchEvent(new CustomEvent("notebook:wikilink", {
-      bubbles: true,
-      detail: { source: view.state.sliceDoc(node.from, node.to), from: node.from, to: node.to, resolved: !link.classList.contains("nb-wikilink-unresolved") },
-    }));
+    view.dom.dispatchEvent(
+      new CustomEvent("notebook:wikilink", {
+        bubbles: true,
+        detail: {
+          source: view.state.sliceDoc(node.from, node.to),
+          from: node.from,
+          to: node.to,
+          resolved: !link.classList.contains("nb-wikilink-unresolved"),
+        },
+      }),
+    );
     return true;
   };
   return EditorView.domEventHandlers({
     mousedown(event, view) {
       if (event.button !== 0) return false;
-      if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest?.("a.nb-wikilink")) event.preventDefault();
+      if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest?.("a.nb-wikilink"))
+        event.preventDefault();
       return activate(event.target, view, event.metaKey || event.ctrlKey);
     },
     click(event, view) {
       const target = event.target;
-      if (!(target instanceof Element) || !target.closest(".nb-task-checkbox, a.nb-wikilink")) return false;
+      if (!(target instanceof Element) || !target.closest(".nb-task-checkbox, a.nb-wikilink"))
+        return false;
       if (target.closest("a.nb-wikilink")) event.preventDefault();
       // Pointer activation already ran on mousedown. Keyboard-generated clicks have detail 0.
       if (event.detail === 0) activate(target, view, true);
@@ -71,7 +106,11 @@ export class LivePreviewWidget extends WidgetType {
   }
 
   eq(other: LivePreviewWidget): boolean {
-    return this.from === other.from && this.to === other.to && JSON.stringify(this.kind) === JSON.stringify(other.kind);
+    return (
+      this.from === other.from &&
+      this.to === other.to &&
+      JSON.stringify(this.kind) === JSON.stringify(other.kind)
+    );
   }
 
   ignoreEvent(event: Event): boolean {
@@ -95,7 +134,10 @@ export class LivePreviewWidget extends WidgetType {
         checkbox.className = "nb-task-checkbox";
         checkbox.setAttribute("role", "checkbox");
         checkbox.setAttribute("aria-checked", String(this.kind.checked));
-        checkbox.setAttribute("aria-label", this.kind.checked ? "Mark task incomplete" : "Mark task complete");
+        checkbox.setAttribute(
+          "aria-label",
+          this.kind.checked ? "Mark task incomplete" : "Mark task complete",
+        );
         return checkbox;
       }
       case "rule": {
@@ -125,7 +167,8 @@ export class LivePreviewWidget extends WidgetType {
         });
         return link;
       }
-      case "properties": return propertiesPanel(view, this.from, this.to);
+      case "properties":
+        return propertiesPanel(view, this.from, this.to);
     }
   }
 }
@@ -134,13 +177,19 @@ export class LivePreviewWidget extends WidgetType {
 let focusAfterEdit: { key: string; control: "add" | "value" } | null = null;
 
 /** The lines between the fences of the frontmatter that is shown at a position, or null if it is no longer there. */
-function frontmatterAt(view: EditorView, panel: HTMLElement, fallback: { from: number; to: number }): { lines: Line[]; end: number } | null {
+function frontmatterAt(
+  view: EditorView,
+  panel: HTMLElement,
+  fallback: { from: number; to: number },
+): { lines: Line[]; end: number } | null {
   let from = fallback.from;
   let to = fallback.to;
   try {
     const node = syntaxTree(view.state).resolveInner(view.posAtDOM(panel), 1);
     if (node.name === NodeName.Frontmatter) ({ from, to } = node);
-  } catch { /* The panel is not in the view any more; the position it was drawn at will do. */ }
+  } catch {
+    /* The panel is not in the view any more; the position it was drawn at will do. */
+  }
   const { doc } = view.state;
   if (from < 0 || to > doc.length) return null;
   const first = doc.lineAt(from).number;
@@ -151,7 +200,11 @@ function frontmatterAt(view: EditorView, panel: HTMLElement, fallback: { from: n
 
 function dispatchEdit(view: EditorView, edit: PropertyEdit): void {
   view.dispatch({
-    changes: { from: edit.from, to: edit.to, insert: edit.insert.replaceAll("\n", view.state.lineBreak) },
+    changes: {
+      from: edit.from,
+      to: edit.to,
+      insert: edit.insert.replaceAll("\n", view.state.lineBreak),
+    },
     userEvent: "input.properties",
   });
 }
@@ -194,7 +247,11 @@ function propertiesPanel(view: EditorView, from: number, to: number): HTMLElemen
   const keys = shown.map((property) => property.key);
 
   /** Runs an edit for the property at an index, if the document still has it there under that key. */
-  const edit = (index: number, key: string, make: (property: EditableProperty) => PropertyEdit | null): boolean => {
+  const edit = (
+    index: number,
+    key: string,
+    make: (property: EditableProperty) => PropertyEdit | null,
+  ): boolean => {
     if (view.state.readOnly) return false;
     const found = frontmatterAt(view, panel, range);
     const property = found ? locateProperties(found.lines)[index] : undefined;
@@ -204,7 +261,11 @@ function propertiesPanel(view: EditorView, from: number, to: number): HTMLElemen
     return change !== null;
   };
 
-  const control = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, label: string): HTMLElementTagNameMap[K] => {
+  const control = <K extends keyof HTMLElementTagNameMap>(
+    tag: K,
+    className: string,
+    label: string,
+  ): HTMLElementTagNameMap[K] => {
     const element = document.createElement(tag);
     element.className = `nb-prop-control ${className}`;
     element.setAttribute("aria-label", label);
@@ -215,22 +276,36 @@ function propertiesPanel(view: EditorView, from: number, to: number): HTMLElemen
   };
 
   /** A field that commits on Enter or when it loses the focus, and puts its text back on Escape. */
-  const field = (className: string, label: string, value: string, commit: (value: string) => void, type: "text" | "date" = "text"): HTMLInputElement => {
+  const field = (
+    className: string,
+    label: string,
+    value: string,
+    commit: (value: string) => void,
+    type: "text" | "date" = "text",
+  ): HTMLInputElement => {
     const input = control("input", `nb-prop-input ${className}`, label);
     input.type = type;
     input.value = value;
     input.spellcheck = false;
     input.readOnly = locked;
-    input.addEventListener("change", () => { if (input.value !== value) commit(input.value); });
+    input.addEventListener("change", () => {
+      if (input.value !== value) commit(input.value);
+    });
     input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") { event.preventDefault(); input.blur(); }
-      else if (event.key === "Escape") { input.value = value; input.blur(); }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      } else if (event.key === "Escape") {
+        input.value = value;
+        input.blur();
+      }
     });
     return input;
   };
 
   shown.forEach((property, index) => {
-    const run = (make: (current: EditableProperty) => PropertyEdit | null) => edit(index, property.key, make);
+    const run = (make: (current: EditableProperty) => PropertyEdit | null) =>
+      edit(index, property.key, make);
     const row = document.createElement("div");
     row.className = "nb-property";
 
@@ -276,11 +351,16 @@ function propertiesPanel(view: EditorView, from: number, to: number): HTMLElemen
           run((current) => addItem(current, text));
         };
         add.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" || event.key === ",") { event.preventDefault(); commit(); }
-          else if (event.key === "Backspace" && add.value === "" && property.values.length > 0) {
+          if (event.key === "Enter" || event.key === ",") {
+            event.preventDefault();
+            commit();
+          } else if (event.key === "Backspace" && add.value === "" && property.values.length > 0) {
             focusAfterEdit = { key: property.key, control: "add" };
             run((current) => removeItem(current, current.values.length - 1));
-          } else if (event.key === "Escape") { add.value = ""; add.blur(); }
+          } else if (event.key === "Escape") {
+            add.value = "";
+            add.blur();
+          }
         });
         add.addEventListener("blur", commit);
         if (focusAfterEdit?.key === property.key && focusAfterEdit.control === "add") {
@@ -290,7 +370,13 @@ function propertiesPanel(view: EditorView, from: number, to: number): HTMLElemen
         value.append(add);
       }
     } else {
-      const input = field("nb-prop-text", property.key, property.values[0] ?? "", (next) => run((current) => setValue(current, next)), property.type === "date" ? "date" : "text");
+      const input = field(
+        "nb-prop-text",
+        property.key,
+        property.values[0] ?? "",
+        (next) => run((current) => setValue(current, next)),
+        property.type === "date" ? "date" : "text",
+      );
       input.placeholder = "Empty";
       if (focusAfterEdit?.key === property.key && focusAfterEdit.control === "value") {
         focusAfterEdit = null;
@@ -334,8 +420,10 @@ function propertiesPanel(view: EditorView, from: number, to: number): HTMLElemen
         } else row.replaceWith(add);
       };
       input.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") { event.preventDefault(); finish(true); }
-        else if (event.key === "Escape") finish(false);
+        if (event.key === "Enter") {
+          event.preventDefault();
+          finish(true);
+        } else if (event.key === "Escape") finish(false);
       });
       input.addEventListener("blur", () => finish(input.value.trim() !== ""));
       row.append(input);

@@ -2,14 +2,19 @@
   import type { SearchHit } from "../api.ts";
   import { termParts } from "../search-terms.ts";
 
-  let { hits, query, loading, error, onopen }: {
+  let {
+    hits,
+    query,
+    loading,
+    error,
+    onopen,
+  }: {
     hits: SearchHit[];
     query: string;
     loading: boolean;
     error: string | null;
     onopen: (hit: SearchHit) => void;
   } = $props();
-
 </script>
 
 <div class="search-results" role="region" aria-label="Search results">
@@ -23,8 +28,10 @@
           <strong class="search-result-title">{hit.title}</strong>
           <span class="search-result-path">{hit.path}</span>
           {#each hit.snippets.slice(0, 3) as snippet}
-            <span class="search-result-snippet"><span class="search-result-line">{snippet.line}</span>
-              {#each termParts(snippet.text, query) as part}{#if part.match}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}
+            <span class="search-result-snippet"
+              ><span class="search-result-line">{snippet.line}</span>
+              {#each termParts(snippet.text, query) as part}{#if part.match}<mark>{part.text}</mark
+                  >{:else}{part.text}{/if}{/each}
             </span>
           {/each}
         </button>

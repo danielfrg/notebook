@@ -53,7 +53,13 @@ export function buildTree(listing: Listing): TreeNode[] {
 
   for (const path of listing.folders) folderAt(path);
   for (const { path, size, modified } of listing.notes) {
-    childrenOf(parentFolder(path)).push({ kind: "note", name: noteTitle(path), path, size, modified });
+    childrenOf(parentFolder(path)).push({
+      kind: "note",
+      name: noteTitle(path),
+      path,
+      size,
+      modified,
+    });
   }
 
   roots.sort(compareNodes);

@@ -2,7 +2,10 @@ export type FuzzyHit = { path: string; title: string; score: number; ranges: [nu
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-export function titleSegments(title: string, ranges: readonly [number, number][]): { text: string; match: boolean }[] {
+export function titleSegments(
+  title: string,
+  ranges: readonly [number, number][],
+): { text: string; match: boolean }[] {
   const parts: { text: string; match: boolean }[] = [];
   let end = 0;
   for (const [from, to] of ranges) {
@@ -38,14 +41,22 @@ function match(text: string, query: string): { score: number; ranges: [number, n
     let bestEarlier: { score: number; indexes: number[] } | undefined;
     for (let i = q; i < chars.length; i++) {
       const preceding = previous.get(i - 1);
-      if (preceding && (!bestEarlier || preceding.score > bestEarlier.score)) bestEarlier = preceding;
+      if (preceding && (!bestEarlier || preceding.score > bestEarlier.score))
+        bestEarlier = preceding;
       if (chars[i] !== letters[q]) continue;
       const wordStart = i === 0 || !/[\p{L}\p{N}]/u.test(chars[i - 1]!);
       const base = 1 + (wordStart ? 5 : 0) - i * 0.01;
       if (q === 0) next.set(i, { score: base, indexes: [i] });
       else {
-        const entry = preceding && preceding.score + 9 > (bestEarlier?.score ?? -Infinity) ? preceding : bestEarlier;
-        if (entry) next.set(i, { score: entry.score + base + (entry === preceding ? 9 : 0), indexes: [...entry.indexes, i] });
+        const entry =
+          preceding && preceding.score + 9 > (bestEarlier?.score ?? -Infinity)
+            ? preceding
+            : bestEarlier;
+        if (entry)
+          next.set(i, {
+            score: entry.score + base + (entry === preceding ? 9 : 0),
+            indexes: [...entry.indexes, i],
+          });
       }
     }
     if (next.size === 0) return null;
@@ -69,7 +80,10 @@ export function fuzzyNotes(notes: readonly string[], query: string, limit = 20):
   const hits: (FuzzyHit & { order: number })[] = [];
   notes.forEach((path, order) => {
     const title = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, "");
-    if (!folded) { hits.push({ path, title, score: 0, ranges: [], order }); return; }
+    if (!folded) {
+      hits.push({ path, title, score: 0, ranges: [], order });
+      return;
+    }
     const titleMatch = match(title, folded);
     const pathMatch = titleMatch ? null : match(path.replace(/\.md$/i, ""), folded);
     if (!titleMatch && !pathMatch) return;

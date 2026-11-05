@@ -1,13 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  baseName,
-  joinPath,
-  noteTitle,
-  parentFolder,
-  validateEntryName,
-  withMd,
-} from "./paths.ts";
+import { baseName, joinPath, noteTitle, parentFolder, validateEntryName, withMd } from "./paths.ts";
 
 test("baseName is the last segment and noteTitle also drops .md", () => {
   for (const [path, base, title] of [
@@ -15,7 +8,11 @@ test("baseName is the last segment and noteTitle also drops .md", () => {
     ["Note.md", "Note.md", "Note"],
     ["100% #1.md", "100% #1.md", "100% #1"],
     ["a,b [c].md", "a,b [c].md", "a,b [c]"],
-    ["Course Z - On love - Lesson 1.md", "Course Z - On love - Lesson 1.md", "Course Z - On love - Lesson 1"],
+    [
+      "Course Z - On love - Lesson 1.md",
+      "Course Z - On love - Lesson 1.md",
+      "Course Z - On love - Lesson 1",
+    ],
     ["notes.d/Q1..Q2.md", "Q1..Q2.md", "Q1..Q2"],
     ["a.md.md", "a.md.md", "a.md"], // only the last extension goes
     ["x/y.MD", "y.MD", "y.MD"], // the server only calls a lower-case .md a note
@@ -105,7 +102,10 @@ test("validateEntryName gives a reason for a name the vault would refuse, and nu
 test("validateEntryName rejects lone surrogates when isWellFormed is unavailable", () => {
   const descriptor = Object.getOwnPropertyDescriptor(String.prototype, "isWellFormed");
   try {
-    Object.defineProperty(String.prototype, "isWellFormed", { configurable: true, value: undefined });
+    Object.defineProperty(String.prototype, "isWellFormed", {
+      configurable: true,
+      value: undefined,
+    });
     assert.match(validateEntryName("bad\ud800") ?? "", /invalid Unicode/);
     assert.equal(validateEntryName("日本語"), null);
     assert.equal(validateEntryName("📝"), null);

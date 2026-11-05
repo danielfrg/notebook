@@ -40,7 +40,8 @@ function rules(extension: Extension): Rule[] {
 /** The properties that may carry a colour. */
 const COLOR_PROPERTY = /color|background|border|outline|shadow|fill|stroke|text-decoration/;
 /** What such a declaration may hold besides var() references: sizes and keywords, none a colour. */
-const NOT_A_COLOR = /^(?:-?\d*\.?\d+(?:px|em|rem|%)?|solid|dashed|dotted|none|line-through|underline|transparent|inherit|currentcolor)$/i;
+const NOT_A_COLOR =
+  /^(?:-?\d*\.?\d+(?:px|em|rem|%)?|solid|dashed|dotted|none|line-through|underline|transparent|inherit|currentcolor)$/i;
 
 /** Every declaration that names a colour some other way than through a var() token. */
 function colorFindings(found: Rule[]): string[] {
@@ -48,8 +49,12 @@ function colorFindings(found: Rule[]): string[] {
   for (const { selector, declarations } of found) {
     for (const [property, value] of declarations) {
       if (!COLOR_PROPERTY.test(property)) continue;
-      const rest = value.replace(/var\(--[\w-]+\)/g, " ").split(/\s+/).filter(Boolean);
-      if (!rest.every((token) => NOT_A_COLOR.test(token))) findings.push(`${selector} { ${property}: ${value} }`);
+      const rest = value
+        .replace(/var\(--[\w-]+\)/g, " ")
+        .split(/\s+/)
+        .filter(Boolean);
+      if (!rest.every((token) => NOT_A_COLOR.test(token)))
+        findings.push(`${selector} { ${property}: ${value} }`);
     }
   }
   return findings;
@@ -60,7 +65,10 @@ test("the editor theme sets a readable column on a transparent page, with the ac
   /** The declarations of the theme's rule for a selector, written with "&" for the editor. */
   const rule = (selector: string) => {
     const found = theme.find((each) => each.selector.replace(/\.\u037c\w+/g, "&") === selector);
-    assert.ok(found, `a rule for ${selector} in:\n${theme.map((each) => each.selector).join("\n")}`);
+    assert.ok(
+      found,
+      `a rule for ${selector} in:\n${theme.map((each) => each.selector).join("\n")}`,
+    );
     return found.declarations;
   };
   const editor = rule("&");
@@ -86,7 +94,9 @@ test("the editor theme sets a readable column on a transparent page, with the ac
   // One focus treatment: the app's ring on the editor, in place of CodeMirror's dotted outline.
   assert.equal(rule("&.cm-focused").get("outline"), "var(--focus-ring)");
   assert.deepEqual(
-    theme.filter((each) => each.declarations.has("outline")).map((each) => each.selector.replace(/\.\u037c\w+/g, "&")),
+    theme
+      .filter((each) => each.declarations.has("outline"))
+      .map((each) => each.selector.replace(/\.\u037c\w+/g, "&")),
     ["&.cm-focused"],
   );
   assert.deepEqual(colorFindings(theme), []);
@@ -121,7 +131,8 @@ test("source highlighting styles Markdown and the Obsidian nodes, each of those 
     ["a tag", NodeTag.Tag, "color"],
     ["a highlight", NodeTag.Highlight, "background-color"],
   ];
-  for (const [label, tag, property] of cases) assert.ok(style(tag, label).has(property), `${label} sets ${property}`);
+  for (const [label, tag, property] of cases)
+    assert.ok(style(tag, label).has(property), `${label} sets ${property}`);
   // The Obsidian nodes are styled through their own tags, not only through the standard tag they extend.
   for (const [label, tag, parent] of [
     ["frontmatter", NodeTag.Frontmatter, tags.meta],
@@ -136,10 +147,25 @@ test("source highlighting styles Markdown and the Obsidian nodes, each of those 
 
 test("the colour check catches literals, also when they hide among sizes", () => {
   const fake = (body: string): Rule[] => [
-    { selector: ".x", declarations: new Map(body.split(";").map((d) => d.split(":").map((s) => s.trim()) as [string, string])) },
+    {
+      selector: ".x",
+      declarations: new Map(
+        body.split(";").map((d) => d.split(":").map((s) => s.trim()) as [string, string]),
+      ),
+    },
   ];
-  assert.deepEqual(colorFindings(fake("color: var(--a); border-left: 2px solid var(--b); background: transparent")), []);
-  for (const literal of ["color: red", "background: #fff", "border: 1px solid rgb(0 0 0)", "outline: 2px solid black"]) {
+  assert.deepEqual(
+    colorFindings(
+      fake("color: var(--a); border-left: 2px solid var(--b); background: transparent"),
+    ),
+    [],
+  );
+  for (const literal of [
+    "color: red",
+    "background: #fff",
+    "border: 1px solid rgb(0 0 0)",
+    "outline: 2px solid black",
+  ]) {
     assert.equal(colorFindings(fake(literal)).length, 1, literal);
   }
 });

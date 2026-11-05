@@ -138,7 +138,10 @@ function toggleWrapper({ mark, taken, around = () => [mark, mark] }: Wrapper): S
     const spec = state.changeByRange((range) => {
       const { from, to, text } = content(doc, range);
       const half = Math.floor(text.length / 2);
-      const inside = taken(Math.min(leading(text, char), half), Math.min(trailing(text, char), half));
+      const inside = taken(
+        Math.min(leading(text, char), half),
+        Math.min(trailing(text, char), half),
+      );
       if (inside > 0) {
         return {
           changes: [
@@ -201,7 +204,8 @@ function selectedLines(state: EditorState): Line[] {
     const first = state.doc.lineAt(range.from).number;
     let last = state.doc.lineAt(range.to).number;
     if (last > first && state.doc.line(last).from === range.to) last--;
-    for (let number = Math.max(first, next); number <= last; number++) lines.push(state.doc.line(number));
+    for (let number = Math.max(first, next); number <= last; number++)
+      lines.push(state.doc.line(number));
     next = Math.max(next, last + 1);
   }
   return lines;
@@ -216,10 +220,19 @@ function withText<T extends { blank: boolean }>(lines: T[]): T[] {
  * Dispatches line changes as one format transaction. Cursors and the start of
  * a range move along with a prefix inserted before them.
  */
-function editLines(state: EditorState, dispatch: (transaction: Transaction) => void, specs: ChangeSpec[]): boolean {
+function editLines(
+  state: EditorState,
+  dispatch: (transaction: Transaction) => void,
+  specs: ChangeSpec[],
+): boolean {
   const changes = state.changes(specs);
   dispatch(
-    state.update({ changes, selection: state.selection.map(changes, 1), scrollIntoView: true, userEvent: FORMAT }),
+    state.update({
+      changes,
+      selection: state.selection.map(changes, 1),
+      scrollIntoView: true,
+      userEvent: FORMAT,
+    }),
   );
   return true;
 }
@@ -237,7 +250,12 @@ const heading: StateCommand = ({ state, dispatch }) => {
       const rest = line.text.slice(lead);
       const found = HEADING.exec(rest)?.[0] ?? "";
       const from = line.from + lead;
-      return { from, to: from + found.length, level: found.trimEnd().length, blank: rest.trim() === "" };
+      return {
+        from,
+        to: from + found.length,
+        level: found.trimEnd().length,
+        blank: rest.trim() === "",
+      };
     }),
   );
   const level = lines[0].level >= 3 ? 0 : lines[0].level + 1;
@@ -286,7 +304,12 @@ function toggleList(kind: ListKind): StateCommand {
         const rest = line.text.slice(lead);
         const marker = listMarker(rest);
         const from = line.from + lead;
-        return { from, to: from + (marker?.length ?? 0), kind: marker?.kind ?? null, blank: rest.trim() === "" };
+        return {
+          from,
+          to: from + (marker?.length ?? 0),
+          kind: marker?.kind ?? null,
+          blank: rest.trim() === "",
+        };
       }),
     );
     const off = lines.every((line) => line.kind === kind);
@@ -295,7 +318,8 @@ function toggleList(kind: ListKind): StateCommand {
       if (off) specs.push({ from: line.from, to: line.to });
       else if (line.kind !== kind || kind === "ordered") {
         const insert = LIST_PREFIX[kind](index);
-        if (state.doc.sliceString(line.from, line.to) !== insert) specs.push({ from: line.from, to: line.to, insert });
+        if (state.doc.sliceString(line.from, line.to) !== insert)
+          specs.push({ from: line.from, to: line.to, insert });
       }
     });
     return editLines(state, dispatch, specs);
@@ -318,7 +342,9 @@ const quote: StateCommand = ({ state, dispatch }) => {
   const off = hasText && lines.every(({ mark, blank }) => blank || mark !== undefined);
   const specs: ChangeSpec[] = off
     ? lines.flatMap(({ line, mark }) =>
-        mark === undefined ? [] : [{ from: line.from + mark.indexOf(">"), to: line.from + mark.length }],
+        mark === undefined
+          ? []
+          : [{ from: line.from + mark.indexOf(">"), to: line.from + mark.length }],
       )
     : lines
         .filter(({ mark }) => mark === undefined)

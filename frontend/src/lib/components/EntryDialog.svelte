@@ -18,18 +18,31 @@
   let name = $state("");
   let initialized = false;
   $effect.pre(() => {
-    if (!initialized) { name = initial; initialized = true; }
+    if (!initialized) {
+      name = initial;
+      initialized = true;
+    }
   });
   let error = $state<string | null>(null);
   let busy = $state(false);
   const isNote = $derived(kind === "note" || kind === "rename-note" || kind === "save-as-new");
-  const title = $derived(kind === "note" ? "New note" : kind === "folder" ? "New folder" : kind === "save-as-new" ? "Save as new note" : "Rename");
-  const action = $derived(kind.startsWith("rename") ? "Rename" : kind === "save-as-new" ? "Save as new note" : "Create");
+  const title = $derived(
+    kind === "note"
+      ? "New note"
+      : kind === "folder"
+        ? "New folder"
+        : kind === "save-as-new"
+          ? "Save as new note"
+          : "Rename",
+  );
+  const action = $derived(
+    kind.startsWith("rename") ? "Rename" : kind === "save-as-new" ? "Save as new note" : "Create",
+  );
 
   async function submit(): Promise<void> {
     if (busy) return;
     const normalized = name.trim();
-    error = (isNote ? validateNoteName(normalized) : validateEntryName(normalized));
+    error = isNote ? validateNoteName(normalized) : validateEntryName(normalized);
     if (error) return;
     busy = true;
     try {
@@ -43,10 +56,29 @@
   }
 </script>
 
-<Modal {title} onclose={() => { if (!busy) onclose(); }} width="min(420px, calc(100vw - 32px))">
-  <form class="entry-form" onsubmit={(event) => { event.preventDefault(); void submit(); }}>
+<Modal
+  {title}
+  onclose={() => {
+    if (!busy) onclose();
+  }}
+  width="min(420px, calc(100vw - 32px))"
+>
+  <form
+    class="entry-form"
+    onsubmit={(event) => {
+      event.preventDefault();
+      void submit();
+    }}
+  >
     <label for="entry-name">Name</label>
-    <TextInput id="entry-name" bind:value={name} block autofocus invalid={!!error} oninput={() => (error = null)} />
+    <TextInput
+      id="entry-name"
+      bind:value={name}
+      block
+      autofocus
+      invalid={!!error}
+      oninput={() => (error = null)}
+    />
     {#if error}<p class="dialog-error" role="alert">{error}</p>{/if}
     <button hidden type="submit">{action}</button>
   </form>

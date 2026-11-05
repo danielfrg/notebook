@@ -1,5 +1,13 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
-import { Facet, Prec, StateEffect, StateField, type EditorState, type Extension, type Range } from "@codemirror/state";
+import {
+  Facet,
+  Prec,
+  StateEffect,
+  StateField,
+  type EditorState,
+  type Extension,
+  type Range,
+} from "@codemirror/state";
 import { Decoration, EditorView, keymap, type DecorationSet } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { parseProperties } from "../properties.ts";
@@ -126,8 +134,10 @@ class Collector {
 
   /** Whether a selection range overlaps from..to, its ends included. */
   touched(from: number, to: number): boolean {
-    return this.#state.facet(previewSelectionActive) &&
-      this.#state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+    return (
+      this.#state.facet(previewSelectionActive) &&
+      this.#state.selection.ranges.some((range) => range.from <= to && range.to >= from)
+    );
   }
 
   /** Whether a selection range lies on a line of from..to. */
@@ -155,7 +165,11 @@ class Collector {
     if (starts === undefined) this.#lines.set(cls, (starts = new Set()));
     if (starts.has(from)) return;
     starts.add(from);
-    this.specs.push(indent === undefined ? { type: "line", from, class: cls } : { type: "line", from, class: cls, indent });
+    this.specs.push(
+      indent === undefined
+        ? { type: "line", from, class: cls }
+        : { type: "line", from, class: cls, indent },
+    );
   }
 
   /** Gives every line of from..to a class, the first and last ones with their own as well when asked. */
@@ -164,7 +178,9 @@ class Collector {
     const first = doc.lineAt(from).number;
     const last = doc.lineAt(to).number;
     for (let number = first; number <= last; number++) {
-      const extra = edges ? `${number === first ? ` ${cls}-first` : ""}${number === last ? ` ${cls}-last` : ""}` : "";
+      const extra = edges
+        ? `${number === first ? ` ${cls}-first` : ""}${number === last ? ` ${cls}-last` : ""}`
+        : "";
       this.line(doc.line(number).from, cls + extra);
     }
   }
@@ -207,7 +223,8 @@ class Collector {
         this.task(node);
         return true;
       case "HorizontalRule":
-        if (!this.linesTouched(node.from, node.to)) this.widget(node.from, node.to, { kind: "rule" });
+        if (!this.linesTouched(node.from, node.to))
+          this.widget(node.from, node.to, { kind: "rule" });
         return false;
       case "FencedCode":
       case "CodeBlock":
@@ -223,7 +240,8 @@ class Collector {
         const first = this.#state.doc.lineAt(node.from);
         const last = this.#state.doc.lineAt(node.to);
         const yaml = this.#state.sliceDoc(first.to + 1, last.from - 1);
-        if (this.touched(node.from, node.to) || parseProperties(yaml).length === 0) this.lines(node.from, node.to, "nb-frontmatter");
+        if (this.touched(node.from, node.to) || parseProperties(yaml).length === 0)
+          this.lines(node.from, node.to, "nb-frontmatter");
         else this.widget(node.from, node.to, { kind: "properties", yaml });
         return false;
       }
@@ -242,7 +260,8 @@ class Collector {
     const marks = children(node, "HeaderMark");
     const setext = node.name.startsWith("Setext");
     const { doc } = this.#state;
-    if (setext && marks.length > 0) this.lines(node.from, Math.max(node.from, marks[0].from - 1), cls);
+    if (setext && marks.length > 0)
+      this.lines(node.from, Math.max(node.from, marks[0].from - 1), cls);
     else this.line(node.from, cls);
     if (this.linesTouched(node.from, node.to)) return true;
     const text = doc.sliceString(node.from, node.to);
@@ -297,7 +316,8 @@ class Collector {
   /** <url>: the URL as a URL, its brackets hidden when untouched. */
   autolink(node: SyntaxNode): boolean {
     for (const url of children(node, "URL")) this.mark(url.from, url.to, "nb-url");
-    if (!this.touched(node.from, node.to)) for (const mark of children(node, "LinkMark")) this.hide(mark.from, mark.to);
+    if (!this.touched(node.from, node.to))
+      for (const mark of children(node, "LinkMark")) this.hide(mark.from, mark.to);
     return false;
   }
 
@@ -307,7 +327,9 @@ class Collector {
     const path = target && this.imageAsset(target);
     if (path && !this.touched(node.from, node.to)) {
       const open = children(node, "LinkMark")[0];
-      const alt = open ? this.#state.sliceDoc(open.to, children(node, "LinkMark")[1]?.from ?? open.to) : "";
+      const alt = open
+        ? this.#state.sliceDoc(open.to, children(node, "LinkMark")[1]?.from ?? open.to)
+        : "";
       this.widget(node.from, node.to, { kind: "image", src: this.#context.assetUrl(path), alt });
     } else this.mark(node.from, node.to, "nb-link");
   }
@@ -315,7 +337,8 @@ class Collector {
   imageAsset(target: string): string | null {
     const unwrapped = target.startsWith("<") && target.endsWith(">") ? target.slice(1, -1) : target;
     const local = unwrapped.replace(/%20/gi, " ");
-    if (!/^[^:#?]+\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(local) || local.startsWith("//")) return null;
+    if (!/^[^:#?]+\.(?:png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(local) || local.startsWith("//"))
+      return null;
     const path = resolveAsset(this.#context.assets, this.#context.path, local);
     if (path === null) return null;
     const src = this.#context.assetUrl(path);
@@ -332,13 +355,22 @@ class Collector {
     if (link === null) return;
     if (link.embed) {
       const path = this.imageAsset(link.target);
-      if (path && !this.touched(node.from, node.to)) this.widget(node.from, node.to, { kind: "image", src: this.#context.assetUrl(path), alt: link.target });
+      if (path && !this.touched(node.from, node.to))
+        this.widget(node.from, node.to, {
+          kind: "image",
+          src: this.#context.assetUrl(path),
+          alt: link.target,
+        });
       else this.mark(node.from, node.to, "nb-link");
       return;
     }
     const resolved = this.resolves(link);
     if (this.touched(node.from, node.to)) {
-      this.mark(node.from, node.to, resolved ? "nb-wikilink" : "nb-wikilink nb-wikilink-unresolved");
+      this.mark(
+        node.from,
+        node.to,
+        resolved ? "nb-wikilink" : "nb-wikilink nb-wikilink-unresolved",
+      );
     } else {
       this.widget(node.from, node.to, { kind: "wikilink", label: wikilinkLabel(link), resolved });
     }
@@ -351,7 +383,8 @@ class Collector {
     if (resolved === undefined) {
       const { notes, assets, path } = this.#context;
       resolved =
-        resolveNote(notes, path, link.target) !== null || (link.embed && resolveAsset(assets, path, link.target) !== null);
+        resolveNote(notes, path, link.target) !== null ||
+        (link.embed && resolveAsset(assets, path, link.target) !== null);
       this.#resolved.set(key, resolved);
     }
     return resolved;
@@ -362,7 +395,10 @@ class Collector {
     if (this.linesTouched(node.from, node.to)) return;
     const after = this.#state.sliceDoc(node.to, node.to + 1);
     const line = this.#state.doc.lineAt(node.from);
-    this.hide(node.from, after === " " || after === "\t" ? Math.min(node.to + 1, line.to) : node.to);
+    this.hide(
+      node.from,
+      after === " " || after === "\t" ? Math.min(node.to + 1, line.to) : node.to,
+    );
   }
 
   /** The line of a list item's marker: a class, with the columns before the item's text as its indent. */
@@ -375,7 +411,11 @@ class Collector {
     if (taskMarker) {
       const taskRest = line.text.slice(taskMarker.to - line.from);
       const taskSpace = /^[ \t]*/.exec(taskRest)?.[0] ?? "";
-      this.line(line.from, "nb-list", columns(line.text.slice(0, taskMarker.to - line.from) + taskSpace));
+      this.line(
+        line.from,
+        "nb-list",
+        columns(line.text.slice(0, taskMarker.to - line.from) + taskSpace),
+      );
       return;
     }
     this.line(line.from, "nb-list", columns(line.text.slice(0, node.to - line.from) + space));
@@ -391,7 +431,8 @@ class Collector {
     if (!marker || !listMark) return;
     const checked = /\[[xX]\]/.test(this.#state.sliceDoc(marker.from, marker.to));
     if (checked) this.mark(marker.to + 1, node.to, "nb-task-done");
-    if (!this.touched(listMark.from, marker.to)) this.widget(listMark.from, marker.to, { kind: "task", checked });
+    if (!this.touched(listMark.from, marker.to))
+      this.widget(listMark.from, marker.to, { kind: "task", checked });
   }
 
   /**
@@ -465,7 +506,10 @@ function toRangeSet(specs: readonly DecoSpec[]): DecorationSet {
       case "replace":
         return Decoration.replace({}).range(spec.from, spec.to);
       case "widget":
-        return Decoration.replace({ widget: new LivePreviewWidget(spec.widget, spec.from, spec.to), block: spec.widget.kind === "properties" }).range(spec.from, spec.to);
+        return Decoration.replace({
+          widget: new LivePreviewWidget(spec.widget, spec.from, spec.to),
+          block: spec.widget.kind === "properties",
+        }).range(spec.from, spec.to);
     }
   });
   // A set takes its ranges by from, then by startSide (a line before a mark at the same position).
@@ -492,7 +536,8 @@ const decorations = StateField.define<{ set: DecorationSet; held: boolean }>({
   update(value, tr) {
     let held = value.held;
     for (const effect of tr.effects) if (effect.is(pointerHeld)) held = effect.value;
-    if (tr.docChanged || (tr.isUserEvent("select") && !tr.isUserEvent("select.pointer"))) held = false;
+    if (tr.docChanged || (tr.isUserEvent("select") && !tr.isUserEvent("select.pointer")))
+      held = false;
     if (held) return value.held ? value : { set: value.set, held };
     const stale =
       value.held ||
@@ -515,9 +560,14 @@ const holdWhilePressed = EditorView.domEventHandlers({
   mousedown(event, view) {
     if (event.button !== 0 || event.defaultPrevented) return false;
     view.dispatch({ effects: pointerHeld.of(true) });
-    view.dom.ownerDocument.defaultView?.addEventListener("mouseup", () => {
-      if (view.state.field(decorations, false)?.held) view.dispatch({ effects: pointerHeld.of(false) });
-    }, { once: true });
+    view.dom.ownerDocument.defaultView?.addEventListener(
+      "mouseup",
+      () => {
+        if (view.state.field(decorations, false)?.held)
+          view.dispatch({ effects: pointerHeld.of(false) });
+      },
+      { once: true },
+    );
     return false;
   },
 });
@@ -526,14 +576,18 @@ const holdWhilePressed = EditorView.domEventHandlers({
  * The line that closes the properties panel, when the panel is shown and ends
  * on the line before the one at pos; else null.
  */
-export function propertiesAbove(state: EditorState, pos: number): { from: number; to: number } | null {
+export function propertiesAbove(
+  state: EditorState,
+  pos: number,
+): { from: number; to: number } | null {
   const line = state.doc.lineAt(pos);
   if (line.number === 1) return null;
   const above = state.doc.line(line.number - 1);
   let found = false;
   state.field(decorations, false)?.set.between(above.from, above.to, (_from, to, decoration) => {
     const widget = decoration.spec.widget;
-    if (widget instanceof LivePreviewWidget && widget.kind.kind === "properties" && to === above.to) found = true;
+    if (widget instanceof LivePreviewWidget && widget.kind.kind === "properties" && to === above.to)
+      found = true;
   });
   return found ? { from: above.from, to: above.to } : null;
 }
@@ -559,5 +613,10 @@ function upIntoProperties(view: EditorView): boolean {
 
 /** Live Preview: the decorations of collectDecorations on the editor, for documents up to MAX_DECORATED_LENGTH. */
 export function livePreview(): Extension {
-  return [decorations, taskToggleExtension(), holdWhilePressed, Prec.high(keymap.of([{ key: "ArrowUp", run: upIntoProperties }]))];
+  return [
+    decorations,
+    taskToggleExtension(),
+    holdWhilePressed,
+    Prec.high(keymap.of([{ key: "ArrowUp", run: upIntoProperties }])),
+  ];
 }

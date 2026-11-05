@@ -26,7 +26,10 @@ import {
 import { detectLineSeparator } from "./linesep.ts";
 
 /** An editor state as the editor makes one for a text, with its compartments. */
-function load(text: string, extensions: Extension = []): { state: EditorState; compartments: DocumentCompartments } {
+function load(
+  text: string,
+  extensions: Extension = [],
+): { state: EditorState; compartments: DocumentCompartments } {
   const compartments = { separator: new Compartment(), history: new Compartment() };
   const separator = detectLineSeparator(text);
   const state = EditorState.create({
@@ -45,7 +48,10 @@ function reload(state: EditorState, text: string, compartments: DocumentCompartm
 }
 
 /** Runs a state command on a state and returns the state it dispatched, or null. */
-function command(run: (target: { state: EditorState; dispatch: (tr: Transaction) => void }) => boolean, state: EditorState) {
+function command(
+  run: (target: { state: EditorState; dispatch: (tr: Transaction) => void }) => boolean,
+  state: EditorState,
+) {
   let next: EditorState | null = null;
   run({ state, dispatch: (tr) => (next = tr.state) });
   return next as EditorState | null;
@@ -66,7 +72,11 @@ test("replaceDocumentSpec is the change between the common start and end of two 
   ];
   for (const [current, next, change] of cases) {
     const spec = replaceDocumentSpec(Text.of(current.split("\n")), Text.of(next.split("\n")));
-    assert.equal(spec && `${spec.from}-${spec.to} ${spec.insert.toString()}`, change, JSON.stringify([current, next]));
+    assert.equal(
+      spec && `${spec.from}-${spec.to} ${spec.insert.toString()}`,
+      change,
+      JSON.stringify([current, next]),
+    );
   }
 });
 
@@ -92,16 +102,30 @@ test("replaceDocumentSpec turns any document into any other, changing no more th
       const removed = a.slice(spec.from, spec.to);
       const inserted = spec.insert.toString();
       assert.ok(removed.length === 0 || inserted.length === 0 || removed[0] !== inserted[0], label);
-      assert.ok(removed.length === 0 || inserted.length === 0 || removed.at(-1) !== inserted.at(-1), label);
+      assert.ok(
+        removed.length === 0 || inserted.length === 0 || removed.at(-1) !== inserted.at(-1),
+        label,
+      );
     }
   }
 });
 
 test("toDocument splits a text into the lines an editor state with its separator has", () => {
-  for (const text of ["a\nb", "a\r\nb\r\n", "a\r\nb\nc", "a\rb", "", "\uFEFF---\r\na: 1\r\n---\r\n"]) {
+  for (const text of [
+    "a\nb",
+    "a\r\nb\r\n",
+    "a\r\nb\nc",
+    "a\rb",
+    "",
+    "\uFEFF---\r\na: 1\r\n---\r\n",
+  ]) {
     const separator = detectLineSeparator(text);
     const state = EditorState.create({ doc: text, extensions: separatorExtension(separator) });
-    assert.deepEqual(toDocument(text, separator).toJSON(), state.doc.toJSON(), JSON.stringify(text));
+    assert.deepEqual(
+      toDocument(text, separator).toJSON(),
+      state.doc.toJSON(),
+      JSON.stringify(text),
+    );
   }
   assert.deepEqual(toDocument("a\r\nb", "\r\n").toJSON(), ["a", "b"]);
   assert.deepEqual(toDocument("a\nb\r\nc\rd", "mixed").toJSON(), ["a", "b", "c", "d"]);
@@ -116,7 +140,9 @@ test("a CRLF document stays CRLF through typing, Enter and pasting", () => {
   assert.equal(state.sliceDoc(0), "one more\r\nnew\r\ntwo\r\n");
 
   // A paste comes with whatever line breaks the clipboard had; they become the document's.
-  const pasted = state.facet(EditorView.clipboardInputFilter).reduce((text, filter) => filter(text, state), "a\nb\r\nc\rd");
+  const pasted = state
+    .facet(EditorView.clipboardInputFilter)
+    .reduce((text, filter) => filter(text, state), "a\nb\r\nc\rd");
   assert.equal(pasted, "a\r\nb\r\nc\r\nd");
   state = state.update(state.replaceSelection(state.toText(pasted))).state;
   assert.equal(state.sliceDoc(0), "one more\r\nnewa\r\nb\r\nc\r\nd\r\ntwo\r\n");
@@ -157,7 +183,11 @@ test("a document with mixed line breaks takes no change but a replacement", () =
   assert.deepEqual([state.doc.toJSON(), state.readOnly], [["a", "b", "c", "d"], true]);
   state = reload(state, "p\nq", compartments);
   assert.deepEqual([state.sliceDoc(0), state.readOnly], ["p\nq", false]);
-  assert.equal(state.update({ changes: { from: 0, insert: "x" } }).state.sliceDoc(0), "xp\nq", "an LF document takes changes");
+  assert.equal(
+    state.update({ changes: { from: 0, insert: "x" } }).state.sliceDoc(0),
+    "xp\nq",
+    "an LF document takes changes",
+  );
   state = reload(state, "m\r\nn\no", compartments);
   assert.deepEqual([state.doc.toJSON(), state.readOnly], [["m", "n", "o"], true]);
 });
@@ -177,12 +207,18 @@ test("replacing the document changes only what differs, and keeps the selection 
     assert.equal(state.sliceDoc(0), text, text);
     assert.equal(state.selection.main.head, after, text);
     assert.equal(transactions.filter((tr) => tr.docChanged).length, 1, text);
-    assert.equal(transactions.some((tr) => tr.scrollIntoView), false, text);
+    assert.equal(
+      transactions.some((tr) => tr.scrollIntoView),
+      false,
+      text,
+    );
   }
   // The change is the smallest one: only the line that differs is replaced.
   const [first] = replaceDocument(start, "one\nTWO\nthree", "\n", compartments);
   const changed: string[] = [];
-  first.changes.iterChanges((from, to, _fromB, _toB, inserted) => changed.push(`${from}-${to} ${inserted}`));
+  first.changes.iterChanges((from, to, _fromB, _toB, inserted) =>
+    changed.push(`${from}-${to} ${inserted}`),
+  );
   assert.deepEqual(changed, ["4-7 TWO"]);
 });
 
@@ -215,7 +251,10 @@ test("replacing the document takes on the line separator of the new text", () =>
 
   // The same lines with other line breaks: no change to the document, only to its separator.
   const transactions = replaceDocument(state, "a\r\nb", "\r\n", compartments);
-  assert.equal(transactions.some((tr) => tr.docChanged), false);
+  assert.equal(
+    transactions.some((tr) => tr.docChanged),
+    false,
+  );
   assert.equal(transactions[transactions.length - 1].state.sliceDoc(0), "a\r\nb");
 });
 

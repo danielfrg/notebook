@@ -1,7 +1,10 @@
 import { parentFolder } from "./paths.ts";
 
 /** Creation target for an unresolved wikilink. The create API makes missing parent folders. */
-export function wikilinkCreation(from: string, target: string): { folder: string; initial: string } {
+export function wikilinkCreation(
+  from: string,
+  target: string,
+): { folder: string; initial: string } {
   const slash = target.lastIndexOf("/");
   return {
     folder: slash < 0 ? parentFolder(from) : target.slice(0, slash),
@@ -128,7 +131,11 @@ export function resolveNote(notes: readonly string[], from: string, target: stri
  * vault root), except that the extension is part of the name: "pic" does not
  * find "pic.png".
  */
-export function resolveAsset(assets: readonly string[], from: string, target: string): string | null {
+export function resolveAsset(
+  assets: readonly string[],
+  from: string,
+  target: string,
+): string | null {
   const name = fold(target.trim());
   return name === "" ? null : resolve(assets, from, name);
 }

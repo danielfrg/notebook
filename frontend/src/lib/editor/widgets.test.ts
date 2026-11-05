@@ -7,12 +7,21 @@ test("a focused wikilink widget activates on Enter and Space before CodeMirror h
   const previous = Object.getOwnPropertyDescriptor(globalThis, "document");
   let clicks = 0;
   const anchor = Object.assign(new EventTarget(), {
-    className: "", href: "", textContent: "",
-    click() { clicks++; },
+    className: "",
+    href: "",
+    textContent: "",
+    click() {
+      clicks++;
+    },
   });
-  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => anchor } });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { createElement: () => anchor },
+  });
   try {
-    new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }).toDOM({} as EditorView);
+    new LivePreviewWidget({ kind: "wikilink", label: "Known", resolved: true }).toDOM(
+      {} as EditorView,
+    );
     const press = (key: string): Event => {
       const event = new Event("keydown", { cancelable: true });
       Object.defineProperty(event, "key", { value: key });
@@ -35,5 +44,6 @@ test("the properties panel, a block widget, keeps its space in padding: CodeMirr
   const css = await readFile(new URL("../../editor.css", import.meta.url), "utf8");
   const rules = [...css.matchAll(/([^{}]*\.nb-properties)\s*\{([^{}]*)\}/g)];
   assert.ok(rules.length > 0, "editor.css styles the properties panel");
-  for (const [, selector, body] of rules) assert.doesNotMatch(body, /\bmargin(?:-(?:top|bottom|block\S*))?\s*:/, selector.trim());
+  for (const [, selector, body] of rules)
+    assert.doesNotMatch(body, /\bmargin(?:-(?:top|bottom|block\S*))?\s*:/, selector.trim());
 });

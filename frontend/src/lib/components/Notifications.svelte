@@ -26,7 +26,13 @@
   const notifications = $derived(getFlashes());
 </script>
 
-<div class="notifications" role="status" aria-live="polite" aria-atomic="false" aria-relevant="additions text">
+<div
+  class="notifications"
+  role="status"
+  aria-live="polite"
+  aria-atomic="false"
+  aria-relevant="additions text"
+>
   <div class="notifications__stack">
     {#each notifications as flash (flash.id)}
       {@const tone = flash.tone ?? "neutral"}
@@ -36,14 +42,17 @@
           <ToneIcon size={16} strokeWidth={1.8} />
         </span>
         <span class="notification__message">
-          {#if toneLabels[tone]}<span class="kit-sr-only">{toneLabels[tone]}: </span>{/if}{flash.message}
+          {#if toneLabels[tone]}<span class="kit-sr-only"
+              >{toneLabels[tone]}:
+            </span>{/if}{flash.message}
         </span>
         <IconButton
           size="sm"
           class="notification__dismiss"
           ariaLabel="Dismiss notification"
           onclick={() => dismissFlash(flash.id)}
-        ><X size={14} strokeWidth={1.8} aria-hidden="true" /></IconButton>
+          ><X size={14} strokeWidth={1.8} aria-hidden="true" /></IconButton
+        >
       </div>
     {/each}
   </div>

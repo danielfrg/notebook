@@ -31,27 +31,50 @@
     if (busy) return;
     busy = true;
     error = null;
-    try { await action(); }
-    catch (failure) { error = failure instanceof Error ? failure.message : "Could not resolve this change"; }
-    finally { busy = false; }
+    try {
+      await action();
+    } catch (failure) {
+      error = failure instanceof Error ? failure.message : "Could not resolve this change";
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
 <div class="conflict-banner" role="alert">
   <div class="conflict-banner-copy">
-    <strong>{missing ? "This note no longer exists on disk" : saveError ? "Could not save this note" : "This note changed on disk"}</strong>
-    {#if saveError && !missing}<span>{saveError}</span>{:else if !missing}<span>Choose which version to keep.</span>{/if}
-    {#if navigationBlocked}<span>Navigation was blocked to keep your unsaved edits. Save or discard them to leave.</span>{/if}
+    <strong
+      >{missing
+        ? "This note no longer exists on disk"
+        : saveError
+          ? "Could not save this note"
+          : "This note changed on disk"}</strong
+    >
+    {#if saveError && !missing}<span>{saveError}</span>{:else if !missing}<span
+        >Choose which version to keep.</span
+      >{/if}
+    {#if navigationBlocked}<span
+        >Navigation was blocked to keep your unsaved edits. Save or discard them to leave.</span
+      >{/if}
     {#if error}<span class="dialog-error">{error}</span>{/if}
   </div>
   <div class="conflict-banner-actions">
     {#if missing}
       {#if !readOnly}<Button label="Save as new note" onclick={onsaveasnew} disabled={busy} />{/if}
     {:else if saveError}
-      {#if !readOnly}<Button label="Retry save" onclick={() => void run(onretry)} disabled={busy} />{/if}
+      {#if !readOnly}<Button
+          label="Retry save"
+          onclick={() => void run(onretry)}
+          disabled={busy}
+        />{/if}
     {:else}
       <Button label="Load disk version" onclick={() => void run(onload)} disabled={busy} />
-      {#if !readOnly}<Button label="Overwrite" surface="solid" onclick={() => void run(onoverwrite)} disabled={busy} />{/if}
+      {#if !readOnly}<Button
+          label="Overwrite"
+          surface="solid"
+          onclick={() => void run(onoverwrite)}
+          disabled={busy}
+        />{/if}
     {/if}
     {#if dirty}<Button label="Discard local edits" onclick={ondiscard} disabled={busy} />{/if}
   </div>

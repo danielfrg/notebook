@@ -82,7 +82,8 @@
   const compartments = { separator: new Compartment(), history: new Compartment() };
 
   const modeExtension = (): Extension => (mode === "live" ? extensions : sourceHighlight);
-  const labelExtension = (label: string): Extension => EditorView.contentAttributes.of({ "aria-label": label });
+  const labelExtension = (label: string): Extension =>
+    EditorView.contentAttributes.of({ "aria-label": label });
 
   onMount(() => {
     separator = detectLineSeparator(value);
@@ -104,7 +105,8 @@
           modeCompartment.of(modeExtension()),
           previewFocusCompartment.of(previewSelectionActive.of(false)),
           EditorView.focusChangeEffect.of((_state, focusing) =>
-            previewFocusCompartment.reconfigure(previewSelectionActive.of(focusing))),
+            previewFocusCompartment.reconfigure(previewSelectionActive.of(focusing)),
+          ),
           readOnlyCompartment.of(readOnlyExtension(readOnly)),
           labelCompartment.of(labelExtension(ariaLabel)),
           EditorView.updateListener.of((update) => {
@@ -131,7 +133,8 @@
 
   /** Puts content in a compartment, unless it is there already. */
   function reconfigure(compartment: Compartment, content: Extension): void {
-    if (view && compartment.get(view.state) !== content) view.dispatch({ effects: compartment.reconfigure(content) });
+    if (view && compartment.get(view.state) !== content)
+      view.dispatch({ effects: compartment.reconfigure(content) });
   }
 
   $effect(() => {
@@ -203,7 +206,14 @@
     const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (position === null) return;
     let node = syntaxTree(view.state).resolveInner(position, -1);
-    while (node && node.name !== NodeName.Wikilink && node.name !== "Link" && node.name !== "Autolink" && node.name !== "URL") node = node.parent!;
+    while (
+      node &&
+      node.name !== NodeName.Wikilink &&
+      node.name !== "Link" &&
+      node.name !== "Autolink" &&
+      node.name !== "URL"
+    )
+      node = node.parent!;
     if (!node) return;
     if (node.name === NodeName.Wikilink) {
       event.preventDefault();

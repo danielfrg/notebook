@@ -8,6 +8,14 @@
   <p class="dialog-description">Your unsaved edits will be lost. This cannot be undone.</p>
   {#snippet footer()}
     <Button label="Keep editing" onclick={onclose} />
-    <Button label="Discard local edits" tone="danger" surface="solid" onclick={() => { onconfirm(); onclose(); }} />
+    <Button
+      label="Discard local edits"
+      tone="danger"
+      surface="solid"
+      onclick={() => {
+        onconfirm();
+        onclose();
+      }}
+    />
   {/snippet}
 </Modal>
