@@ -6,19 +6,40 @@
  * app.css give optional tokens kit-ui fallbacks. --brand-accent is the single
  * editable brand color.
  */
+
 :root {
   color-scheme: light;
+  /* Hairline borders, as in Linear. Safari and Firefox draw 0.5px on dense
+     screens; Chrome rounds any border under 1px up to 1px. */
+  --border-width: 0.5px;
 
-  --bg-sidebar: #f5f5f5;
-  --bg-primary: #ffffff;
+  /* Layers, darkest to lightest: the sidebar (app background), the main
+   * content panel that sits on it, and cards inside the panel. */
+  --bg-sidebar: #f1f1f2;
+  --bg-primary: #fcfcfd;
   --bg-surface: #ffffff;
   --bg-surface-hover: #ebebed;
-  --bg-inset: #f2f2f3;
+  --bg-inset: #f4f4f5;
   --border-default: #dddddf;
   --border-muted: #e7e7e9;
+  /* Edge of the main content panel against the sidebar. */
+  --border-shell: #e2e2e5;
+  /* Translucent rule between rows inside a card or list. */
+  --border-hairline: rgb(0 0 0 / 0.07);
+
+  /* Fields: their own fill and a slightly stronger edge than cards. Search
+     and controls use --border-field; text inputs a clearer, flat outline. */
+  --bg-field: #ffffff;
+  --border-field: #dadbde;
+  --border-input: #cdced3;
 
   --bg-control: #ececef;
   --bg-control-hover: #e3e3e7;
+
+  /* Pill tabs: a ringed chip, the selected one filled a clear step apart. */
+  --bg-pill: #ffffff;
+  --bg-pill-active: #e6e6ea;
+  --border-pill: rgb(0 0 0 / 0.12);
   --bg-popover: #ffffff;
   --border-popover: #d2d3d7;
   --bg-popover-selected: #e4e5e9;
@@ -45,6 +66,10 @@
   --accent-teal: #0e7490;
 
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  /* A hairline ring plus a soft drop: cards and grouped lists, no border. */
+  --shadow-card: 0 0 0 0.5px rgb(0 0 0 / 0.09), 0 1px 2px rgb(0 0 0 / 0.05);
+  /* Sits under fields, primary buttons and the content panel. */
+  --shadow-control: 0 0.5px 1px rgb(0 0 0 / 0.08);
   --shadow-md: 0 6px 20px #00000015;
   --shadow-lg: 0 8px 24px #00000018;
   --shadow-popover: 0 3px 8px #00000020, 0 2px 5px #00000020, 0 1px 1px #00000020;
@@ -88,20 +113,31 @@
 :root.dark {
   color-scheme: dark;
 
-  --bg-sidebar: #191a1d;
+  --bg-sidebar: #19191c;
   --bg-primary: #1f2023;
-  --bg-surface: #25262b;
+  --bg-surface: #27292c;
   --bg-surface-hover: #303136;
   --bg-inset: #232428;
   --border-default: #383a3f;
   --border-muted: #2b2d32;
+  --border-shell: #2e3034;
+  --border-hairline: rgb(255 255 255 / 0.08);
+
+  --bg-field: #26272b;
+  --border-field: #3f4146;
+  --border-input: #5d5f65;
 
   --bg-control: lch(21.504 3.034 272.695);
   --bg-control-hover: lch(25.504 3.034 272.695);
-  --bg-popover: #303134;
-  --border-popover: lch(30.761 3.913 272.695);
-  --bg-popover-selected: #4a4b50;
-  --bg-popover-hover: #444549;
+
+  --bg-pill: #2a2b2e;
+  --bg-pill-active: #393b3f;
+  --border-pill: rgb(255 255 255 / 0.16);
+  /* Menus sit a clear step above the page, as in Linear. */
+  --bg-popover: #393a3e;
+  --border-popover: rgb(255 255 255 / 0.14);
+  --bg-popover-selected: #505158;
+  --bg-popover-hover: #47484d;
   --border-popover-divider: #424449;
   --text-popover: #e7e8ec;
   --text-popover-icon: #a5a6aa;
@@ -125,9 +161,16 @@
   --accent-teal: #3fc1d6;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0.5px 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-control: 0 0.5px 1px 1px rgb(0 0 0 / 0.3);
   --shadow-md: 0 8px 24px #00000045;
   --shadow-lg: 0 12px 32px #00000055, 0 1px 4px #00000045;
   --overlay-bg: #09090d88;
+}
+
+/* Always reserve the scrollbar's space. */
+:root {
+  scrollbar-gutter: stable;
 }
 
 /* Repeats kit-ui's handheld type scale (larger, so inputs do not zoom on

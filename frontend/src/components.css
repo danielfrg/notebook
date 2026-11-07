@@ -34,9 +34,19 @@
   color: var(--brand-accent-foreground, var(--bg-surface));
 }
 
+/* The default button is a filled pill with a hairline edge, not an outline. */
 :root .kit-button.kit-button--outline.kit-button--neutral {
-  background: transparent;
-  border-color: var(--border-default);
+  background: var(--bg-field, transparent);
+  border-color: var(--border-hairline, var(--border-default));
+  box-shadow: var(--shadow-control, none);
+}
+
+:root .kit-button.kit-button--outline.kit-button--neutral:hover:not(:disabled) {
+  background: var(--bg-control-hover, var(--bg-surface-hover));
+}
+
+:root .kit-button.kit-button--solid {
+  box-shadow: var(--shadow-control, none);
 }
 
 :root :is(.kit-icon-button, .kit-sidebar-toggle, .kit-copy-btn, .kit-theme-toggle) {
@@ -50,12 +60,13 @@
 }
 
 /* A single colored border is the field focus indicator. Inherit the disabled
- * focus-ring token into the inner input to avoid a second wrapper/inner ring. */
+ * focus-ring token into the inner input to avoid a second wrapper/inner ring.
+ * Text inputs follow Linear's form fields: a flat, clearly outlined box. */
 :root .kit-text-input {
   --focus-ring: none;
-  border-color: var(--border-default);
+  border-color: var(--border-input, var(--border-default));
   border-radius: 8px;
-  background: var(--bg-inset);
+  background: var(--bg-field, var(--bg-inset));
   font-size: var(--font-size-sm);
   outline: none;
   box-shadow: none;
@@ -63,12 +74,34 @@
 
 :root .kit-text-input.kit-text-input--md {
   height: 32px;
-  padding-inline: 10px;
+  padding-inline: 12px;
 }
 
 :root .kit-text-input.kit-text-input--lg {
   min-height: 32px;
-  padding: 4px 10px;
+  padding: 4px 12px;
+  font-size: var(--font-size-sm);
+}
+
+/* Search fields: Linear's search box, a softer edge with a small drop, 28px
+ * at sm (sidebars, toolbars), medium-weight text, and the icon centered in a
+ * fixed lead-in so typed text lines up across sizes. After the size rules
+ * above, which set both inline paddings. */
+:root .kit-search-input.kit-text-input {
+  border-color: var(--border-field, var(--border-default));
+  box-shadow: var(--shadow-control, none);
+  padding-left: 0;
+  font-weight: var(--font-weight-medium);
+}
+
+:root .kit-search-input > .kit-text-input__adornment:first-child {
+  justify-content: center;
+  width: 28px;
+  margin-right: -2px;
+}
+
+:root .kit-search-input.kit-text-input--sm {
+  height: 28px;
   font-size: var(--font-size-sm);
 }
 
@@ -115,7 +148,10 @@
   font-size: var(--font-size-sm);
   font-weight: 400;
   line-height: normal;
-  box-shadow: none;
+  /* Linear's raised control: a 0.5px light ring and a small drop. */
+  box-shadow:
+    0 0 0 0.5px var(--border-pill, var(--border-default)),
+    var(--shadow-control, 0 0 #0000);
 }
 
 :root .kit-select-dropdown__trigger:hover:not(:disabled),
@@ -136,7 +172,7 @@
   height: 12px;
   flex: none;
   margin: 0;
-  opacity: 0.7;
+  color: var(--text-muted);
 }
 
 :root
@@ -321,7 +357,7 @@
 :root .kit-segmented {
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--border-default);
+  border: var(--border-width, 1px) solid var(--border-default);
   border-radius: var(--kit-control-radius, 9999px);
   background: var(--bg-inset);
   box-shadow: none;
@@ -354,10 +390,17 @@
  * component, so these selectors carry the panel class to win. */
 :root .kit-modal-panel {
   overflow: hidden;
-  border: 0.5px solid var(--border-popover, var(--border-default));
+  border: var(--border-width, 1px) solid var(--border-popover, var(--border-default));
   border-radius: 12px;
   background: var(--bg-surface);
   box-shadow: var(--shadow-lg);
+}
+
+/* The panel takes focus on open only to start the focus trap; it is not a
+ * control, so it never wears the focus ring. Its buttons and fields do. */
+:root .kit-modal-panel:focus,
+:root .kit-modal-panel:focus-visible {
+  outline: none;
 }
 
 :root .kit-modal-panel .kit-modal-header {
@@ -377,7 +420,7 @@
 
 :root .kit-modal-panel .kit-modal-title {
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   line-height: 1.4375rem;
 }
 
@@ -397,6 +440,11 @@
   padding-top: 16px;
 }
 
+/* No footer: the body closes the panel, so it needs the bottom margin. */
+:root .kit-modal-panel .kit-modal-body:last-child {
+  padding-bottom: 20px;
+}
+
 :root .kit-modal-panel .kit-modal-body label {
   color: var(--text-primary);
   font-size: var(--font-size-sm);
@@ -405,7 +453,7 @@
 
 :root .kit-modal-panel .kit-modal-footer {
   gap: 8px;
-  padding: 24px 16px 12px;
+  padding: 24px 16px 16px;
   border-top: 0;
   background: transparent;
 }
@@ -503,4 +551,258 @@
 /* Give shortcut labels a little breathing room above and below the text. */
 :root .kit-kbd-badge {
   padding-block: 3px;
+}
+
+/* Tabs as separate pills: the borderless segmented variant. Each option is
+ * its own 28px pill with a hairline ring; the active one is a lighter fill
+ * with full-strength text. The boxed variant stays a single shared track. */
+:root .kit-segmented.kit-segmented--borderless {
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+:root .kit-segmented.kit-segmented--borderless .kit-segmented__btn {
+  min-height: 28px;
+  margin: 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--kit-control-radius, 9999px);
+  background: var(--bg-pill, var(--bg-field));
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  box-shadow:
+    0 0 0 0.5px var(--border-pill, var(--border-default)),
+    var(--shadow-control, 0 0 #0000);
+}
+
+:root
+  .kit-segmented.kit-segmented--borderless
+  .kit-segmented__btn:hover:not(.active):not(:disabled) {
+  background: var(--bg-control, var(--bg-surface-hover));
+  color: var(--text-secondary);
+}
+
+:root .kit-segmented.kit-segmented--borderless .kit-segmented__btn.active {
+  background: var(--bg-pill-active, var(--bg-control-hover));
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  box-shadow: 0 0 0 0.5px var(--border-pill, var(--border-default));
+}
+
+:root .kit-segmented.kit-segmented--borderless .kit-segmented__btn[data-kit-tone]:not(.active) {
+  color: color-mix(in srgb, var(--kit-tone) 72%, var(--text-secondary));
+}
+
+:root .kit-segmented.kit-segmented--borderless .kit-segmented__btn[data-kit-tone].active {
+  background: color-mix(in srgb, var(--kit-tone) 16%, var(--bg-field, var(--bg-surface)));
+  color: color-mix(in srgb, var(--kit-tone) 72%, var(--text-primary));
+}
+
+/* Tables are open lists: no header band or row rules, roomy rows, and a
+ * rounded hover fill. Secondary columns read muted. */
+:root .kit-table .kit-th {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-table-header, transparent);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Once rows scroll beneath it, a stuck header takes an opaque fill (set
+ * --bg-table-header when the table sits on another surface) and a rule. */
+:root .kit-table.kit-table--sticky.kit-table--scrolled .kit-th {
+  background: var(--bg-table-header, var(--bg-primary));
+  box-shadow: inset 0 -1px 0 var(--border-hairline, var(--border-muted));
+}
+
+/* Three type selectors beat kit-ui's scoped `.kit-table tbody td`. A page
+ * styling its own cells needs two classes, e.g. `.page td.muted`. */
+:root .kit-table tbody tr > td {
+  height: 44px;
+  padding: 0 12px;
+  border-bottom: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+:root .kit-table.kit-table--zebra tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-inset) 70%, transparent);
+}
+
+:root .kit-table-wrapper .kit-table tbody tr:hover {
+  background: var(--bg-surface-hover);
+}
+
+:root .kit-table tbody tr > td:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+:root .kit-table tbody tr > td:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+/* Linear marks the sorted column with a near-white arrow, not an accent. */
+:root .kit-th .kit-th__indicator {
+  color: var(--text-primary);
+}
+
+/* An inline checkbox has no text, so it sits on the text baseline about 2px
+   above the row's center. Lay it out as a block so the cell centers it. */
+:root .kit-table .kit-checkbox {
+  display: flex;
+}
+
+/* Cards: no border, a hairline ring and soft drop instead. Inset cards stay flat. */
+:root .kit-card.kit-card--default {
+  --kit-card-border: transparent;
+  --kit-card-radius: 10px;
+  --kit-card-shadow: var(--shadow-card, none);
+}
+
+:root .kit-card.kit-card--raised {
+  --kit-card-border: transparent;
+  --kit-card-radius: var(--radius-lg);
+  --kit-card-shadow: var(--shadow-card, var(--shadow-sm)), var(--shadow-md);
+}
+
+/* Settings: the sidebar is the app background and the content is a raised
+ * panel inset by 8px. Nav rows are 28px with a neutral selected fill. */
+:root .kit-settings {
+  background: var(--bg-sidebar);
+}
+
+:root .kit-settings .kit-settings__sidebar {
+  gap: 12px;
+  width: 240px;
+  padding: 12px;
+  border-right: 0;
+  background: transparent;
+}
+
+:root .kit-settings .kit-settings__title {
+  padding: 4px 10px 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+:root .kit-settings .kit-settings__nav {
+  gap: 1px;
+}
+
+:root .kit-settings .kit-settings__group-title {
+  padding: 0 10px 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:root .kit-settings .kit-settings__group-title:not(:first-child) {
+  margin-top: 16px;
+}
+
+:root .kit-settings .kit-settings__nav-item {
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+:root .kit-settings .kit-settings__nav-item:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+:root .kit-settings .kit-settings__nav-item.kit-settings__nav-item--active,
+:root .kit-settings .kit-settings__nav-item.kit-settings__nav-item--active:hover {
+  background: var(--bg-control, var(--bg-inset));
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+:root .kit-settings .kit-settings__content {
+  margin: 8px 8px 8px 0;
+  overflow: hidden;
+  border: var(--border-width, 1px) solid var(--border-shell, var(--border-default));
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-control, none);
+}
+
+:root .kit-settings .kit-settings__panel {
+  gap: 40px;
+  max-width: 672px;
+  padding: 56px 16px 64px;
+}
+
+:root .kit-settings .kit-settings__footer {
+  border-top: var(--border-width, 1px) solid var(--border-hairline, var(--border-default));
+  background: transparent;
+}
+
+/* On narrow screens the nav becomes a strip above a full-bleed panel. */
+@media (max-width: 760px) {
+  :root .kit-settings .kit-settings__sidebar {
+    width: 100%;
+    padding: 8px;
+  }
+
+  :root .kit-settings .kit-settings__content {
+    margin: 0 8px 8px;
+  }
+}
+
+/* A settings section is a heading above one card of rows. Each direct child
+ * of the body is a row; rows are split by hairlines inset 16px. */
+:root .kit-settings-section {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root .kit-settings-section .kit-settings-section__header {
+  padding: 0 16px 12px;
+  border: 0;
+}
+
+:root .kit-settings-section .kit-settings-section__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+:root .kit-settings-section .kit-settings-section__description {
+  margin-top: 2px;
+  font-size: var(--font-size-sm);
+}
+
+:root .kit-settings-section .kit-settings-section__body {
+  gap: 0;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card, 0 0 0 1px var(--border-default));
+}
+
+:root .kit-settings-section .kit-settings-section__body > * {
+  position: relative;
+  padding: 16px;
+}
+
+:root .kit-settings-section .kit-settings-section__body > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 16px;
+  left: 16px;
+  border-top: var(--border-width, 1px) solid var(--border-hairline, var(--border-muted));
+  pointer-events: none;
 }
