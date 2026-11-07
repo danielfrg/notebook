@@ -151,7 +151,7 @@
   /* Linear's raised control: a 0.5px light ring and a small drop. */
   box-shadow:
     0 0 0 0.5px var(--border-pill, var(--border-default)),
-    var(--shadow-control, 0 0 #0000);
+    var(--shadow-control);
 }
 
 :root .kit-select-dropdown__trigger:hover:not(:disabled),
@@ -575,7 +575,7 @@
   font-weight: var(--font-weight-medium);
   box-shadow:
     0 0 0 0.5px var(--border-pill, var(--border-default)),
-    var(--shadow-control, 0 0 #0000);
+    var(--shadow-control);
 }
 
 :root
