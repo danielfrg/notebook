@@ -10,8 +10,7 @@ import (
 
 // protect lets through the requests that a client of an MCP endpoint makes and a
 // page of another site cannot: POSTs for a host that is localhost or one of
-// hosts, and, if they say where from, from that host. It is the policy of the
-// sibling apps (golinks, ciview, budget).
+// hosts, and, if they say where from, from that host.
 func protect(next http.Handler, hosts []string) http.Handler {
 	allowed := map[string]bool{"localhost": true, "127.0.0.1": true, "::1": true}
 	for _, host := range hosts {

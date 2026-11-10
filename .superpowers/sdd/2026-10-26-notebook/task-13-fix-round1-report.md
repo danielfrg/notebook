@@ -11,7 +11,7 @@ Implementation commit: `aee5c377ed399de79d2e5029b5677cad59104f3c` (`fix(editor):
 
 ## Test-first evidence
 
-All commands ran from `/Users/danrodriguez/code/danielfrg/notebook`. The focused command form was `pnpm --dir frontend exec node --test --test-name-pattern='PATTERN' src/lib/editor/livePreview.test.ts`.
+All commands ran from `the repository root`. The focused command form was `pnpm --dir frontend exec node --test --test-name-pattern='PATTERN' src/lib/editor/livePreview.test.ts`.
 
 | Regression | RED before production change | GREEN after change |
 | --- | --- | --- |

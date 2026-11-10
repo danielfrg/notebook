@@ -49,7 +49,3 @@ They are written for humans: avoid big restructures, but update them when change
 
 `DESIGN.md` owns the theme, typography, layout, and interaction rules; read it before changing the frontend.
 `frontend/src/theme.css` is the only file with palette values.
-
-## Deployment
-
-Daniel (danielfrg/danrodriguez) deploys this service in his homelab; the deployment source is in `~/code/danielfrg/homelab`.

@@ -64,7 +64,7 @@ Live Preview; remote images remain links. Tables remain Markdown text.
 The theme control switches between dark, light, and system appearance. The accent
 is configured with `--brand-accent` in `frontend/src/theme.css`; controls and note
 links follow that variable. The theme file remains replaceable with the shared
-homelab theme.
+design system theme.
 
 ### MCP
 
@@ -144,6 +144,3 @@ API writes and revision conflicts, exact BOM/CRLF preservation, MCP exclusions,
 restart persistence, and trash. It requires Docker, Go, Python 3, and curl;
 Linux bind-mount cleanup may require sudo. GitHub Actions runs this check on
 AMD64 and ARM64 before publishing to GHCR.
-
-The private homelab deployment is managed in
-[`homelab/manifests/notebook`](https://github.com/danielfrg/homelab/tree/main/manifests/notebook).
