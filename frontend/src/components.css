@@ -1,16 +1,19 @@
 /*
  * Shared kit-ui component styles.
- * Palette values live in theme.css.
+ *
+ * Reads only design tokens, so one file serves every theme. Palette, shape and
+ * density values live in theme.css.
  */
 
-/* Actions are pills; icon utilities are circles. Keep their focus indicators. */
+/* Actions and icon utilities take the theme's control shape (pills, circles or
+ * rounded rectangles). Keep their focus indicators. */
 :root .kit-button {
-  min-height: 28px;
+  min-height: var(--kit-control-height);
   padding: 0 12px;
-  border-radius: var(--kit-control-radius, 9999px);
-  font-size: var(--kit-control-font-size, var(--font-size-xs));
+  border-radius: var(--kit-control-radius);
+  font-size: var(--kit-control-font-size);
   font-weight: var(--font-weight-medium);
-  line-height: 26px;
+  line-height: calc(var(--kit-control-height) - 2px);
   box-shadow: none;
 }
 
@@ -20,76 +23,100 @@
 }
 
 :root .kit-button.kit-button--sm {
-  min-height: 24px;
+  min-height: calc(var(--kit-control-height) - 4px);
   padding-inline: 10px;
-  line-height: 22px;
+  line-height: calc(var(--kit-control-height) - 6px);
 }
 
 :root .kit-button.kit-button--lg {
-  min-height: 32px;
-  line-height: 30px;
+  min-height: calc(var(--kit-control-height) + 4px);
+  line-height: calc(var(--kit-control-height) + 2px);
 }
 
 :root .kit-button.kit-button--solid:is(.kit-button--workflow, .kit-button--info) {
   color: var(--brand-accent-foreground, var(--bg-surface));
 }
 
-/* The default button is a filled pill with a hairline edge, not an outline. */
+/* The default button is a filled control with its own edge, not an outline. */
 :root .kit-button.kit-button--outline.kit-button--neutral {
-  background: var(--bg-field, transparent);
-  border-color: var(--border-hairline, var(--border-default));
-  box-shadow: var(--shadow-control, none);
+  background: var(--bg-button);
+  border-color: var(--border-control);
+  box-shadow: var(--shadow-control);
 }
 
 :root .kit-button.kit-button--outline.kit-button--neutral:hover:not(:disabled) {
-  background: var(--bg-control-hover, var(--bg-surface-hover));
+  background: var(--bg-button-hover);
+}
+
+/* Ghost: class="ghost" on an outline Button or a MenuTrigger. No background,
+ * border or shadow until hovered (or open); for quiet actions in headers and
+ * rows ("New token", a row's "…" menu). */
+:root .kit-button.kit-button--outline.ghost,
+:root .kit-menu__trigger.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root .kit-button.kit-button--outline.ghost:hover:not(:disabled),
+:root .kit-menu__trigger.ghost:hover:not(:disabled),
+:root .kit-menu__trigger.ghost[aria-expanded="true"] {
+  background: var(--bg-button-hover);
+  border-color: transparent;
+}
+
+/* Buttons keep their tone color (a ghost Delete stays red); a menu trigger
+ * brightens like kit-ui's own. */
+:root .kit-menu__trigger.ghost:hover:not(:disabled),
+:root .kit-menu__trigger.ghost[aria-expanded="true"] {
+  color: var(--text-primary);
 }
 
 :root .kit-button.kit-button--solid {
-  box-shadow: var(--shadow-control, none);
+  box-shadow: var(--shadow-control);
 }
 
 :root :is(.kit-icon-button, .kit-sidebar-toggle, .kit-copy-btn, .kit-theme-toggle) {
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
+  width: var(--kit-control-height);
+  height: var(--kit-control-height);
+  min-height: var(--kit-control-height);
   flex-shrink: 0;
   padding: 0;
-  border-radius: var(--kit-control-radius, 9999px);
+  border-radius: var(--kit-control-radius);
   box-shadow: none;
 }
 
 /* A single colored border is the field focus indicator. Inherit the disabled
  * focus-ring token into the inner input to avoid a second wrapper/inner ring.
- * Text inputs follow Linear's form fields: a flat, clearly outlined box. */
+ * Text inputs are a flat, clearly outlined box. */
 :root .kit-text-input {
   --focus-ring: none;
-  border-color: var(--border-input, var(--border-default));
-  border-radius: 8px;
-  background: var(--bg-field, var(--bg-inset));
+  border-color: var(--border-input);
+  border-radius: var(--radius-field);
+  background: var(--bg-field);
   font-size: var(--font-size-sm);
   outline: none;
   box-shadow: none;
 }
 
 :root .kit-text-input.kit-text-input--md {
-  height: 32px;
+  height: var(--input-height);
   padding-inline: 12px;
 }
 
 :root .kit-text-input.kit-text-input--lg {
-  min-height: 32px;
+  min-height: var(--input-height);
   padding: 4px 12px;
   font-size: var(--font-size-sm);
 }
 
-/* Search fields: Linear's search box, a softer edge with a small drop, 28px
- * at sm (sidebars, toolbars), medium-weight text, and the icon centered in a
+/* Search fields: a softer edge with a small drop, control height at sm
+ * (sidebars, toolbars), medium-weight text, and the icon centered in a
  * fixed lead-in so typed text lines up across sizes. After the size rules
  * above, which set both inline paddings. */
 :root .kit-search-input.kit-text-input {
-  border-color: var(--border-field, var(--border-default));
-  box-shadow: var(--shadow-control, none);
+  border-color: var(--border-field);
+  box-shadow: var(--shadow-control);
   padding-left: 0;
   font-weight: var(--font-weight-medium);
 }
@@ -101,7 +128,7 @@
 }
 
 :root .kit-search-input.kit-text-input--sm {
-  height: 28px;
+  height: var(--kit-control-height);
   font-size: var(--font-size-sm);
 }
 
@@ -114,11 +141,13 @@
 /* The field has one focus border, while embedded actions such as Clear
  * still need their own keyboard focus indicator. */
 :root .kit-text-input :is(button, a) {
-  --focus-ring: 2px solid var(--brand-accent, var(--accent-blue));
+  --focus-ring: 2px solid var(--focus-ring-color);
 }
 
 :root .kit-text-input:focus-within:not(.kit-text-input--invalid) {
-  border-color: var(--brand-accent, var(--accent-blue));
+  border-color: var(--border-focus);
+  outline: var(--field-focus-outline);
+  outline-offset: 0;
 }
 
 :root .kit-text-input.kit-text-input--invalid {
@@ -137,31 +166,29 @@
   position: relative;
   width: auto;
   max-width: 100%;
-  height: 30px;
-  min-height: 30px;
+  height: var(--select-height);
+  min-height: var(--select-height);
   gap: 0;
-  padding: 1px 28px 1px 10px;
-  border: 0.5px solid transparent;
-  border-radius: 8px;
-  background: var(--bg-control, var(--bg-inset));
+  padding: 1px var(--select-pad-end) 1px 10px;
+  border: var(--border-width) solid var(--border-select);
+  border-radius: var(--radius-field);
+  background: var(--bg-control);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 400;
   line-height: normal;
-  /* Linear's raised control: a 0.5px light ring and a small drop. */
-  box-shadow:
-    0 0 0 0.5px var(--border-pill, var(--border-default)),
-    var(--shadow-control);
+  /* A raised control: the theme's edge and drop shadow. */
+  box-shadow: var(--shadow-select);
 }
 
 :root .kit-select-dropdown__trigger:hover:not(:disabled),
 :root .kit-select-dropdown__trigger[aria-expanded="true"] {
-  border-color: transparent;
-  background: var(--bg-control-hover, var(--bg-surface-hover));
+  border-color: var(--border-select);
+  background: var(--bg-control-hover);
 }
 
 :root .kit-select-dropdown__trigger:focus-visible:not(:disabled) {
-  border-color: var(--brand-accent, var(--accent-blue));
+  border-color: var(--border-focus);
   outline: none;
 }
 
@@ -182,14 +209,16 @@
     .kit-typeahead__panel,
     .kit-filter-dropdown__panel
   ) {
-  border: 0.5px solid var(--border-popover, var(--border-default));
-  border-radius: 12px;
+  border: var(--popover-border-width) solid var(--border-popover);
+  border-radius: var(--radius-popover);
   padding: 4px;
-  background: var(--bg-popover, var(--bg-surface));
-  box-shadow: var(--shadow-popover, var(--shadow-md));
+  background: var(--bg-popover);
+  box-shadow: var(--shadow-popover);
 }
 
-/* The row keeps its full hit area; its neutral fill is inset by 4px. */
+/* The row keeps its full hit area; its neutral fill is inset by 4px. Only the
+ * row under the pointer or keyboard is filled. The current choice shows its
+ * check, so two filled rows never compete. */
 :root .kit-select-dropdown .kit-select-dropdown__list {
   --focus-ring: none;
   width: max-content;
@@ -202,10 +231,10 @@
 :root .kit-select-dropdown__list .kit-select-dropdown__option {
   position: relative;
   isolation: isolate;
-  height: 32px;
-  min-height: 32px;
+  height: var(--menu-item-height);
+  min-height: var(--menu-item-height);
   gap: 0;
-  padding: 0 35px 0 12px;
+  padding: 0 var(--select-option-pad-end) 0 var(--select-option-pad-start);
   border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
@@ -218,8 +247,8 @@
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 0 4px;
-  border-radius: 8px;
+  inset: 0 var(--option-inset);
+  border-radius: var(--radius-item);
 }
 
 :root .kit-select-dropdown__option-label {
@@ -242,9 +271,8 @@
   font-weight: 400;
 }
 
-:root .kit-select-dropdown__option.selected::before,
 :root .kit-select-dropdown__option:is(.highlighted, :hover):not(:disabled)::before {
-  background: var(--bg-popover-selected, var(--bg-surface-hover));
+  background: var(--bg-popover-hover);
 }
 
 :root
@@ -256,7 +284,7 @@
 
 :root .kit-select-dropdown__check {
   position: absolute;
-  right: 12px;
+  right: var(--select-check-right);
   width: 16px;
   justify-content: center;
   color: var(--text-muted);
@@ -269,36 +297,36 @@
 }
 
 /* Menus: at least 180px wide (the menu sets its trigger's
- * width inline as a minimum), 32px rows with 9px insets, a 16px icon column
+ * width inline as a minimum), themed row height and insets, a 16px icon column
  * and a 10px gap, a hairline divider running edge to edge, and no red items. */
 :root .kit-menu__content {
   min-width: 180px !important;
-  padding: 6px;
+  padding: var(--menu-padding-y) var(--menu-padding-x);
 }
 
 :root .kit-menu__content .kit-menu__item {
-  min-height: 32px;
+  min-height: var(--menu-item-height);
   gap: 10px;
-  padding: 0 9px;
-  border-radius: 8px;
-  color: var(--text-popover, var(--text-primary));
+  padding: 0 var(--menu-item-padding-x);
+  border-radius: var(--radius-item);
+  color: var(--text-popover);
   font-size: var(--font-size-sm);
   font-weight: 450;
 }
 
 :root .kit-menu__content .kit-menu__item:is(:hover, :focus-visible):not([aria-disabled="true"]) {
   outline: none;
-  background: var(--bg-popover-hover, var(--bg-surface-hover));
+  background: var(--bg-popover-hover);
   color: var(--text-primary);
 }
 
 :root .kit-menu__content .kit-menu__item--danger {
-  color: var(--text-popover, var(--text-primary));
+  color: var(--text-popover);
 }
 
 :root .kit-menu__content .kit-menu__icon {
   --menu-icon-width: 16px;
-  color: var(--text-popover-icon, var(--text-muted));
+  color: var(--text-popover-icon);
 }
 
 :root .kit-menu__content .kit-menu__icon svg {
@@ -309,13 +337,14 @@
 
 :root .kit-menu__content .kit-menu__separator {
   height: 0;
-  margin: 6px -6px;
-  border-top: 0.5px solid var(--border-popover-divider, var(--border-muted));
+  margin: 6px calc(var(--menu-padding-x) * -1);
+  border-top: var(--border-width) solid var(--border-popover-divider);
   background: none;
 }
 
+/* The checked radio item shows its indicator; only the hovered row is filled. */
 :root .kit-menu__content .kit-menu__radio-item[aria-checked="true"] {
-  background: var(--bg-popover-selected, var(--bg-surface-hover));
+  background: transparent;
 }
 
 :root .kit-menu__content .kit-menu__radio-content {
@@ -331,21 +360,21 @@
 
 :root .kit-typeahead__panel .kit-typeahead__option,
 :root .kit-filter-dropdown__panel .kit-filter-dropdown__item {
-  min-height: 32px;
+  min-height: var(--menu-item-height);
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-item);
   font-size: var(--font-size-sm);
 }
 
 :root .kit-typeahead__panel .kit-typeahead__option.selected,
 :root .kit-filter-dropdown__panel .kit-filter-dropdown__item.active {
-  background: var(--bg-popover-selected, var(--bg-surface-hover));
+  background: var(--bg-popover-selected);
   color: var(--text-secondary);
 }
 
 :root .kit-typeahead__panel .kit-typeahead__option:is(.highlighted, :hover):not(:disabled),
 :root .kit-filter-dropdown__panel .kit-filter-dropdown__item:hover:not(:disabled) {
-  background: var(--bg-popover-hover, var(--bg-surface-hover));
+  background: var(--bg-popover-hover);
   color: var(--text-primary);
 }
 
@@ -357,30 +386,30 @@
 :root .kit-segmented {
   gap: 2px;
   padding: 3px;
-  border: var(--border-width, 1px) solid var(--border-default);
-  border-radius: var(--kit-control-radius, 9999px);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--kit-control-radius);
   background: var(--bg-inset);
   box-shadow: none;
 }
 
 :root .kit-segmented .kit-segmented__btn {
-  min-height: 24px;
+  min-height: calc(var(--kit-control-height) - 4px);
   padding: 0 10px;
   border: 0;
-  border-radius: var(--kit-control-radius, 9999px);
+  border-radius: var(--kit-control-radius);
   background: transparent;
   color: var(--text-muted);
 }
 
 :root .kit-segmented .kit-segmented__btn.active {
-  background: var(--bg-popover-selected, var(--bg-surface-hover));
+  background: var(--bg-popover-selected);
   color: var(--text-primary);
   box-shadow: none;
 }
 
 /* The track's padding leaves space for keyboard focus outside the segment. */
 :root .kit-segmented .kit-segmented__btn:focus-visible {
-  outline: 2px solid var(--text-accent, var(--accent-blue));
+  outline: 2px solid var(--focus-ring-color);
   outline-offset: 0;
 }
 
@@ -390,8 +419,8 @@
  * component, so these selectors carry the panel class to win. */
 :root .kit-modal-panel {
   overflow: hidden;
-  border: var(--border-width, 1px) solid var(--border-popover, var(--border-default));
-  border-radius: 12px;
+  border: var(--popover-border-width) solid var(--border-popover);
+  border-radius: var(--radius-modal);
   background: var(--bg-surface);
   box-shadow: var(--shadow-lg);
 }
@@ -459,10 +488,10 @@
 }
 
 :root .kit-modal-panel .kit-modal-footer .kit-button {
-  min-height: 32px;
+  min-height: var(--input-height);
   padding-inline: 12px;
   font-size: var(--font-size-sm);
-  line-height: 30px;
+  line-height: calc(var(--input-height) - 2px);
 }
 
 :root .kit-form-field label {
@@ -480,7 +509,7 @@
 /* Additional component refinements. */
 /* Borderless edge rules in kit-ui otherwise square off the inner corners. */
 :root .kit-segmented.kit-segmented--borderless .kit-segmented__btn:is(:first-child, :last-child) {
-  border-radius: var(--kit-control-radius, 9999px);
+  border-radius: var(--kit-control-radius);
 }
 
 /* Keep the calendar's 8px inset without the fixed panel's empty side gutters. */
@@ -491,7 +520,7 @@
 }
 
 :root .kit-date-picker__trigger:focus-visible:not(:disabled) {
-  border-color: var(--brand-accent, var(--accent-blue));
+  border-color: var(--border-focus);
   outline: none;
 }
 
@@ -554,8 +583,9 @@
 }
 
 /* Tabs as separate pills: the borderless segmented variant. Each option is
- * its own 28px pill with a hairline ring; the active one is a lighter fill
- * with full-strength text. The boxed variant stays a single shared track. */
+ * its own control-height chip with a themed ring; the active one is a
+ * different fill with full-strength text. The boxed variant stays a single
+ * shared track. */
 :root .kit-segmented.kit-segmented--borderless {
   gap: 4px;
   padding: 0;
@@ -564,32 +594,30 @@
 }
 
 :root .kit-segmented.kit-segmented--borderless .kit-segmented__btn {
-  min-height: 28px;
+  min-height: var(--kit-control-height);
   margin: 0;
   padding: 0 10px;
   border: 0;
-  border-radius: var(--kit-control-radius, 9999px);
-  background: var(--bg-pill, var(--bg-field));
+  border-radius: var(--kit-control-radius);
+  background: var(--bg-pill);
   color: var(--text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  box-shadow:
-    0 0 0 0.5px var(--border-pill, var(--border-default)),
-    var(--shadow-control);
+  box-shadow: var(--shadow-pill);
 }
 
 :root
   .kit-segmented.kit-segmented--borderless
   .kit-segmented__btn:hover:not(.active):not(:disabled) {
-  background: var(--bg-control, var(--bg-surface-hover));
+  background: var(--bg-control);
   color: var(--text-secondary);
 }
 
 :root .kit-segmented.kit-segmented--borderless .kit-segmented__btn.active {
-  background: var(--bg-pill-active, var(--bg-control-hover));
+  background: var(--bg-pill-active);
   color: var(--text-primary);
   font-weight: var(--font-weight-medium);
-  box-shadow: 0 0 0 0.5px var(--border-pill, var(--border-default));
+  box-shadow: var(--shadow-pill-active);
 }
 
 :root .kit-segmented.kit-segmented--borderless .kit-segmented__btn[data-kit-tone]:not(.active) {
@@ -597,35 +625,37 @@
 }
 
 :root .kit-segmented.kit-segmented--borderless .kit-segmented__btn[data-kit-tone].active {
-  background: color-mix(in srgb, var(--kit-tone) 16%, var(--bg-field, var(--bg-surface)));
+  background: color-mix(in srgb, var(--kit-tone) 16%, var(--bg-field));
   color: color-mix(in srgb, var(--kit-tone) 72%, var(--text-primary));
 }
 
-/* Tables are open lists: no header band or row rules, roomy rows, and a
- * rounded hover fill. Secondary columns read muted. */
+/* Tables are open lists with no header band. Row rules, row height, header
+ * case and the hover fill come from the theme. Secondary columns read muted. */
 :root .kit-table .kit-th {
-  height: 36px;
+  height: var(--table-th-height);
   padding: 0 12px;
   background: var(--bg-table-header, transparent);
   box-shadow: none;
   color: var(--text-muted);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--table-th-weight);
+  letter-spacing: var(--table-th-tracking);
+  text-transform: var(--table-th-transform);
 }
 
 /* Once rows scroll beneath it, a stuck header takes an opaque fill (set
  * --bg-table-header when the table sits on another surface) and a rule. */
 :root .kit-table.kit-table--sticky.kit-table--scrolled .kit-th {
   background: var(--bg-table-header, var(--bg-primary));
-  box-shadow: inset 0 -1px 0 var(--border-hairline, var(--border-muted));
+  box-shadow: inset 0 -1px 0 var(--border-hairline);
 }
 
 /* Three type selectors beat kit-ui's scoped `.kit-table tbody td`. A page
  * styling its own cells needs two classes, e.g. `.page td.muted`. */
 :root .kit-table tbody tr > td {
-  height: 44px;
+  height: var(--table-td-height);
   padding: 0 12px;
-  border-bottom: 0;
+  border-bottom: var(--table-row-border);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
@@ -635,18 +665,18 @@
 }
 
 :root .kit-table-wrapper .kit-table tbody tr:hover {
-  background: var(--bg-surface-hover);
+  background: var(--bg-row-hover);
 }
 
 :root .kit-table tbody tr > td:first-child {
-  border-radius: 8px 0 0 8px;
+  border-radius: var(--radius-item) 0 0 var(--radius-item);
 }
 
 :root .kit-table tbody tr > td:last-child {
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--radius-item) var(--radius-item) 0;
 }
 
-/* Linear marks the sorted column with a near-white arrow, not an accent. */
+/* The sorted column is marked with a full-strength arrow, not an accent. */
 :root .kit-th .kit-th__indicator {
   color: var(--text-primary);
 }
@@ -657,21 +687,23 @@
   display: flex;
 }
 
-/* Cards: no border, a hairline ring and soft drop instead. Inset cards stay flat. */
+/* Cards: the theme picks the edge (a border, or a ring-shadow with a
+ * transparent border). Inset cards stay flat. */
 :root .kit-card.kit-card--default {
-  --kit-card-border: transparent;
-  --kit-card-radius: 10px;
-  --kit-card-shadow: var(--shadow-card, none);
+  --kit-card-border: var(--card-border);
+  --kit-card-radius: var(--radius-card);
+  --kit-card-shadow: var(--shadow-card);
 }
 
 :root .kit-card.kit-card--raised {
-  --kit-card-border: transparent;
+  --kit-card-border: var(--card-border);
   --kit-card-radius: var(--radius-lg);
-  --kit-card-shadow: var(--shadow-card, var(--shadow-sm)), var(--shadow-md);
+  --kit-card-shadow: var(--shadow-card), var(--shadow-md);
 }
 
-/* Settings: the sidebar is the app background and the content is a raised
- * panel inset by 8px. Nav rows are 28px with a neutral selected fill. */
+/* Settings: the sidebar is the app background. The theme decides whether
+ * content is a raised panel inset on it or flat beside a rule, and the nav
+ * row height and selected fill. */
 :root .kit-settings {
   background: var(--bg-sidebar);
 }
@@ -679,8 +711,8 @@
 :root .kit-settings .kit-settings__sidebar {
   gap: 12px;
   width: 240px;
-  padding: 12px;
-  border-right: 0;
+  padding: var(--sidebar-padding);
+  border-right: var(--sidebar-border);
   background: transparent;
 }
 
@@ -709,33 +741,33 @@
 
 :root .kit-settings .kit-settings__nav-item {
   justify-content: center;
-  min-height: 28px;
+  min-height: var(--nav-item-height);
   padding: 4px 10px;
-  border-radius: 8px;
-  color: var(--text-muted);
+  border-radius: var(--nav-item-radius);
+  color: var(--nav-item-color);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
 :root .kit-settings .kit-settings__nav-item:hover {
-  background: var(--bg-surface-hover);
+  background: var(--bg-nav-hover);
   color: var(--text-primary);
 }
 
 :root .kit-settings .kit-settings__nav-item.kit-settings__nav-item--active,
 :root .kit-settings .kit-settings__nav-item.kit-settings__nav-item--active:hover {
-  background: var(--bg-control, var(--bg-inset));
+  background: var(--bg-nav-active);
   color: var(--text-primary);
   font-weight: var(--font-weight-medium);
 }
 
 :root .kit-settings .kit-settings__content {
-  margin: 8px 8px 8px 0;
+  margin: var(--shell-margin);
   overflow: hidden;
-  border: var(--border-width, 1px) solid var(--border-shell, var(--border-default));
-  border-radius: var(--radius-lg);
+  border: var(--shell-border);
+  border-radius: var(--shell-radius);
   background: var(--bg-primary);
-  box-shadow: var(--shadow-control, none);
+  box-shadow: var(--shell-shadow);
 }
 
 :root .kit-settings .kit-settings__panel {
@@ -745,7 +777,7 @@
 }
 
 :root .kit-settings .kit-settings__footer {
-  border-top: var(--border-width, 1px) solid var(--border-hairline, var(--border-default));
+  border-top: var(--border-width) solid var(--border-hairline);
   background: transparent;
 }
 
@@ -754,10 +786,11 @@
   :root .kit-settings .kit-settings__sidebar {
     width: 100%;
     padding: 8px;
+    border-right: 0;
   }
 
   :root .kit-settings .kit-settings__content {
-    margin: 0 8px 8px;
+    margin: var(--shell-margin-narrow);
   }
 }
 
@@ -787,9 +820,10 @@
 :root .kit-settings-section .kit-settings-section__body {
   gap: 0;
   padding: 0;
-  border-radius: 10px;
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-card);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-card, 0 0 0 1px var(--border-default));
+  box-shadow: var(--shadow-card);
 }
 
 :root .kit-settings-section .kit-settings-section__body > * {
@@ -803,6 +837,6 @@
   top: 0;
   right: 16px;
   left: 16px;
-  border-top: var(--border-width, 1px) solid var(--border-hairline, var(--border-muted));
+  border-top: var(--border-width) solid var(--border-hairline);
   pointer-events: none;
 }

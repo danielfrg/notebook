@@ -1,10 +1,15 @@
 /*
- * Shared theme tokens. This is the only file with palette values.
+ * Theme: Linear. Hairline borders, pill controls, ring-shadow cards, an inset
+ * content panel on a tinted sidebar.
  *
- * It overrides generic design tokens: light on :root, dark on :root.dark.
- * Replace this file as a whole to adopt another palette. components.css and
- * app.css give optional tokens kit-ui fallbacks. --brand-accent is the single
- * editable brand color.
+ * Light lives on :root, dark on :root.dark. Load it after kit-ui's theme.css
+ * so these blocks win over kit-ui's by source order. No attribute needed.
+ *
+ * A theme file is the only place with palette and shape values.
+ * components.css and primitives.css read these tokens and carry no look of
+ * their own: this file defines the full set, and `node scripts/check-themes.mjs`
+ * fails when the shared CSS uses a token nothing defines.
+ * --brand-accent is the single editable brand color.
  */
 
 :root {
@@ -12,6 +17,8 @@
   /* Hairline borders, as in Linear. Safari and Firefox draw 0.5px on dense
      screens; Chrome rounds any border under 1px up to 1px. */
   --border-width: 0.5px;
+
+  /* ---------- Color ---------- */
 
   /* Layers, darkest to lightest: the sidebar (app background), the main
    * content panel that sits on it, and cards inside the panel. */
@@ -35,6 +42,10 @@
 
   --bg-control: #ececef;
   --bg-control-hover: #e3e3e7;
+  /* Neutral (outline) buttons: a filled pill with a hairline edge. */
+  --bg-button: var(--bg-field);
+  --bg-button-hover: var(--bg-control-hover);
+  --border-control: var(--border-hairline);
 
   /* Pill tabs: a ringed chip, the selected one filled a clear step apart. */
   --bg-pill: #ffffff;
@@ -50,6 +61,9 @@
   --bg-notification: #ffffff;
   --border-notification: #d9dade;
   --bg-notification-action: #f0f0f2;
+  --bg-row-hover: var(--bg-surface-hover);
+  --bg-nav-hover: var(--bg-surface-hover);
+  --bg-nav-active: var(--bg-control);
 
   --text-primary: #25262a;
   --text-secondary: #44464c;
@@ -65,11 +79,20 @@
   --accent-red: #c62828;
   --accent-teal: #0e7490;
 
+  /* ---------- Elevation ---------- */
+
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   /* A hairline ring plus a soft drop: cards and grouped lists, no border. */
   --shadow-card: 0 0 0 0.5px rgb(0 0 0 / 0.09), 0 1px 2px rgb(0 0 0 / 0.05);
+  --card-border: transparent;
   /* Sits under fields, primary buttons and the content panel. */
   --shadow-control: 0 0.5px 1px rgb(0 0 0 / 0.08);
+  /* A raised select trigger and the pill tabs: a 0.5px ring and a small drop,
+     the edge drawn by the shadow so the border stays transparent. */
+  --border-select: transparent;
+  --shadow-select: 0 0 0 0.5px var(--border-pill), var(--shadow-control);
+  --shadow-pill: 0 0 0 0.5px var(--border-pill), var(--shadow-control);
+  --shadow-pill-active: 0 0 0 0.5px var(--border-pill);
   --shadow-md: 0 6px 20px #00000015;
   --shadow-lg: 0 8px 24px #00000018;
   --shadow-popover: 0 3px 8px #00000020, 0 2px 5px #00000020, 0 1px 1px #00000020;
@@ -81,13 +104,84 @@
   --shadow-panel: none;
   --press-transform: none;
 
+  /* ---------- Shape ---------- */
+
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --radius-field: 8px; /* inputs, select triggers */
+  --radius-item: 8px; /* menu items, options, table cells */
+  --radius-popover: 12px;
+  --popover-border-width: var(--border-width); /* menus, select lists, dialogs */
+  --radius-modal: 12px;
+  --radius-card: 10px;
+  --radius-badge: 9999px;
+  --radius-check: 4px;
+
+  /* Actions are pills, 28px. Small and large are derived from the height. */
   --kit-control-radius: 9999px;
   --kit-control-height: 28px;
   --kit-control-font-size: 0.75rem;
-  --focus-ring: 2px solid var(--brand-accent);
+  --input-height: 32px; /* text inputs, modal buttons */
+  --select-height: 30px;
+
+  /* Focus: a 2px accent ring; text fields show a single colored border. */
+  --focus-ring-color: var(--brand-accent);
+  --focus-ring: 2px solid var(--focus-ring-color);
+  --border-focus: var(--brand-accent);
+  --field-focus-outline: none;
+
+  /* A select list opens over its trigger, the current choice where the closed
+   * trigger was (needs popover-position.js). Option text and check line up with
+   * the trigger's text and chevron, so the two are the same width when the
+   * current choice is the widest option. */
+  --popover-gap: 2px;
+  --select-overlay: 1;
+  --select-pad-end: 32px;
+  --select-option-pad-start: 10px;
+  --select-option-pad-end: 32px;
+  --select-check-right: 8px;
+
+  /* Menus and select lists: 32px rows inset 6px, rounded highlight. */
+  --menu-padding-y: 6px;
+  --menu-padding-x: 6px;
+  --menu-item-height: 32px;
+  --menu-item-padding-x: 9px;
+  --option-inset: 4px;
+
+  /* Tables are open lists: no row rules, roomy rows, a rounded hover fill. */
+  --table-th-height: 36px;
+  --table-th-transform: none;
+  --table-th-tracking: 0;
+  --table-th-weight: 500;
+  --table-td-height: 44px;
+  --table-row-border: none;
+
+  /* App shell: the sidebar is the app background and the content is a raised
+   * panel inset by 8px. Nav rows are 28px with a neutral selected fill. */
+  --sidebar-padding: 12px;
+  --sidebar-border: 0;
+  --shell-margin: 8px 8px 8px 0;
+  --shell-margin-narrow: 0 8px 8px;
+  --shell-radius: var(--radius-lg);
+  --shell-border: var(--border-width) solid var(--border-shell);
+  --shell-shadow: var(--shadow-control);
+  --nav-item-height: 28px;
+  --nav-item-radius: 8px;
+  --nav-item-color: var(--text-muted);
+
+  /* Badges: tinted pills with no edge. */
+  --badge-height: 20px;
+  --badge-bg-alpha: 13%;
+  --badge-border-width: 0;
+  --badge-border-alpha: 0%;
+
+  /* Switch: 28 x 16 with a 2px inset knob. */
+  --switch-width: 28px;
+  --switch-height: 16px;
+  --switch-inset: 2px;
+
+  /* ---------- Type ---------- */
 
   --font-sans:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue",
@@ -108,6 +202,9 @@
   --font-size-2xl: 1.5rem; /* 24px */
 
   --header-height: 44px;
+
+  /* Always reserve the scrollbar's space. */
+  scrollbar-gutter: stable;
 }
 
 :root.dark {
@@ -166,11 +263,6 @@
   --shadow-md: 0 8px 24px #00000045;
   --shadow-lg: 0 12px 32px #00000055, 0 1px 4px #00000045;
   --overlay-bg: #09090d88;
-}
-
-/* Always reserve the scrollbar's space. */
-:root {
-  scrollbar-gutter: stable;
 }
 
 /* Repeats kit-ui's handheld type scale (larger, so inputs do not zoom on
