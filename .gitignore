@@ -16,9 +16,7 @@
 
 # Local agent work and design tooling
 .impeccable/
-.superpowers/
 .worktrees/
-/docs/superpowers/
 /docs/plans/
 /docs/specs/
 /docs/*report*.md
