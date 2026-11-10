@@ -5,6 +5,13 @@
  * density values live in theme.css.
  */
 
+/* Plain links take the accent color instead of the browser default (a light
+ * purple in dark mode). :where() keeps it at zero specificity, so any link an
+ * app styles itself wins. */
+:where(a:any-link) {
+  color: var(--text-accent);
+}
+
 /* Actions and icon utilities take the theme's control shape (pills, circles or
  * rounded rectangles). Keep their focus indicators. */
 :root .kit-button {
@@ -796,6 +803,14 @@
 
 /* A settings section is a heading above one card of rows. Each direct child
  * of the body is a row; rows are split by hairlines inset 16px. */
+/* kit-settings__scroll clips its overflow and starts flush with the section
+ * cards, which cut off their ring shadow on the left. Give it a little room
+ * without moving anything. */
+:root .kit-settings__content .kit-settings__scroll {
+  padding-left: 4px;
+  margin-left: -4px;
+}
+
 :root .kit-settings-section {
   border: 0;
   border-radius: 0;
