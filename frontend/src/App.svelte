@@ -281,7 +281,6 @@
 {#snippet sidebar()}
   <div class="sidebar-header">
     <VaultSwitcher />
-    <span class="grow"></span>
     <Button
       data-variant="ghost"
       data-size="sm"

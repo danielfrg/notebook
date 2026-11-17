@@ -243,6 +243,8 @@
 .nb-editor .nb-properties .nb-prop-new,
 .nb-editor .nb-properties .nb-prop-remove,
 .nb-editor .nb-properties .nb-prop-delete {
+  height: auto;
+  min-width: 0;
   border: 0;
   background: transparent;
   box-shadow: none;

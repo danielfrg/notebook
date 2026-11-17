@@ -154,14 +154,26 @@ mark {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: var(--space-1);
+  gap: 0;
   min-height: 44px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2);
 }
+.sidebar-header [data-slot="button"][data-size="sm"] {
+  width: 28px;
+  padding: 0;
+}
+/* The trigger takes the room up to the buttons, so they stay put whatever the vault is called. */
 [data-slot="menu-trigger"].vault-trigger {
+  flex: 1;
+  justify-content: flex-start;
   min-width: 0;
   padding-inline: var(--space-2);
   font-weight: 600;
+  /* Wider than the icon buttons, so keep the label's own spacing. */
+  width: auto;
+}
+.vault-trigger svg {
+  flex: none;
 }
 .vault-name {
   overflow: hidden;
@@ -385,6 +397,10 @@ mark {
 [data-slot="dialog-content"].palette:has(> [data-slot="command"]) {
   width: min(640px, 100% - 2rem);
   max-height: min(560px, 75dvh);
+}
+.palette [data-slot="command"],
+.palette [data-slot="command"]:has([data-slot="command-input"]:focus-visible) {
+  outline: none;
 }
 .palette [data-slot="command"] {
   flex: 1;

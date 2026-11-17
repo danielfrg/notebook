@@ -7312,7 +7312,24 @@ ul > li [data-slot="tooltip-trigger"] {
   [data-slot="trigger-menu-item"]
 )[data-highlighted] {
   box-shadow: none;
-  background: var(--tint);
+  /* --tint is darker than a dark popup, so the row would sink; lift it instead. */
+  background: light-dark(var(--tint), color-mix(in oklab, var(--surface-3), var(--ink) 8%));
+}
+
+/* The icon keeps its quiet color when the row is highlighted, so it does not flash. */
+:is(
+    [data-slot="menu-item"],
+    [data-slot="menu-checkbox-item"],
+    [data-slot="menu-radio-item"],
+    [data-slot="listbox-item"],
+    [data-slot="select-item"],
+    [data-slot="combobox-item"],
+    [data-slot="autocomplete-item"],
+    [data-slot="command-item"],
+    [data-slot="trigger-menu-item"]
+  )[data-highlighted]:not([data-destructive])
+  > :is(svg:first-child, [data-slot$="-icon"]) {
+  color: var(--muted);
 }
 
 /* Destructive options too: the red tint and text carry it, without a red outline. */
