@@ -6,5 +6,5 @@
   "printWidth": 100,
   "trailingComma": "all",
   "svelte": true,
-  "ignorePatterns": ["dist/**", ".astro/**"]
+  "ignorePatterns": ["dist/**", "src/design-system/**"]
 }

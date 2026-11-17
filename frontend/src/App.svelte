@@ -1,23 +1,23 @@
 <script lang="ts">
+  import { Button } from "@ui-sdk/svelte/button";
+  import { Drawer, DrawerBackdrop, DrawerContent, DrawerTitle } from "@ui-sdk/svelte/drawer";
+  import { Input, InputClear, InputGroup } from "@ui-sdk/svelte/input";
+  import { Preferences } from "@ui-sdk/svelte/preferences";
   import {
-    CollapsibleSidebar,
-    Spinner,
-    SidebarToggle,
-    Button,
-    SearchInput,
-    CommandPalette,
-    IconButton,
-    appShortcuts,
-    initShortcuts,
-    getThemeMode,
-    setThemeMode,
-    copyToClipboard,
-    showFlash,
-    type PaletteCommand,
-  } from "@kenn-io/kit-ui";
+    createResizableController,
+    Resizable,
+    ResizableHandle,
+    ResizablePanel,
+  } from "@ui-sdk/svelte/resizable";
+  import { toast } from "@ui-sdk/svelte/toast";
+  import { colorScheme } from "./lib/color-scheme.ts";
+  import { copyToClipboard } from "./lib/clipboard.ts";
+  import { appShortcuts, initShortcuts } from "./lib/shortcuts.ts";
+  import Spinner from "./lib/components/Spinner.svelte";
   import ArrowDownAZIcon from "@lucide/svelte/icons/arrow-down-a-z";
   import ArrowDownWideNarrowIcon from "@lucide/svelte/icons/arrow-down-wide-narrow";
   import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
+  import PanelLeftCloseIcon from "@lucide/svelte/icons/panel-left-close";
   import SearchIcon from "@lucide/svelte/icons/search";
   import SquarePenIcon from "@lucide/svelte/icons/square-pen";
   import { onMount, tick } from "svelte";
@@ -41,7 +41,10 @@
   import { uniqueNoteName } from "./lib/entry-names.ts";
   import { parseWikilink, resolveNote, wikilinkCreation } from "./lib/wikilinks.ts";
 
-  let collapsed = $state(window.innerWidth < 900);
+  const narrowQuery = window.matchMedia("(max-width: 900px)");
+  let narrow = $state(narrowQuery.matches);
+  let collapsed = $state(narrowQuery.matches);
+  const layout = createResizableController();
   let sidebarWidth = $state(272);
   let editor = $state<Editor>();
   let saveAsNew = $state(false);
@@ -67,8 +70,7 @@
   let paletteOpen = $state(false);
   let editorScrolled = $state(false);
   const words = $derived(countWords(workspace.value));
-  let vaultOpen = $state(false);
-  let searchInput: HTMLInputElement | undefined = $state();
+  let searchBox: HTMLDivElement | undefined = $state();
   let entryDialog: { kind: "note" | "folder"; folder: string; initial: string } | null =
     $state(null);
   const notePaths = $derived(
@@ -81,14 +83,19 @@
     { id: "new-folder", label: "New folder", disabled: workspace.readOnly },
     { id: "toggle-mode", label: "Toggle Live / Source", combo: "mod+e", disabled: !workspace.path },
     { id: "toggle-theme", label: "Toggle theme" },
-    { id: "switch-vault", label: "Switch vault" },
     { id: "open-search", label: "Search in sidebar", combo: "mod+shift+f" },
     { id: "reload", label: "Reload from disk", disabled: !workspace.path || workspace.dirty },
+    ...workspace.vaults
+      .filter(({ name }) => name !== workspace.vault)
+      .map(({ name }) => ({ id: `vault:${name}`, label: `Switch to ${name}` })),
   ]);
-  const vaultCommands = $derived<PaletteCommand[]>(
-    workspace.vaults.map(({ name }) => ({ id: name, label: name })),
-  );
 
+  // In the wide layout the sidebar panel follows `collapsed`; the narrow one is a drawer.
+  $effect(() => {
+    if (narrow) return;
+    if (collapsed) layout.collapse("sidebar");
+    else layout.expand("sidebar");
+  });
   $effect(() => {
     if (workspace.focusRequest > 0) void tick().then(() => editor?.focus());
   });
@@ -118,6 +125,11 @@
     } catch {
       /* Storage may be disabled. */
     }
+    const onNarrowChange = () => {
+      narrow = narrowQuery.matches;
+      collapsed = narrowQuery.matches;
+    };
+    narrowQuery.addEventListener("change", onNarrowChange);
     void workspace.init();
     const visibility = () => {
       if (document.visibilityState === "hidden") void workspace.saveNow();
@@ -129,62 +141,30 @@
     };
     const detachShortcuts = initShortcuts();
     const unregister = [
-      appShortcuts.register(
-        "mod+k",
-        () => {
-          paletteOpen = true;
-        },
-        { description: "Search" },
-      ),
-      appShortcuts.register(
-        "mod+o",
-        () => {
-          paletteOpen = true;
-        },
-        { description: "Quick switcher" },
-      ),
-      appShortcuts.register(
-        "mod+p",
-        () => {
-          paletteOpen = true;
-        },
-        { description: "Command palette" },
-      ),
-      appShortcuts.register(
-        "mod+[",
-        () => {
-          workspace.goBack();
-        },
-        { description: "Back" },
-      ),
-      appShortcuts.register(
-        "mod+]",
-        () => {
-          workspace.goForward();
-        },
-        { description: "Forward" },
-      ),
-      appShortcuts.register(
-        "mod+s",
-        () => {
-          void workspace.saveNow();
-        },
-        { description: "Save note" },
-      ),
-      appShortcuts.register(
-        "mod+e",
-        () => {
-          if (workspace.path) workspace.setMode(workspace.mode === "live" ? "source" : "live");
-        },
-        { description: "Toggle editor mode" },
-      ),
-      appShortcuts.register(
-        "mod+shift+f",
-        () => {
-          focusSearch();
-        },
-        { description: "Search notes" },
-      ),
+      appShortcuts.register("mod+k", () => {
+        paletteOpen = true;
+      }),
+      appShortcuts.register("mod+o", () => {
+        paletteOpen = true;
+      }),
+      appShortcuts.register("mod+p", () => {
+        paletteOpen = true;
+      }),
+      appShortcuts.register("mod+[", () => {
+        workspace.goBack();
+      }),
+      appShortcuts.register("mod+]", () => {
+        workspace.goForward();
+      }),
+      appShortcuts.register("mod+s", () => {
+        void workspace.saveNow();
+      }),
+      appShortcuts.register("mod+e", () => {
+        if (workspace.path) workspace.setMode(workspace.mode === "live" ? "source" : "live");
+      }),
+      appShortcuts.register("mod+shift+f", () => {
+        focusSearch();
+      }),
     ];
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("beforeunload", beforeUnload);
@@ -193,15 +173,21 @@
       workspace.dispose();
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("beforeunload", beforeUnload);
+      narrowQuery.removeEventListener("change", onNarrowChange);
       unregister.forEach((remove) => remove());
       detachShortcuts();
     };
   });
 
-  function resize(width: number): void {
-    sidebarWidth = width;
+  /** Keeps the collapsed state in step with a drag, and remembers the width the user chose. */
+  function commitLayout(): void {
+    collapsed = layout.isCollapsed("sidebar");
+    if (collapsed) return;
+    const width = document.getElementById("sidebar")?.getBoundingClientRect().width ?? 0;
+    if (width < 200 || width > 600) return;
+    sidebarWidth = Math.round(width);
     try {
-      localStorage.setItem("notebook-sidebar", String(width));
+      localStorage.setItem("notebook-sidebar", String(sidebarWidth));
     } catch {
       /* Storage may be disabled. */
     }
@@ -216,12 +202,12 @@
   function focusSearch(): void {
     collapsed = false;
     searchOpen = true;
-    void tick().then(() => searchInput?.focus());
+    void tick().then(() => searchBox?.querySelector("input")?.focus());
   }
 
   function openHit(hit: import("./lib/api.ts").SearchHit): void {
     workspace.openSearchHit(hit);
-    if (window.innerWidth < 900) collapsed = true;
+    if (narrow) collapsed = true;
   }
 
   function newNote(folder = ""): void {
@@ -238,9 +224,8 @@
   }
 
   async function copyNote(): Promise<void> {
-    showFlash((await copyToClipboard(workspace.value)) ? "Markdown copied" : "Could not copy", {
-      tone: "neutral",
-    });
+    if (await copyToClipboard(workspace.value)) toast("Markdown copied");
+    else toast.error("Could not copy");
   }
 
   function closeSearch(): void {
@@ -250,6 +235,10 @@
 
   function runAction(id: string): void {
     paletteOpen = false;
+    if (id.startsWith("vault:")) {
+      void workspace.selectVault(id.slice("vault:".length));
+      return;
+    }
     const folder = parentFolder(workspace.path ?? "");
     switch (id) {
       case "new-note":
@@ -262,13 +251,10 @@
         workspace.setMode(workspace.mode === "live" ? "source" : "live");
         break;
       case "toggle-theme": {
-        const mode = getThemeMode();
-        setThemeMode(mode === "dark" ? "system" : mode === "system" ? "light" : "dark");
+        const mode = colorScheme.get().value;
+        colorScheme.set(mode === "dark" ? "system" : mode === "system" ? "light" : "dark");
         break;
       }
-      case "switch-vault":
-        vaultOpen = true;
-        break;
       case "open-search":
         focusSearch();
         break;
@@ -292,241 +278,267 @@
   }
 </script>
 
-<div class="app-shell" class:sidebar-collapsed={collapsed}>
-  <CollapsibleSidebar
-    isCollapsed={collapsed}
-    overlayOnNarrow
-    mainOverflow="hidden"
-    {sidebarWidth}
-    onSidebarResize={resize}
-    onExpand={() => (collapsed = false)}
-  >
-    {#snippet sidebar()}
-      <div class="sidebar-header">
-        <VaultSwitcher />
-        <span class="sidebar-header-spacer"></span>
-        <IconButton
-          ariaLabel="Search"
-          title="Search (⌘K)"
-          class="sidebar-action"
-          onclick={() => (paletteOpen = true)}
-          ><SearchIcon size={17} strokeWidth={1.75} aria-hidden="true" /></IconButton
-        >
-        {#if !workspace.readOnly && !workspace.loading && !workspace.error}
-          <IconButton
-            ariaLabel="New note"
-            title="New note"
-            class="sidebar-action"
-            onclick={() => newNote()}
-            ><SquarePenIcon size={17} strokeWidth={1.75} aria-hidden="true" /></IconButton
-          >
-          <IconButton
-            ariaLabel="New folder"
-            title="New folder"
-            class="sidebar-action"
-            onclick={() => (entryDialog = { kind: "folder", folder: "", initial: "" })}
-            ><FolderPlusIcon size={17} strokeWidth={1.75} aria-hidden="true" /></IconButton
-          >
-        {/if}
-        <IconButton
-          ariaLabel={sortMode === "name" ? "Sort by recently edited" : "Sort by name"}
-          title={sortMode === "name" ? "Sorted by name" : "Sorted by recently edited"}
-          class="sidebar-action"
-          ariaPressed={sortMode === "recent"}
-          onclick={toggleSort}
-        >
-          {#if sortMode === "name"}<ArrowDownAZIcon
-              size={17}
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />{:else}<ArrowDownWideNarrowIcon
-              size={17}
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />{/if}
-        </IconButton>
-        <SidebarToggle onclick={() => (collapsed = true)} class="sidebar-action" />
-      </div>
-      {#if searchOpen || workspace.searchQuery}
-        <div
-          class="sidebar-search"
-          onfocusout={(event) => {
-            if (
-              !workspace.searchQuery &&
-              !event.currentTarget.contains(event.relatedTarget as Node | null)
-            )
-              searchOpen = false;
+{#snippet sidebar()}
+  <div class="sidebar-header">
+    <VaultSwitcher />
+    <Button
+      data-variant="ghost"
+      data-size="sm"
+      aria-label="Search"
+      title="Search (⌘K)"
+      onclick={() => (paletteOpen = true)}><SearchIcon aria-hidden="true" /></Button
+    >
+    {#if !workspace.readOnly && !workspace.loading && !workspace.error}
+      <Button
+        data-variant="ghost"
+        data-size="sm"
+        aria-label="New note"
+        title="New note"
+        onclick={() => newNote()}><SquarePenIcon aria-hidden="true" /></Button
+      >
+      <Button
+        data-variant="ghost"
+        data-size="sm"
+        aria-label="New folder"
+        title="New folder"
+        onclick={() => (entryDialog = { kind: "folder", folder: "", initial: "" })}
+        ><FolderPlusIcon aria-hidden="true" /></Button
+      >
+    {/if}
+    <Button
+      data-variant="ghost"
+      data-size="sm"
+      aria-label={sortMode === "name" ? "Sort by recently edited" : "Sort by name"}
+      title={sortMode === "name" ? "Sorted by name" : "Sorted by recently edited"}
+      aria-pressed={sortMode === "recent"}
+      onclick={toggleSort}
+    >
+      {#if sortMode === "name"}<ArrowDownAZIcon aria-hidden="true" />{:else}<ArrowDownWideNarrowIcon
+          aria-hidden="true"
+        />{/if}
+    </Button>
+    <Button
+      data-variant="ghost"
+      data-size="sm"
+      aria-label="Hide sidebar"
+      title="Hide sidebar"
+      onclick={() => (collapsed = true)}><PanelLeftCloseIcon aria-hidden="true" /></Button
+    >
+  </div>
+  {#if searchOpen || workspace.searchQuery}
+    <div
+      class="sidebar-search"
+      bind:this={searchBox}
+      onfocusout={(event) => {
+        if (
+          !workspace.searchQuery &&
+          !event.currentTarget.contains(event.relatedTarget as Node | null)
+        )
+          searchOpen = false;
+      }}
+    >
+      <InputGroup>
+        <Input
+          type="search"
+          value={workspace.searchQuery}
+          onValueChange={(value) => workspace.setSearchQuery(value)}
+          placeholder="Search note contents…"
+          aria-label="Search note contents"
+          onkeydown={(event) => {
+            if (event.key === "Enter" && workspace.searchHits[0]) {
+              event.preventDefault();
+              openHit(workspace.searchHits[0]);
+            } else if (event.key === "Escape" && !workspace.searchQuery) closeSearch();
           }}
-        >
-          <SearchInput
-            value={workspace.searchQuery}
-            oninput={(value) => workspace.setSearchQuery(value)}
-            bind:inputEl={searchInput}
-            block
-            placeholder="Search note contents…"
-            ariaLabel="Search note contents"
-            onkeydown={(event) => {
-              if (event.key === "Enter" && workspace.searchHits[0]) {
-                event.preventDefault();
-                openHit(workspace.searchHits[0]);
-              } else if (event.key === "Escape" && !workspace.searchQuery) closeSearch();
-            }}
-          />
-        </div>
-      {/if}
-      {#if workspace.loading}
-        <div class="sidebar-message"><Spinner label="Loading vault" /></div>
-      {:else if workspace.error}
-        <div class="sidebar-message" role="alert">
-          <p>{workspace.error}</p>
-          <Button label="Retry" onclick={() => void workspace.retry()} />
-        </div>
-      {:else}
-        {#if workspace.searchQuery.trim()}
-          <SearchResults
-            hits={workspace.searchHits}
-            query={workspace.searchQuery}
-            loading={workspace.searchLoading}
-            error={workspace.searchError}
-            onopen={openHit}
-          />
-        {:else if sortMode === "recent"}
-          <RecentList
-            onOpenNote={() => {
-              if (window.innerWidth < 900) collapsed = true;
-            }}
-          />
-        {:else}
-          <FileTree
-            onOpenNote={() => {
-              if (window.innerWidth < 900) collapsed = true;
-            }}
-          />
-        {/if}
-      {/if}
-    {/snippet}
-
-    <NoteHeader {collapsed} onOpenSidebar={() => (collapsed = false)} />
-    <main class="app-content">
-      {#if workspace.loading}
-        <div class="content-message"><Spinner label="Loading vault" /></div>
-      {:else if workspace.error}
-        <div class="content-message" role="alert">
-          <p>{workspace.error}</p>
-          <Button label="Retry" onclick={() => void workspace.retry()} />
-        </div>
-      {:else if workspace.noteLoading}
-        <div class="content-message"><Spinner label="Loading note" /></div>
-      {:else if workspace.noteError}
-        <div class="content-message" role="alert">{workspace.noteError}</div>
-      {:else if workspace.path}
-        {#if workspace.missingNote || workspace.externalConflict || workspace.saveState === "conflict" || workspace.saveState === "error"}
-          <ConflictBanner
-            missing={workspace.missingNote}
-            readOnly={workspace.readOnly}
-            saveError={workspace.saveState === "error"
-              ? workspace.saveDetail === "missing"
-                ? "The note reappeared on disk. Retry save to check for changes."
-                : (workspace.saveDetail ?? "The save failed.")
-              : null}
-            navigationBlocked={workspace.navigationBlocked}
-            dirty={workspace.dirty}
-            onload={() => workspace.reloadFromDisk()}
-            onoverwrite={() => workspace.overwriteDisk()}
-            onsaveasnew={() => (saveAsNew = true)}
-            onretry={() => workspace.saveNow()}
-            ondiscard={() => (discardConfirm = true)}
-          />
-        {/if}
-        <Toolbar
-          run={(command) => editor?.run(command)}
-          oncopy={() => void copyNote()}
-          disabled={workspace.readOnly || !!workspace.lineSeparatorIssue}
         />
-        {#if workspace.lineSeparatorIssue}<p class="note-reason" role="status">
-            {workspace.lineSeparatorIssue}
-          </p>{/if}
-        <div class="editor-host" class:is-scrolled={editorScrolled} onfocusout={blurEditor}>
-          <Editor
-            bind:this={editor}
-            value={workspace.value}
-            mode={workspace.mode}
-            readOnly={workspace.readOnly || !!workspace.lineSeparatorIssue}
-            {extensions}
-            ariaLabel={workspace.path}
-            onchange={(value) => workspace.edit(value)}
-            onsave={() => void workspace.saveNow()}
-            onwikilink={openWikilink}
-            notes={notePaths}
-            onlineseparator={(separator) => workspace.setLineSeparator(separator)}
-            onscrolled={(scrolled) => (editorScrolled = scrolled)}
-          />
-        </div>
-        <footer class="editor-status">
-          <span>{words.toLocaleString()} {words === 1 ? "word" : "words"}</span>
-        </footer>
-      {:else}
-        <StartPage
-          recent={notePaths.slice(0, 5)}
+        <InputClear aria-label="Clear search" />
+      </InputGroup>
+    </div>
+  {/if}
+  {#if workspace.loading}
+    <div class="sidebar-message"><Spinner label="Loading vault" /></div>
+  {:else if workspace.error}
+    <div class="sidebar-message" role="alert">
+      <p>{workspace.error}</p>
+      <Button onclick={() => void workspace.retry()}>Retry</Button>
+    </div>
+  {:else}
+    {#if workspace.searchQuery.trim()}
+      <SearchResults
+        hits={workspace.searchHits}
+        query={workspace.searchQuery}
+        loading={workspace.searchLoading}
+        error={workspace.searchError}
+        onopen={openHit}
+      />
+    {:else if sortMode === "recent"}
+      <RecentList
+        onOpenNote={() => {
+          if (narrow) collapsed = true;
+        }}
+      />
+    {:else}
+      <FileTree
+        onOpenNote={() => {
+          if (narrow) collapsed = true;
+        }}
+      />
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet main()}
+  <NoteHeader {collapsed} onOpenSidebar={() => (collapsed = false)} />
+  <main class="app-content">
+    {#if workspace.loading}
+      <div class="content-message"><Spinner label="Loading vault" /></div>
+    {:else if workspace.error}
+      <div class="content-message" role="alert">
+        <p>{workspace.error}</p>
+        <Button onclick={() => void workspace.retry()}>Retry</Button>
+      </div>
+    {:else if workspace.noteLoading}
+      <div class="content-message"><Spinner label="Loading note" /></div>
+    {:else if workspace.noteError}
+      <div class="content-message" role="alert">{workspace.noteError}</div>
+    {:else if workspace.path}
+      {#if workspace.missingNote || workspace.externalConflict || workspace.saveState === "conflict" || workspace.saveState === "error"}
+        <ConflictBanner
+          missing={workspace.missingNote}
           readOnly={workspace.readOnly}
-          onnew={() => newNote()}
-          onsearch={() => (paletteOpen = true)}
-          onopen={(path) => workspace.openNote(path)}
+          saveError={workspace.saveState === "error"
+            ? workspace.saveDetail === "missing"
+              ? "The note reappeared on disk. Retry save to check for changes."
+              : (workspace.saveDetail ?? "The save failed.")
+            : null}
+          navigationBlocked={workspace.navigationBlocked}
+          dirty={workspace.dirty}
+          onload={() => workspace.reloadFromDisk()}
+          onoverwrite={() => workspace.overwriteDisk()}
+          onsaveasnew={() => (saveAsNew = true)}
+          onretry={() => workspace.saveNow()}
+          ondiscard={() => (discardConfirm = true)}
         />
       {/if}
-    </main>
-  </CollapsibleSidebar>
-  <Notifications />
-</div>
+      <Toolbar
+        run={(command) => editor?.run(command)}
+        oncopy={() => void copyNote()}
+        disabled={workspace.readOnly || !!workspace.lineSeparatorIssue}
+      />
+      {#if workspace.lineSeparatorIssue}<p class="note-reason" role="status">
+          {workspace.lineSeparatorIssue}
+        </p>{/if}
+      <div class="editor-host" class:is-scrolled={editorScrolled} onfocusout={blurEditor}>
+        <Editor
+          bind:this={editor}
+          value={workspace.value}
+          mode={workspace.mode}
+          readOnly={workspace.readOnly || !!workspace.lineSeparatorIssue}
+          {extensions}
+          ariaLabel={workspace.path}
+          onchange={(value) => workspace.edit(value)}
+          onsave={() => void workspace.saveNow()}
+          onwikilink={openWikilink}
+          notes={notePaths}
+          onlineseparator={(separator) => workspace.setLineSeparator(separator)}
+          onscrolled={(scrolled) => (editorScrolled = scrolled)}
+        />
+      </div>
+      <footer class="editor-status">
+        <span>{words.toLocaleString()} {words === 1 ? "word" : "words"}</span>
+      </footer>
+    {:else}
+      <StartPage
+        recent={notePaths.slice(0, 5)}
+        readOnly={workspace.readOnly}
+        onnew={() => newNote()}
+        onsearch={() => (paletteOpen = true)}
+        onopen={(path) => workspace.openNote(path)}
+      />
+    {/if}
+  </main>
+{/snippet}
 
-{#if paletteOpen}
-  <Palette
-    notes={notePaths}
-    {actions}
-    search={(query) => workspace.searchContent(query)}
-    onopen={(path) => {
-      paletteOpen = false;
-      workspace.openNote(path);
-    }}
-    onhit={(hit) => {
-      paletteOpen = false;
-      workspace.openSearchHit(hit);
-    }}
-    onaction={runAction}
-    onclose={() => (paletteOpen = false)}
-  />
-{/if}
-<CommandPalette
-  bind:open={vaultOpen}
-  commands={vaultCommands}
-  onrun={(command) => workspace.selectVault(command.id)}
-  ariaLabel="Switch vault"
-  placeholder="Choose a vault…"
-/>
-{#if entryDialog}
-  {@const dialog = entryDialog}
-  <EntryDialog
-    kind={dialog.kind}
-    initial={dialog.initial}
-    onsubmit={(name) =>
-      dialog.kind === "note"
-        ? workspace.createNote(dialog.folder, name)
-        : workspace.createFolder(dialog.folder, name)}
-    onclose={() => (entryDialog = null)}
-  />
-{/if}
+<Preferences preferences={[colorScheme]}>
+  <div class="app-shell">
+    {#if narrow}
+      <Drawer
+        side="left"
+        open={!collapsed}
+        onOpenChange={(open) => {
+          collapsed = !open;
+        }}
+      >
+        <DrawerBackdrop />
+        <DrawerContent class="sidebar-drawer">
+          <DrawerTitle class="sr-only">Notes</DrawerTitle>
+          <div class="sidebar">{@render sidebar()}</div>
+        </DrawerContent>
+      </Drawer>
+      <div class="app-main">{@render main()}</div>
+    {:else}
+      <Resizable class="app-split" controller={layout} onLayoutCommit={commitLayout}>
+        <ResizablePanel
+          id="sidebar"
+          class="app-sidebar"
+          defaultSize={`${sidebarWidth}px`}
+          minSize="200px"
+          maxSize="600px"
+          collapsible
+          collapsedSize="0px"
+        >
+          <div class="sidebar">{@render sidebar()}</div>
+        </ResizablePanel>
+        <ResizableHandle aria-label="Resize sidebar" />
+        <ResizablePanel class="app-main-panel">
+          <div class="app-main">{@render main()}</div>
+        </ResizablePanel>
+      </Resizable>
+    {/if}
+    <Notifications />
+  </div>
+  {#if paletteOpen}
+    <Palette
+      notes={notePaths}
+      {actions}
+      search={(query) => workspace.searchContent(query)}
+      onopen={(path) => {
+        paletteOpen = false;
+        workspace.openNote(path);
+      }}
+      onhit={(hit) => {
+        paletteOpen = false;
+        workspace.openSearchHit(hit);
+      }}
+      onaction={runAction}
+      onclose={() => (paletteOpen = false)}
+    />
+  {/if}
+  {#if entryDialog}
+    {@const dialog = entryDialog}
+    <EntryDialog
+      kind={dialog.kind}
+      initial={dialog.initial}
+      onsubmit={(name) =>
+        dialog.kind === "note"
+          ? workspace.createNote(dialog.folder, name)
+          : workspace.createFolder(dialog.folder, name)}
+      onclose={() => (entryDialog = null)}
+    />
+  {/if}
 
-{#if saveAsNew && workspace.path}
-  <EntryDialog
-    kind="save-as-new"
-    initial={noteTitle(workspace.path)}
-    onsubmit={(name) => workspace.saveMissingAsNew(name)}
-    onclose={() => (saveAsNew = false)}
-  />
-{/if}
-{#if discardConfirm}
-  <DiscardDialog
-    onconfirm={() => workspace.discardLocalEdits()}
-    onclose={() => (discardConfirm = false)}
-  />
-{/if}
+  {#if saveAsNew && workspace.path}
+    <EntryDialog
+      kind="save-as-new"
+      initial={noteTitle(workspace.path)}
+      onsubmit={(name) => workspace.saveMissingAsNew(name)}
+      onclose={() => (saveAsNew = false)}
+    />
+  {/if}
+  {#if discardConfirm}
+    <DiscardDialog
+      onconfirm={() => workspace.discardLocalEdits()}
+      onclose={() => (discardConfirm = false)}
+    />
+  {/if}
+</Preferences>

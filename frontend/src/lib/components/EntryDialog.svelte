@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { Button, Modal, TextInput } from "@kenn-io/kit-ui";
+  import { Button } from "@ui-sdk/svelte/button";
+  import { Field, FieldLabel } from "@ui-sdk/svelte/field";
+  import { Input } from "@ui-sdk/svelte/input";
+  import Modal from "./Modal.svelte";
   import { validateNoteName } from "../entry-names.ts";
   import { validateEntryName } from "../paths.ts";
 
@@ -58,32 +61,27 @@
 
 <Modal
   {title}
+  size="sm"
   onclose={() => {
     if (!busy) onclose();
   }}
-  width="min(420px, calc(100vw - 32px))"
 >
   <form
     class="entry-form"
+    id="entry-form"
     onsubmit={(event) => {
       event.preventDefault();
       void submit();
     }}
   >
-    <label for="entry-name">Name</label>
-    <TextInput
-      id="entry-name"
-      bind:value={name}
-      block
-      autofocus
-      invalid={!!error}
-      oninput={() => (error = null)}
-    />
+    <Field invalid={error ? true : undefined}>
+      <FieldLabel>Name</FieldLabel>
+      <Input bind:value={name} autofocus oninput={() => (error = null)} />
+    </Field>
     {#if error}<p class="dialog-error" role="alert">{error}</p>{/if}
-    <button hidden type="submit">{action}</button>
   </form>
   {#snippet footer()}
-    <Button label="Cancel" onclick={onclose} disabled={busy} />
-    <Button label={action} surface="solid" onclick={() => void submit()} disabled={busy} />
+    <Button onclick={onclose} disabled={busy}>Cancel</Button>
+    <Button data-variant="solid" type="submit" form="entry-form" disabled={busy}>{action}</Button>
   {/snippet}
 </Modal>

@@ -73,7 +73,7 @@ test("the editor theme sets a readable column on a transparent page, with the ac
   };
   const editor = rule("&");
   assert.equal(editor.get("background-color"), "transparent");
-  assert.equal(editor.get("color"), "var(--text-primary)");
+  assert.equal(editor.get("color"), "var(--ink)");
   assert.equal(editor.get("font-size"), "var(--nb-editor-size)");
   const scroller = rule("& .cm-scroller");
   assert.equal(scroller.get("scrollbar-gutter"), "stable");
@@ -92,7 +92,7 @@ test("the editor theme sets a readable column on a transparent page, with the ac
   ];
   assert.equal(rule(selection.join(", ")).get("background"), "var(--nb-selection)");
   // One focus treatment: the app's ring on the editor, in place of CodeMirror's dotted outline.
-  assert.equal(rule("&.cm-focused").get("outline"), "var(--focus-ring)");
+  assert.equal(rule("&.cm-focused").get("outline"), "var(--nb-focus)");
   assert.deepEqual(
     theme
       .filter((each) => each.declarations.has("outline"))

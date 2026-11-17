@@ -6,31 +6,49 @@
 *.key
 *.p12
 
-# Dependencies and generated assets
-/frontend/node_modules/
-/frontend/dist/
-/frontend/.vite/
-/internal/web/dist/*
-!/internal/web/dist/.keep
-.pnpm-store/
-
-# Local agent work and design tooling
-.impeccable/
-.worktrees/
-/docs/plans/
-/docs/specs/
-/docs/*report*.md
-
-# Test and OS artifacts
-/frontend/test-results/
-/frontend/playwright-report/
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 *.test
 *.out
 *.coverprofile
 coverage.*
 !coverage.go
+go.work
+go.work.sum
+
+# Frontend (Node, TypeScript, Vite)
+node_modules/
+/frontend/dist/
+/frontend/.vite/
+*.tsbuildinfo
+.pnpm-store/
+/frontend/test-results/
+/frontend/playwright-report/
+
+# Embedded frontend build output
+/internal/web/dist/*
+!/internal/web/dist/.keep
+
+# Local agent work and design tooling
+.impeccable/
+.impeccable-live.json
+.impeccable-live/
+/frontend/src/lib/impeccable/ImpeccableLiveRoot.svelte
+/frontend/src/lib/impeccable/__runtime.js
+/frontend/src/lib/impeccable/[0-9a-f]*/
+/frontend/plugins/impeccable-live.client.ts
+.worktrees/
+/docs/plans/
+/docs/specs/
+/docs/*report*.md
+
+# OS
 .DS_Store
 
-# Application files
+# App specific (binary, data, local config: keep this section last)
 /notebook
 /vaults/

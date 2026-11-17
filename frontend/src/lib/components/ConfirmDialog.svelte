@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { Button, Modal } from "@kenn-io/kit-ui";
+  import { Button } from "@ui-sdk/svelte/button";
+  import {
+    AlertDialog,
+    AlertDialogBackdrop,
+    AlertDialogClose,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogTitle,
+  } from "@ui-sdk/svelte/alert-dialog";
 
   let {
     path,
@@ -24,24 +32,29 @@
   }
 </script>
 
-<Modal
-  title="Move to .trash?"
-  tone="danger"
-  onclose={() => {
+<!-- The parent owns the open state; a close request while busy is ignored. -->
+<AlertDialog
+  open
+  onOpenChange={(open, details) => {
+    if (open) return;
+    details.cancel();
     if (!busy) onclose();
   }}
-  width="min(420px, calc(100vw - 32px))"
 >
-  <p class="dialog-description">{path} will be moved to .trash.</p>
-  {#if error}<p class="dialog-error" role="alert">{error}</p>{/if}
-  {#snippet footer()}
-    <Button label="Cancel" onclick={onclose} disabled={busy} />
-    <Button
-      label="Move to .trash"
-      tone="danger"
-      surface="solid"
-      onclick={() => void confirm()}
-      disabled={busy}
-    />
-  {/snippet}
-</Modal>
+  <AlertDialogBackdrop />
+  <AlertDialogContent>
+    <div data-slot="stack">
+      <AlertDialogTitle class="dialog-title">Move to .trash?</AlertDialogTitle>
+      <AlertDialogDescription class="dialog-description"
+        >{path} will be moved to .trash.</AlertDialogDescription
+      >
+    </div>
+    {#if error}<p class="dialog-error" role="alert">{error}</p>{/if}
+    <div data-slot="row">
+      <AlertDialogClose disabled={busy}>Cancel</AlertDialogClose>
+      <Button data-variant="destructive" disabled={busy} onclick={() => void confirm()}
+        >Move to .trash</Button
+      >
+    </div>
+  </AlertDialogContent>
+</AlertDialog>

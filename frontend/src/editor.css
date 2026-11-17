@@ -27,7 +27,7 @@
  * line the cursor touches) keep the look of the text around them. Tokens only.
  */
 .nb-editor .cm-line:is(.nb-h1, .nb-h2, .nb-h3, .nb-h4, .nb-h5, .nb-h6) {
-  font-weight: var(--font-weight-semibold, 600);
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -58,11 +58,11 @@
 
 .nb-editor .cm-line.nb-h6 {
   font-size: 0.95em;
-  color: var(--text-secondary);
+  color: var(--nb-ink-2);
 }
 
 .nb-editor .nb-strong {
-  font-weight: var(--font-weight-bold);
+  font-weight: 700;
 }
 
 .nb-editor .nb-em {
@@ -70,19 +70,19 @@
 }
 
 .nb-editor .nb-strike {
-  color: var(--text-muted);
+  color: var(--muted);
   text-decoration: line-through;
 }
 
 .nb-editor .nb-highlight {
   background-color: var(--nb-highlight);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
 }
 
 .nb-editor .nb-code {
   padding: 0.1em 0.3em;
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-inset);
+  border-radius: var(--radius-control);
+  background-color: var(--tint);
   font-family: var(--nb-editor-mono);
   font-size: 0.9em;
 }
@@ -111,12 +111,12 @@
   height: 0.45em;
   margin-inline: 0.28em 0.22em;
   border-radius: 50%;
-  background: var(--text-secondary);
+  background: var(--nb-ink-2);
   vertical-align: middle;
 }
 
 .nb-editor .nb-list-number {
-  color: var(--text-secondary);
+  color: var(--nb-ink-2);
 }
 
 .nb-editor .nb-task-checkbox {
@@ -124,9 +124,9 @@
   height: 1.1em;
   margin: 0 0.35em 0 0;
   padding: 0;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--tint);
   color: var(--nb-accent);
   vertical-align: middle;
   cursor: pointer;
@@ -139,14 +139,14 @@
 }
 
 .nb-editor .nb-task-done {
-  color: var(--text-muted);
+  color: var(--muted);
   text-decoration: line-through;
 }
 
 .nb-editor .nb-rule {
   display: block;
   width: 100%;
-  border-top: 1px solid var(--border-default);
+  border-top: 1px solid var(--line);
   margin-block: 0.5em;
 }
 
@@ -163,54 +163,54 @@
  * move below it would land a line off. The rule is drawn inside, by ::after.
  */
 .nb-editor .nb-properties {
-  padding: var(--space-2) 0 var(--space-7);
+  padding: var(--space-1) 0 var(--space-6);
   cursor: default;
 }
 
 .nb-editor .nb-properties::after {
   content: "";
   display: block;
-  margin-top: var(--space-6);
-  border-bottom: 1px solid var(--border-muted);
+  margin-top: var(--space-4);
+  border-bottom: 1px solid var(--line-faint);
 }
 
 .nb-editor .nb-properties {
-  font-family: var(--font-sans);
+  font-family: var(--sans);
   font-size: 0.75rem;
   line-height: 1.4;
 }
 
-.nb-editor .nb-property {
+.nb-editor .nb-properties .nb-property {
   display: grid;
   grid-template-columns: 28px minmax(7rem, 0.75fr) 2fr 28px;
-  gap: var(--space-2);
+  gap: var(--space-1);
   align-items: center;
   min-height: 28px;
 }
 
-.nb-editor .nb-property + .nb-property {
+.nb-editor .nb-properties .nb-property + .nb-property {
   margin-top: 2px;
 }
 
-.nb-editor .nb-prop-type {
+.nb-editor .nb-properties .nb-prop-type {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: var(--text-muted);
+  color: var(--muted);
 }
 
-.nb-editor .nb-prop-type svg,
-.nb-editor .nb-prop-icon svg {
+.nb-editor .nb-properties .nb-prop-type svg,
+.nb-editor .nb-properties .nb-prop-icon svg {
   width: 14px;
   height: 14px;
 }
-.nb-editor .nb-prop-icon {
+.nb-editor .nb-properties .nb-prop-icon {
   display: inline-flex;
 }
 
-.nb-editor .nb-property-value {
+.nb-editor .nb-properties .nb-property-value {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -219,148 +219,152 @@
 }
 
 /* A chip reads as plain text; its fill and its × show when it is hovered or focused. */
-.nb-editor .nb-property-chip {
+.nb-editor .nb-properties .nb-property-chip {
   display: inline-flex;
   gap: 2px;
   align-items: center;
   padding: 2px 2px 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--ink);
 }
 
-.nb-editor .nb-property-chip:is(:hover, :focus-within) {
-  background: var(--bg-surface-hover);
+.nb-editor .nb-properties .nb-property-chip:is(:hover, :focus-within) {
+  background: var(--nb-hover);
 }
-.nb-editor .nb-property-chip .nb-prop-remove {
+.nb-editor .nb-properties .nb-property-chip .nb-prop-remove {
   opacity: 0;
 }
-.nb-editor .nb-property-chip:is(:hover, :focus-within) .nb-prop-remove {
+.nb-editor .nb-properties .nb-property-chip:is(:hover, :focus-within) .nb-prop-remove {
   opacity: 1;
 }
 
-.nb-editor .nb-prop-input,
-.nb-editor .nb-prop-new,
-.nb-editor .nb-prop-remove,
-.nb-editor .nb-prop-delete {
+.nb-editor .nb-properties .nb-prop-input,
+.nb-editor .nb-properties .nb-prop-new,
+.nb-editor .nb-properties .nb-prop-remove,
+.nb-editor .nb-properties .nb-prop-delete {
+  height: auto;
+  min-width: 0;
   border: 0;
   background: transparent;
+  box-shadow: none;
   color: inherit;
   font: inherit;
 }
 
-.nb-editor .nb-prop-input {
+.nb-editor .nb-properties .nb-prop-input {
   min-width: 0;
   height: 28px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
   outline: none;
-  color: var(--text-primary);
+  color: var(--ink);
 }
 
-.nb-editor .nb-prop-key {
+.nb-editor .nb-properties .nb-prop-key {
   width: 100%;
-  color: var(--text-secondary);
+  color: var(--nb-ink-2);
 }
-.nb-editor .nb-prop-text {
+.nb-editor .nb-properties .nb-prop-text {
   flex: 1;
 }
-.nb-editor .nb-prop-add {
+.nb-editor .nb-properties .nb-prop-add {
   flex: 1;
   min-width: 5em;
 }
-.nb-editor .nb-prop-input::placeholder {
-  color: var(--text-muted);
+.nb-editor .nb-properties .nb-prop-input::placeholder {
+  color: var(--muted);
 }
-.nb-editor .nb-prop-input:not([readonly]):hover {
-  background: var(--bg-surface-hover);
+.nb-editor .nb-properties .nb-prop-input:not([readonly]):hover {
+  background: var(--nb-hover);
 }
-.nb-editor .nb-prop-input:focus {
-  background: var(--bg-inset);
+.nb-editor .nb-properties .nb-prop-input:focus {
+  background: var(--tint);
 }
-.nb-editor .nb-property-value > .nb-prop-input[type="date"] {
+.nb-editor .nb-properties .nb-property-value > .nb-prop-input[type="date"] {
   flex: none;
 }
 
-.nb-editor .nb-prop-remove {
+.nb-editor .nb-properties .nb-prop-remove {
   display: inline-flex;
   padding: 2px;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  border-radius: var(--radius-control);
+  color: var(--muted);
   cursor: pointer;
 }
 
-.nb-editor .nb-prop-remove:hover {
-  color: var(--text-primary);
+.nb-editor .nb-properties .nb-prop-remove:hover {
+  color: var(--ink);
 }
 
-.nb-editor .nb-prop-delete {
+.nb-editor .nb-properties .nb-prop-delete {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  border-radius: var(--radius-control);
+  color: var(--muted);
   cursor: pointer;
   opacity: 0;
 }
 
-.nb-editor .nb-property:hover .nb-prop-delete,
-.nb-editor .nb-property:focus-within .nb-prop-delete {
+.nb-editor .nb-properties .nb-property:hover .nb-prop-delete,
+.nb-editor .nb-properties .nb-property:focus-within .nb-prop-delete {
   opacity: 1;
 }
-.nb-editor .nb-prop-delete:hover,
-.nb-editor .nb-prop-delete:focus-visible {
-  background: var(--bg-surface-hover);
-  color: var(--text-primary);
+.nb-editor .nb-properties .nb-prop-delete:hover,
+.nb-editor .nb-properties .nb-prop-delete:focus-visible {
+  background: var(--nb-hover);
+  color: var(--ink);
 }
 
-.nb-editor .nb-prop-check {
+.nb-editor .nb-properties .nb-prop-check {
+  box-shadow: none;
   width: 14px;
   height: 14px;
-  margin-left: var(--space-3);
+  margin-left: var(--space-2);
   padding: 0;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--line);
   border-radius: 4px;
-  background: var(--bg-inset);
+  background: var(--tint);
   color: var(--nb-accent);
   font-size: 11px;
   cursor: pointer;
 }
 
-.nb-editor .nb-prop-check[aria-checked="true"]::after {
+.nb-editor .nb-properties .nb-prop-check[aria-checked="true"]::after {
   content: "✓";
   display: block;
   line-height: 1;
 }
 
-.nb-editor .nb-prop-new {
+.nb-editor .nb-properties .nb-prop-new {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-1);
   align-items: center;
   min-height: 28px;
   margin-top: 2px;
-  padding: 0 var(--space-3) 0 0;
-  color: var(--text-muted);
+  padding: 0 var(--space-2) 0 0;
+  color: var(--muted);
   cursor: pointer;
 }
 
-.nb-editor .nb-prop-new:hover {
-  color: var(--text-primary);
+.nb-editor .nb-properties .nb-prop-new:hover {
+  color: var(--ink);
 }
 
 .nb-editor .nb-tag {
   padding: 0 0.3em;
-  border-radius: var(--radius-sm);
-  background-color: color-mix(in srgb, var(--accent-purple) 14%, transparent);
+  border-radius: var(--radius-control);
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--nb-accent);
 }
 
 .nb-editor .cm-line.nb-quote {
-  padding-left: calc(var(--space-5) + 6px);
-  border-left: 1px solid var(--border-default);
-  color: var(--text-secondary);
+  padding-left: calc(var(--space-3) + 6px);
+  border-left: 1px solid var(--line);
+  color: var(--nb-ink-2);
 }
 
 /* A hanging indent: the lines of a wrapped item start under its text, not under its marker. */
@@ -370,7 +374,7 @@
 }
 
 .nb-editor .cm-line.nb-quote.nb-list {
-  padding-left: calc(var(--nb-list-indent, 0) * 1ch + var(--space-5) + 6px);
+  padding-left: calc(var(--nb-list-indent, 0) * 1ch + var(--space-3) + 6px);
 }
 
 .nb-editor .cm-line:is(.nb-codeblock, .nb-table, .nb-frontmatter) {
@@ -379,20 +383,20 @@
 }
 
 .nb-editor .cm-line.nb-codeblock {
-  padding-inline: var(--space-5);
-  background-color: var(--bg-inset);
+  padding-inline: var(--space-3);
+  background-color: var(--tint);
 }
 
 .nb-editor .cm-line.nb-codeblock-first {
-  border-top-left-radius: var(--radius-md);
-  border-top-right-radius: var(--radius-md);
+  border-top-left-radius: var(--radius-surface);
+  border-top-right-radius: var(--radius-surface);
 }
 
 .nb-editor .cm-line.nb-codeblock-last {
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-surface);
+  border-bottom-right-radius: var(--radius-surface);
 }
 
 .nb-editor .cm-line:is(.nb-frontmatter, .nb-comment-line) {
-  color: var(--text-muted);
+  color: var(--muted);
 }

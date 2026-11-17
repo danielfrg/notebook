@@ -6,7 +6,9 @@ Read and edit your notes from a browser with a Live Preview editor, and let agen
 read them over MCP. Your `.md` files stay the source of truth: every edit is
 written straight back to them, and text you did not touch is never rewritten.
 
-![Notebook](docs/screenshots/homepage.png)
+**Personal project**: This is completely vibe coded for my own personal use. I won't be accepting feature requests or PRs. You're welcome to fork it and make it your own.
+
+![Notebook](docs/screenshot.png)
 
 ## Installation
 
@@ -61,10 +63,10 @@ Live Preview; remote images remain links. Tables remain Markdown text.
 
 ### Appearance
 
-The theme control switches between dark, light, and system appearance. The accent
-is configured with `--brand-accent` in `frontend/src/theme.css`; controls and note
-links follow that variable. The theme file remains replaceable with the shared
-design system theme.
+The theme control switches between dark, light, and system appearance, and the app
+starts in dark until a choice is saved. The look comes from the shared design
+system (the Cadence theme on ui-sdk). `frontend/src/design-system/` is synced from
+that repo and is never edited by hand.
 
 ### MCP
 

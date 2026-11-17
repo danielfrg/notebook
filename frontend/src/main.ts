@@ -1,19 +1,9 @@
 import { mount } from "svelte";
-import { initTheme, setThemeMode } from "@kenn-io/kit-ui";
-import "@kenn-io/kit-ui/theme.css";
-import "./theme.css";
-import App from "./App.svelte";
+import "./design-system/theme/tokens.css";
+import "./design-system/theme/components.css";
+import "./design-system/custom/theme-toggle/theme-toggle.css";
 import "./app.css";
-import "./components.css";
-
-const themeKey = "notebook-theme";
-
-initTheme({ storageKey: themeKey });
-// Start in dark mode while respecting an explicit light or system choice.
-try {
-  if (!localStorage.getItem(themeKey)) setThemeMode("dark");
-} catch {
-  setThemeMode("dark");
-}
+import "./editor.css";
+import App from "./App.svelte";
 
 mount(App, { target: document.getElementById("app")! });

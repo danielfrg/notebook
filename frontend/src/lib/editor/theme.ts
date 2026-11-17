@@ -2,9 +2,9 @@ import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 /*
- * The look of the editor, from theme tokens only: kit-ui's, and the --nb-*
- * ones that app.css defines from them. The tokens change with theme.css and
- * the dark class, so this one theme serves light and dark.
+ * The look of the editor, from theme tokens only: the design system's, and the --nb-*
+ * ones that app.css defines from them. The tokens change with the color scheme,
+ * so this one theme serves light and dark.
  *
  * The editor fills its parent and scrolls inside, the text in a readable
  * column in the middle (long lines wrap in it with EditorView.lineWrapping).
@@ -13,14 +13,14 @@ import { EditorView } from "@codemirror/view";
 export const editorTheme: Extension = EditorView.theme({
   "&": {
     height: "100%",
-    color: "var(--text-primary)",
+    color: "var(--ink)",
     backgroundColor: "transparent",
     fontSize: "var(--nb-editor-size)",
   },
   // The one focus treatment, in place of CodeMirror's dotted outline: the
   // app's ring, drawn inside the edge so that a parent that clips keeps it.
   "&.cm-focused": {
-    outline: "var(--focus-ring)",
+    outline: "var(--nb-focus)",
     outlineOffset: "-2px",
   },
   ".cm-scroller": {
@@ -32,7 +32,7 @@ export const editorTheme: Extension = EditorView.theme({
   ".cm-content": {
     maxWidth: "var(--nb-editor-width)",
     margin: "0 auto",
-    padding: "var(--space-7) var(--space-6)",
+    padding: "var(--space-6) var(--space-4)",
     caretColor: "var(--nb-accent)",
   },
   ".cm-cursor, .cm-dropCursor": {
