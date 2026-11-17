@@ -8,7 +8,7 @@ written straight back to them, and text you did not touch is never rewritten.
 
 **Personal project**: This is completely vibe coded for my own personal use. I won't be accepting feature requests or PRs. You're welcome to fork it and make it your own.
 
-![Notebook](docs/screenshots/homepage.png)
+![Notebook](docs/screenshot.png)
 
 ## Installation
 
