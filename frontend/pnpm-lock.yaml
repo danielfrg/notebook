@@ -26,9 +26,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.15
         version: 6.43.15
-      '@kenn-io/kit-ui':
-        specifier: github:kenn-io/kit-ui#dc7a4184843343cb1fa639ea6e77b68d13e755af
-        version: https://codeload.github.com/kenn-io/kit-ui/tar.gz/dc7a4184843343cb1fa639ea6e77b68d13e755af(@lucide/svelte@1.21.0(svelte@5.56.8))(dompurify@3.4.17)(marked@18.1.2)(shiki@4.5.0)(svelte@5.56.8)
       '@lezer/common':
         specifier: ^1.5.4
         version: 1.5.4
@@ -41,6 +38,12 @@ importers:
       '@lucide/svelte':
         specifier: ^1.21.0
         version: 1.21.0(svelte@5.56.8)
+      '@ui-sdk/core':
+        specifier: 0.1.0-beta.7
+        version: 0.1.0-beta.7
+      '@ui-sdk/svelte':
+        specifier: 0.1.0-beta.7
+        version: 0.1.0-beta.7(@ui-sdk/core@0.1.0-beta.7)(svelte@5.56.8)
       dompurify:
         specifier: ^3.2.0
         version: 3.4.17
@@ -145,21 +148,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
-
-  '@kenn-io/kit-ui@https://codeload.github.com/kenn-io/kit-ui/tar.gz/dc7a4184843343cb1fa639ea6e77b68d13e755af':
-    resolution: {tarball: https://codeload.github.com/kenn-io/kit-ui/tar.gz/dc7a4184843343cb1fa639ea6e77b68d13e755af}
-    version: 0.0.1
-    hasBin: true
-    peerDependencies:
-      '@lucide/svelte': '>=1.0.0'
-      dompurify: ^3.2.0
-      marked: ^18.0.0
-      mermaid: 12.0.0
-      shiki: ^4.0.0
-      svelte: ^5.29.0
-    peerDependenciesMeta:
-      mermaid:
-        optional: true
 
   '@lezer/common@1.5.4':
     resolution: {integrity: sha512-xt3Q4z64xM+xhg4M7NXqw1N//1O74bUFo5kz6fwMeC4qwxSuRdwkYSmjcqCEEKYkNw5e67f2hcNqBoNERAEU0w==}
@@ -578,6 +566,15 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@ui-sdk/core@0.1.0-beta.7':
+    resolution: {integrity: sha512-f6Dotk5kwwiH2BRT6THRrn/Lv7eoG6Y+TWboCl9rQ4fHw4h3OliOSHF4kl4PzJEgaLyWSQFczRMvGm+YCpn77Q==}
+
+  '@ui-sdk/svelte@0.1.0-beta.7':
+    resolution: {integrity: sha512-oMd6c5CHH8ehcMK2FTCEKdlYlWVlZHOyLhFU3XoNXXrmUoLmCSFQk6Q9SfgUFLdUCqN3YtXeGlSNt41tfc5I2A==}
+    peerDependencies:
+      '@ui-sdk/core': ^0.1.0-beta.7
+      svelte: '>=5.33'
 
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
@@ -1244,14 +1241,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@kenn-io/kit-ui@https://codeload.github.com/kenn-io/kit-ui/tar.gz/dc7a4184843343cb1fa639ea6e77b68d13e755af(@lucide/svelte@1.21.0(svelte@5.56.8))(dompurify@3.4.17)(marked@18.1.2)(shiki@4.5.0)(svelte@5.56.8)':
-    dependencies:
-      '@lucide/svelte': 1.21.0(svelte@5.56.8)
-      dompurify: 3.4.17
-      marked: 18.1.2
-      shiki: 4.5.0
-      svelte: 5.56.8
-
   '@lezer/common@1.5.4': {}
 
   '@lezer/css@1.3.9':
@@ -1526,6 +1515,13 @@ snapshots:
   '@types/trusted-types@2.0.7': {}
 
   '@types/unist@3.0.3': {}
+
+  '@ui-sdk/core@0.1.0-beta.7': {}
+
+  '@ui-sdk/svelte@0.1.0-beta.7(@ui-sdk/core@0.1.0-beta.7)(svelte@5.56.8)':
+    dependencies:
+      '@ui-sdk/core': 0.1.0-beta.7
+      svelte: 5.56.8
 
   '@ungap/structured-clone@1.4.0': {}
 

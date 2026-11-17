@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from "@ui-sdk/svelte/button";
   import { noteTitle } from "../paths.ts";
   import { groupRecent } from "../recent.ts";
   import { workspace } from "../state/workspace.svelte.ts";
@@ -14,18 +15,18 @@
   {#each groups as group (group.label)}
     <p class="recent-heading">{group.label}</p>
     {#each group.paths as path (path)}
-      <button
-        type="button"
+      <Button
         class="recent-row"
+        data-variant="ghost"
         title={path}
-        class:is-current={workspace.path === path}
+        aria-current={workspace.path === path ? "page" : undefined}
         onclick={() => {
           workspace.openNote(path);
           onOpenNote();
         }}
       >
         <span class="recent-title">{noteTitle(path)}</span>
-      </button>
+      </Button>
     {/each}
   {/each}
 </div>

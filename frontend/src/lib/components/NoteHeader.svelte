@@ -1,18 +1,23 @@
 <script lang="ts">
+  import { Button } from "@ui-sdk/svelte/button";
   import {
     Menu,
     MenuContent,
     MenuItem,
+    MenuItemIcon,
     MenuSeparator,
     MenuTrigger,
-    IconButton,
+  } from "@ui-sdk/svelte/menu";
+  import {
     SegmentedControl,
-    SidebarToggle,
-    ThemeToggle,
-    TopBar,
-    copyToClipboard,
-    showFlash,
-  } from "@kenn-io/kit-ui";
+    SegmentedControlIndicator,
+    SegmentedControlItem,
+  } from "@ui-sdk/svelte/segmented-control";
+  import { toast } from "@ui-sdk/svelte/toast";
+  import ThemeToggle from "../../design-system/custom/theme-toggle/ThemeToggle.svelte";
+  import { colorScheme } from "../color-scheme.ts";
+  import { copyToClipboard } from "../clipboard.ts";
+  import PanelLeftOpenIcon from "@lucide/svelte/icons/panel-left-open";
   import EllipsisVerticalIcon from "@lucide/svelte/icons/ellipsis-vertical";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
@@ -76,18 +81,15 @@
       await workspace.renameEntry(path, name);
     } catch (error) {
       resetTitle();
-      showFlash(error instanceof Error ? error.message : "Could not rename the note", {
-        tone: "danger",
-      });
+      toast.error(error instanceof Error ? error.message : "Could not rename the note");
     }
   }
   let confirmPath = $state<string | null>(null);
 
   async function copyPath(): Promise<void> {
     if (!workspace.path) return;
-    showFlash((await copyToClipboard(workspace.path)) ? "Path copied" : "Could not copy path", {
-      tone: "neutral",
-    });
+    if (await copyToClipboard(workspace.path)) toast("Path copied");
+    else toast.error("Could not copy path");
   }
 
   onMount(() => {
@@ -100,35 +102,42 @@
   });
 </script>
 
-<TopBar class="note-header">
-  {#snippet left()}
-    {#if collapsed}<SidebarToggle state="collapsed" onclick={onOpenSidebar} />{/if}
-    <div class="note-history">
-      <IconButton
-        ariaLabel="Back"
-        title="Back (⌘[)"
-        size="sm"
-        disabled={!workspace.canGoBack}
-        onclick={() => workspace.goBack()}
-        ><ArrowLeftIcon size={15} strokeWidth={1.5} aria-hidden="true" /></IconButton
+<header class="note-header">
+  <div class="note-header-left">
+    {#if collapsed}
+      <Button
+        data-variant="ghost"
+        aria-label="Show sidebar"
+        title="Show sidebar"
+        onclick={onOpenSidebar}><PanelLeftOpenIcon aria-hidden="true" /></Button
       >
-      <IconButton
-        ariaLabel="Forward"
+    {/if}
+    <div class="note-history">
+      <Button
+        data-variant="ghost"
+        data-size="sm"
+        aria-label="Back"
+        title="Back (⌘[)"
+        disabled={!workspace.canGoBack}
+        onclick={() => workspace.goBack()}><ArrowLeftIcon aria-hidden="true" /></Button
+      >
+      <Button
+        data-variant="ghost"
+        data-size="sm"
+        aria-label="Forward"
         title="Forward (⌘])"
-        size="sm"
         disabled={!workspace.canGoForward}
-        onclick={() => workspace.goForward()}
-        ><ArrowRightIcon size={15} strokeWidth={1.5} aria-hidden="true" /></IconButton
+        onclick={() => workspace.goForward()}><ArrowRightIcon aria-hidden="true" /></Button
       >
     </div>
     {#if workspace.path}
       <div class="note-location" title={workspace.path}>
         {#if parentPath}
           <span class="note-breadcrumb">{parentPath}</span>
-          <ChevronRightIcon class="note-location-divider" size={13} aria-hidden="true" />
+          <ChevronRightIcon class="note-location-divider" aria-hidden="true" />
         {/if}
         <h1
-          class="app-title app-title--with-note note-title"
+          class="note-title"
           bind:this={titleElement}
           contenteditable={editable ? "plaintext-only" : "false"}
           spellcheck="false"
@@ -140,40 +149,43 @@
         ></h1>
       </div>
     {/if}
-  {/snippet}
-  {#snippet right()}
+  </div>
+  <div class="note-header-right">
     {#if workspace.path && !workspace.noteError}
       <SegmentedControl
-        options={modeOptions}
-        value={workspace.mode}
-        ariaLabel="Editor mode"
-        onchange={(value) => workspace.setMode(value as "live" | "source")}
-      />
+        aria-label="Editor mode"
+        bind:value={() => workspace.mode, (value) => workspace.setMode(value as "live" | "source")}
+      >
+        <SegmentedControlIndicator />
+        {#each modeOptions as option (option.value)}
+          <SegmentedControlItem value={option.value}>{option.label}</SegmentedControlItem>
+        {/each}
+      </SegmentedControl>
     {/if}
     {#if workspace.path}
-      <Menu align="end">
-        <MenuTrigger ariaLabel="Note actions" class="note-actions-trigger"
-          ><EllipsisVerticalIcon size={17} aria-hidden="true" /></MenuTrigger
+      <Menu>
+        <MenuTrigger class="note-actions-trigger" data-variant="ghost" aria-label="Note actions"
+          ><EllipsisVerticalIcon aria-hidden="true" /></MenuTrigger
         >
-        <MenuContent ariaLabel="Note actions">
-          <MenuItem onselect={() => void copyPath()}
-            >{#snippet icon()}<CopyIcon aria-hidden="true" />{/snippet}Copy path</MenuItem
+        <MenuContent align="end" aria-label="Note actions">
+          <MenuItem onSelect={() => void copyPath()}
+            ><MenuItemIcon><CopyIcon /></MenuItemIcon>Copy path</MenuItem
           >
           {#if !workspace.readOnly && !workspace.missingNote}
-            <MenuItem onselect={() => (renamePath = workspace.path)}
-              >{#snippet icon()}<PencilLineIcon aria-hidden="true" />{/snippet}Rename</MenuItem
+            <MenuItem onSelect={() => (renamePath = workspace.path)}
+              ><MenuItemIcon><PencilLineIcon /></MenuItemIcon>Rename</MenuItem
             >
             <MenuSeparator />
-            <MenuItem onselect={() => (confirmPath = workspace.path)}
-              >{#snippet icon()}<Trash2Icon aria-hidden="true" />{/snippet}Delete</MenuItem
+            <MenuItem onSelect={() => (confirmPath = workspace.path)}
+              ><MenuItemIcon><Trash2Icon /></MenuItemIcon>Delete</MenuItem
             >
           {/if}
         </MenuContent>
       </Menu>
     {/if}
-    <ThemeToggle />
-  {/snippet}
-</TopBar>
+    <ThemeToggle {colorScheme} />
+  </div>
+</header>
 {#if workspace.path}
   <div class="mobile-note-context"><h1 title={workspace.path}>{notePath}</h1></div>
 {/if}

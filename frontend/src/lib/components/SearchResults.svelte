@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Button } from "@ui-sdk/svelte/button";
   import type { SearchHit } from "../api.ts";
   import { termParts } from "../search-terms.ts";
 
@@ -24,7 +25,7 @@
   {:else}
     <div class="search-results-list">
       {#each hits as hit (hit.path)}
-        <button type="button" class="search-result" onclick={() => onopen(hit)}>
+        <Button class="search-result" data-variant="ghost" onclick={() => onopen(hit)}>
           <strong class="search-result-title">{hit.title}</strong>
           <span class="search-result-path">{hit.path}</span>
           {#each hit.snippets.slice(0, 3) as snippet}
@@ -34,7 +35,7 @@
                   >{:else}{part.text}{/if}{/each}
             </span>
           {/each}
-        </button>
+        </Button>
       {/each}
     </div>
   {/if}

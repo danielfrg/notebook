@@ -5,7 +5,14 @@
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import EllipsisVerticalIcon from "@lucide/svelte/icons/ellipsis-vertical";
-  import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@kenn-io/kit-ui";
+  import {
+    Menu,
+    MenuContent,
+    MenuItem,
+    MenuItemIcon,
+    MenuSeparator,
+    MenuTrigger,
+  } from "@ui-sdk/svelte/menu";
   import { uniqueNoteName } from "../entry-names.ts";
   import { baseName, noteTitle, parentFolder } from "../paths.ts";
   import { tabStopPath, visibleRows } from "../tree.ts";
@@ -166,30 +173,33 @@
         {#if !workspace.readOnly}
           <Menu
             open={contextPath === node.path}
-            onopenchange={(open) => (contextPath = open ? node.path : null)}
-            align="end"
+            onOpenChange={(open) => (contextPath = open ? node.path : null)}
           >
-            <MenuTrigger ariaLabel={`Actions for ${node.name}`} class="file-tree-actions"
-              ><EllipsisVerticalIcon size={16} aria-hidden="true" /></MenuTrigger
+            <MenuTrigger
+              class="file-tree-actions"
+              data-variant="ghost"
+              data-size="sm"
+              aria-label={`Actions for ${node.name}`}
+              ><EllipsisVerticalIcon aria-hidden="true" /></MenuTrigger
             >
-            <MenuContent ariaLabel={`Actions for ${node.name}`}>
+            <MenuContent align="end" aria-label={`Actions for ${node.name}`}>
               <MenuItem
-                onselect={() =>
+                onSelect={() =>
                   newNote(node.kind === "folder" ? node.path : parentFolder(node.path))}
-                >{#snippet icon()}<SquarePenIcon aria-hidden="true" />{/snippet}New note</MenuItem
+                ><MenuItemIcon><SquarePenIcon /></MenuItemIcon>New note</MenuItem
               >
               <MenuItem
-                onselect={() =>
+                onSelect={() =>
                   newFolder(node.kind === "folder" ? node.path : parentFolder(node.path))}
-                >{#snippet icon()}<FolderPlusIcon aria-hidden="true" />{/snippet}New folder</MenuItem
+                ><MenuItemIcon><FolderPlusIcon /></MenuItemIcon>New folder</MenuItem
               >
               {#if !(node.kind === "note" && workspace.path === node.path && workspace.missingNote)}
                 <MenuSeparator />
-                <MenuItem onselect={() => rename(node.path, node.kind === "note")}
-                  >{#snippet icon()}<PencilLineIcon aria-hidden="true" />{/snippet}Rename</MenuItem
+                <MenuItem onSelect={() => rename(node.path, node.kind === "note")}
+                  ><MenuItemIcon><PencilLineIcon /></MenuItemIcon>Rename</MenuItem
                 >
-                <MenuItem onselect={() => (confirmPath = node.path)}
-                  >{#snippet icon()}<Trash2Icon aria-hidden="true" />{/snippet}Delete</MenuItem
+                <MenuItem onSelect={() => (confirmPath = node.path)}
+                  ><MenuItemIcon><Trash2Icon /></MenuItemIcon>Delete</MenuItem
                 >
               {/if}
             </MenuContent>

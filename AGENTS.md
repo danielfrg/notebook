@@ -47,5 +47,8 @@ They are written for humans: avoid big restructures, but update them when change
 
 ## Frontend Conventions
 
-`DESIGN.md` owns the theme, typography, layout, and interaction rules; read it before changing the frontend.
-`frontend/src/theme.css` is the only file with palette values.
+`DESIGN.md` owns the layout and interaction rules; read it before changing the frontend.
+The frontend uses ui-sdk (`@ui-sdk/core` and `@ui-sdk/svelte`, pinned exactly) with the Cadence theme.
+`frontend/src/design-system/` is synced from the shared design-system repo: never edit it by hand.
+Change it there and run its sync, then commit the result here.
+`app.css` holds only layout and notebook-specific pieces and uses theme tokens, never palette values.

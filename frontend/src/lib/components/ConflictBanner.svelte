@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from "@kenn-io/kit-ui";
+  import { Button } from "@ui-sdk/svelte/button";
 
   let {
     missing,
@@ -60,22 +60,18 @@
   </div>
   <div class="conflict-banner-actions">
     {#if missing}
-      {#if !readOnly}<Button label="Save as new note" onclick={onsaveasnew} disabled={busy} />{/if}
+      {#if !readOnly}<Button onclick={onsaveasnew} disabled={busy}>Save as new note</Button>{/if}
     {:else if saveError}
-      {#if !readOnly}<Button
-          label="Retry save"
-          onclick={() => void run(onretry)}
-          disabled={busy}
-        />{/if}
+      {#if !readOnly}<Button onclick={() => void run(onretry)} disabled={busy}>Retry save</Button
+        >{/if}
     {:else}
-      <Button label="Load disk version" onclick={() => void run(onload)} disabled={busy} />
+      <Button onclick={() => void run(onload)} disabled={busy}>Load disk version</Button>
       {#if !readOnly}<Button
-          label="Overwrite"
-          surface="solid"
+          data-variant="solid"
           onclick={() => void run(onoverwrite)}
-          disabled={busy}
-        />{/if}
+          disabled={busy}>Overwrite</Button
+        >{/if}
     {/if}
-    {#if dirty}<Button label="Discard local edits" onclick={ondiscard} disabled={busy} />{/if}
+    {#if dirty}<Button onclick={ondiscard} disabled={busy}>Discard local edits</Button>{/if}
   </div>
 </div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { IconButton } from "@kenn-io/kit-ui";
+  import { Toolbar, ToolbarButton, ToolbarGroup, ToolbarSeparator } from "@ui-sdk/svelte/toolbar";
   import BoldIcon from "@lucide/svelte/icons/bold";
   import ItalicIcon from "@lucide/svelte/icons/italic";
   import HeadingIcon from "@lucide/svelte/icons/heading-2";
@@ -19,39 +19,39 @@
   }: { run: (command: EditorCommand) => void; oncopy: () => void; disabled?: boolean } = $props();
 </script>
 
-<div class="note-toolbar" role="toolbar" aria-label="Formatting">
-  <div class="toolbar-group">
-    <IconButton ariaLabel="Bold" {disabled} onclick={() => run("bold")}
-      ><BoldIcon size={15} /></IconButton
+<Toolbar class="note-toolbar" aria-label="Formatting">
+  <ToolbarGroup aria-label="Text">
+    <ToolbarButton aria-label="Bold" {disabled} onclick={() => run("bold")}
+      ><BoldIcon /></ToolbarButton
     >
-    <IconButton ariaLabel="Italic" {disabled} onclick={() => run("italic")}
-      ><ItalicIcon size={15} /></IconButton
+    <ToolbarButton aria-label="Italic" {disabled} onclick={() => run("italic")}
+      ><ItalicIcon /></ToolbarButton
     >
-    <IconButton ariaLabel="Heading" {disabled} onclick={() => run("heading")}
-      ><HeadingIcon size={15} /></IconButton
+    <ToolbarButton aria-label="Heading" {disabled} onclick={() => run("heading")}
+      ><HeadingIcon /></ToolbarButton
     >
-  </div>
-  <span class="toolbar-divider" aria-hidden="true"></span>
-  <div class="toolbar-group">
-    <IconButton ariaLabel="Bulleted list" {disabled} onclick={() => run("bullet")}
-      ><ListIcon size={15} /></IconButton
+  </ToolbarGroup>
+  <ToolbarSeparator />
+  <ToolbarGroup aria-label="Blocks">
+    <ToolbarButton aria-label="Bulleted list" {disabled} onclick={() => run("bullet")}
+      ><ListIcon /></ToolbarButton
     >
-    <IconButton ariaLabel="Task list" {disabled} onclick={() => run("task")}
-      ><ListChecksIcon size={15} /></IconButton
+    <ToolbarButton aria-label="Task list" {disabled} onclick={() => run("task")}
+      ><ListChecksIcon /></ToolbarButton
     >
-    <IconButton ariaLabel="Link" {disabled} onclick={() => run("link")}
-      ><LinkIcon size={15} /></IconButton
+    <ToolbarButton aria-label="Link" {disabled} onclick={() => run("link")}
+      ><LinkIcon /></ToolbarButton
     >
-  </div>
-  <span class="toolbar-spacer"></span>
+  </ToolbarGroup>
+  <span class="grow"></span>
   <StatusPill />
-  <IconButton ariaLabel="Copy note as Markdown" title="Copy as Markdown" onclick={oncopy}
-    ><CopyIcon size={15} /></IconButton
+  <ToolbarButton aria-label="Copy note as Markdown" title="Copy as Markdown" onclick={oncopy}
+    ><CopyIcon /></ToolbarButton
   >
-  <IconButton ariaLabel="Undo" {disabled} onclick={() => run("undo")}
-    ><UndoIcon size={15} /></IconButton
+  <ToolbarButton aria-label="Undo" {disabled} onclick={() => run("undo")}
+    ><UndoIcon /></ToolbarButton
   >
-  <IconButton ariaLabel="Redo" {disabled} onclick={() => run("redo")}
-    ><RedoIcon size={15} /></IconButton
+  <ToolbarButton aria-label="Redo" {disabled} onclick={() => run("redo")}
+    ><RedoIcon /></ToolbarButton
   >
-</div>
+</Toolbar>

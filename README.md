@@ -61,10 +61,10 @@ Live Preview; remote images remain links. Tables remain Markdown text.
 
 ### Appearance
 
-The theme control switches between dark, light, and system appearance. The accent
-is configured with `--brand-accent` in `frontend/src/theme.css`; controls and note
-links follow that variable. The theme file remains replaceable with the shared
-design system theme.
+The theme control switches between dark, light, and system appearance, and the app
+starts in dark until a choice is saved. The look comes from the shared design
+system (the Cadence theme on ui-sdk). `frontend/src/design-system/` is synced from
+that repo and is never edited by hand.
 
 ### MCP
 

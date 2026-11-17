@@ -11,20 +11,20 @@ import { NodeTag } from "./markdown.ts";
  * come last, muted whatever they mark.
  */
 const sourceStyle = HighlightStyle.define([
-  { tag: tags.heading, color: "var(--text-primary)", fontWeight: "var(--font-weight-bold)" },
-  { tag: tags.quote, color: "var(--text-secondary)" },
+  { tag: tags.heading, color: "var(--ink)", fontWeight: "700" },
+  { tag: tags.quote, color: "var(--nb-ink-2)" },
   { tag: tags.emphasis, fontStyle: "italic" },
-  { tag: tags.strong, fontWeight: "var(--font-weight-bold)" },
-  { tag: tags.strikethrough, color: "var(--text-muted)", textDecoration: "line-through" },
+  { tag: tags.strong, fontWeight: "700" },
+  { tag: tags.strikethrough, color: "var(--muted)", textDecoration: "line-through" },
   { tag: [tags.link, tags.url], color: "var(--nb-accent)" },
-  { tag: tags.monospace, color: "var(--accent-teal)", fontFamily: "var(--nb-editor-mono)" },
-  { tag: NodeTag.Frontmatter, color: "var(--text-muted)", fontFamily: "var(--nb-editor-mono)" },
+  { tag: tags.monospace, color: "var(--accent)", fontFamily: "var(--nb-editor-mono)" },
+  { tag: NodeTag.Frontmatter, color: "var(--muted)", fontFamily: "var(--nb-editor-mono)" },
   { tag: [NodeTag.Wikilink, NodeTag.Embed], color: "var(--nb-accent)" },
   { tag: NodeTag.Tag, color: "var(--nb-accent)" },
   { tag: NodeTag.Highlight, backgroundColor: "var(--nb-highlight)" },
   // The [ ] and [x] of a task.
   { tag: tags.atom, color: "var(--nb-accent)" },
-  { tag: [tags.processingInstruction, tags.contentSeparator], color: "var(--text-muted)" },
+  { tag: [tags.processingInstruction, tags.contentSeparator], color: "var(--muted)" },
 ]);
 
 /**

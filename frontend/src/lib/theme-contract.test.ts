@@ -11,11 +11,11 @@ import { fileURLToPath } from "node:url";
  * literal.
  *
  * The one exception is pure black or white, as #000 or #fff, inside a
- * color-mix() call. kit-ui's theming doc permits them as shade math (darken a
+ * color-mix() call. the theming docs permit them as shade math (darken a
  * token on hover, derive an ink from an accent): they are arithmetic
  * constants, not palette entries, and the result still follows the token.
  * Every other literal is a finding, also another color inside color-mix() and
- * a literal in a var() fallback (which kit-ui's own raw-color rule lets
+ * a literal in a var() fallback (which a raw-color rule often lets
  * through). Named colors (red) are not scanned, nor is public/favicon.svg.
  */
 
@@ -111,15 +111,15 @@ test("the scanner finds every kind of color literal and nothing else", () => {
 });
 
 /**
- * Whether a file, named by its path under src, is held to the contract. Only
- * src/theme.css is exempt, and the tests, whose fixtures may hold any text: a
- * theme.css anywhere else is a stylesheet like any other.
+ * Whether a file, named by its path under src, is held to the contract. Only the
+ * synced design-system folder is exempt, and the tests, whose fixtures may hold any
+ * text: a theme.css anywhere else is a stylesheet like any other.
  */
 const isScanned = (file: string): boolean =>
-  (/\.(css|svelte)$/.test(file) && file !== "theme.css") ||
-  (file.endsWith(".ts") && !file.endsWith(".test.ts"));
+  !file.startsWith("design-system/") &&
+  (/\.(css|svelte)$/.test(file) || (file.endsWith(".ts") && !file.endsWith(".test.ts")));
 
-test("every stylesheet, component and script is held to the contract, except src/theme.css and the tests", () => {
+test("every stylesheet, component and script is held to the contract, except the design system and the tests", () => {
   for (const [file, scanned] of [
     ["app.css", true],
     ["App.svelte", true],
@@ -130,7 +130,9 @@ test("every stylesheet, component and script is held to the contract, except src
     ["main.ts", true],
     ["lib/paths.ts", true],
     ["lib/editor/theme.ts", true],
-    ["theme.css", false],
+    ["theme.css", true],
+    ["design-system/theme/tokens.css", false],
+    ["design-system/custom/theme-toggle/ThemeToggle.svelte", false],
     ["lib/paths.test.ts", false],
     ["lib/editor/markdown.test.ts", false],
     ["lib/notes.css.md", false],
@@ -147,7 +149,7 @@ test("the scanner reports the line of each literal", () => {
   ]);
 });
 
-test("theme.css is the only file with palette values", () => {
+test("the design system is the only place with palette values", () => {
   const src = fileURLToPath(new URL("..", import.meta.url));
   const files = readdirSync(src, { recursive: true, encoding: "utf8" }).filter(isScanned).sort();
   // The scan has to see the files that carry the layout, the shell and the scripts.
@@ -172,19 +174,28 @@ test("theme.css is the only file with palette values", () => {
   assert.equal(
     findings.length,
     0,
-    `color literals outside theme.css (use a theme token, or move the value there):\n  ${findings.join("\n  ")}`,
+    `color literals outside the design system (use a theme token):\n  ${findings.join("\n  ")}`,
   );
 });
 
-test("app background tokens are defined in both themes", () => {
-  const app = readFileSync(new URL("../app.css", import.meta.url), "utf8");
-  const theme = readFileSync(new URL("../theme.css", import.meta.url), "utf8");
-  const used = [...app.matchAll(/var\((--bg-[\w-]+)/g)].map((match) => match[1]);
-  const defined = [...theme.matchAll(/(--bg-[\w-]+)\s*:/g)].map((match) => match[1]);
-  for (const token of used) {
+test("every token the app uses is defined by the design system or by the app", () => {
+  const src = fileURLToPath(new URL("..", import.meta.url));
+  const tokens = readFileSync(src + "design-system/theme/tokens.css", "utf8");
+  const files = readdirSync(src, { recursive: true, encoding: "utf8" }).filter(isScanned);
+  const own = new Set<string>();
+  const used = new Map<string, string>();
+  for (const file of files) {
+    const text = readFileSync(src + file, "utf8");
+    for (const match of text.matchAll(/(--[\w-]+)\s*:/g)) own.add(match[1]);
+    for (const match of text.matchAll(/var\((--[\w-]+)/g)) used.set(match[1], file);
+  }
+  const defined = new Set([...tokens.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
+  // Set by the components themselves, or a variable a rule gives itself.
+  const local = /^--(?:depth|spinner-size|nb-list-indent|x|a|b|y)$/;
+  for (const [token, file] of used) {
     assert.ok(
-      defined.filter((candidate) => candidate === token).length >= 2,
-      `${token} is missing from a theme`,
+      defined.has(token) || own.has(token) || local.test(token),
+      `${token} in ${file} is defined nowhere`,
     );
   }
 });
