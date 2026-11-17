@@ -36,8 +36,8 @@ importers:
         specifier: ^1.8.1
         version: 1.8.1
       '@lucide/svelte':
-        specifier: ^1.21.0
-        version: 1.21.0(svelte@5.56.8)
+        specifier: ^1.74.0
+        version: 1.74.0(svelte@5.56.8)
       '@ui-sdk/core':
         specifier: 0.1.0-beta.7
         version: 0.1.0-beta.7
@@ -170,8 +170,8 @@ packages:
   '@lezer/markdown@1.8.1':
     resolution: {integrity: sha512-M5YmEcKWO4mJ45Y1hECwqyu8cLv25EiXOK554PVOvDOWOP0olwelHHQUWr9sjF+d1bENVhy0nfJ8E57XZUTiXg==}
 
-  '@lucide/svelte@1.21.0':
-    resolution: {integrity: sha512-MEv//A7Jv3kHukZowv/DWp1MAtUzJKYwtJsmnQ7X98lCgtac3z3NbaToDl3Q6jO3gS9sougFpcD+t+YuxOkRMw==}
+  '@lucide/svelte@1.74.0':
+    resolution: {integrity: sha512-J9kteBGbntyvE+xIcpoqOcoOfuat0tFnGzOx+aj0NbydQlt5x+/ayRSwEK0iqaY3RTGavpthEx/l7PQiqT+crg==}
     peerDependencies:
       svelte: ^5
 
@@ -877,8 +877,8 @@ packages:
       prettier: ^3.0.0
       svelte: ^3.2.0 || ^4.0.0-next.0 || ^5.0.0-next.0
 
-  prettier-plugin-svelte@4.1.1:
-    resolution: {integrity: sha512-wXvbXMjSvb4C9ENWTHXyd+ihakKCsJ6rJhLP6/8HFNj4GkZr48jqL9PoKsl2sk7SyCZRTnJ7O2TTowUpOxP/KA==}
+  prettier-plugin-svelte@4.2.0:
+    resolution: {integrity: sha512-VgUFSR6+7/KLloVSIgKMwY/9OFxaixY/xsOBUCP95ZKaxSa6JBtLKzq6L1L/Tw6Jc1C7K+op7D1Yu5qD+YdPHA==}
     engines: {node: '>=20'}
     peerDependencies:
       prettier: ^3.0.0
@@ -1274,7 +1274,7 @@ snapshots:
       '@lezer/common': 1.5.4
       '@lezer/highlight': 1.2.5
 
-  '@lucide/svelte@1.21.0(svelte@5.56.8)':
+  '@lucide/svelte@1.74.0(svelte@5.56.8)':
     dependencies:
       svelte: 5.56.8
 
@@ -1813,7 +1813,7 @@ snapshots:
       prettier: 3.3.3
       svelte: 4.2.20
 
-  prettier-plugin-svelte@4.1.1(prettier@3.3.3)(svelte@4.2.20):
+  prettier-plugin-svelte@4.2.0(prettier@3.3.3)(svelte@4.2.20):
     dependencies:
       prettier: 3.3.3
       svelte: 4.2.20
@@ -1910,7 +1910,7 @@ snapshots:
       globrex: 0.1.2
       prettier: 3.3.3
       prettier-plugin-svelte: 3.5.2(prettier@3.3.3)(svelte@4.2.20)
-      prettier-plugin-svelte4: prettier-plugin-svelte@4.1.1(prettier@3.3.3)(svelte@4.2.20)
+      prettier-plugin-svelte4: prettier-plugin-svelte@4.2.0(prettier@3.3.3)(svelte@4.2.20)
       svelte: 4.2.20
       svelte2tsx: 0.7.63(svelte@4.2.20)(typescript@6.0.3)
       typescript: 6.0.3

@@ -1,4 +1,4 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["dist/**", ".astro/**", "src/design-system/**"]
+  "ignorePatterns": ["dist/**", "src/design-system/**"]
 }

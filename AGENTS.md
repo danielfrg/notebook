@@ -45,6 +45,16 @@ They are written for humans: avoid big restructures, but update them when change
   `NOTEBOOK_MCP_EXCLUDE` hides paths from every MCP tool; excluded paths behave as
   not found. Errors are short and never expose filesystem paths.
 
+## Development
+
+- `just install`: install the frontend dependencies.
+- `just api`: run the Go API (serves the frontend embedded by the last `just build`).
+- `just frontend`: Vite dev server with HMR, proxying the API.
+- `just check`: gofmt, vet, race tests, oxfmt/oxlint, frontend tests and svelte-check.
+- `just build`: build the frontend and embed it in the single binary.
+- `just run`: build, then run the binary.
+- `just image-check`: build the container image and run `scripts/container-smoke.sh` against it.
+
 ## Frontend Conventions
 
 `DESIGN.md` owns the layout and interaction rules; read it before changing the frontend.
@@ -52,3 +62,4 @@ The frontend uses ui-sdk (`@ui-sdk/core` and `@ui-sdk/svelte`, pinned exactly) w
 `frontend/src/design-system/` is synced from the shared design-system repo: never edit it by hand.
 Change it there and run its sync, then commit the result here.
 `app.css` holds only layout and notebook-specific pieces and uses theme tokens, never palette values.
+`main.ts` imports the synced design-system CSS first, then `app.css` last, then `editor.css`, so app rules win ties with the theme; prefer tokens and class selectors over `!important`; never edit `frontend/src/design-system/` (it is synced from the design-system repo with `pnpm sync`). There is no `palette.css` in this app.

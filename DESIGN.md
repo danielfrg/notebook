@@ -12,8 +12,8 @@ The note carries the interface. Notebook is a two-column shell: a resizable, col
 
 `frontend/src/design-system/` is synced from the shared design-system repo (theme tokens and components, plus the `theme-toggle` component) and is never edited by hand. A change to it is made in that repo, synced, and then committed here.
 
-- `main.ts` imports `app.css`, then the synced `theme/tokens.css`, `theme/components.css`, and each used custom component's CSS.
-- `app.css` starts with `@layer ui-sdk;` and holds layout and Notebook-specific pieces. It may adjust a control's layout (width, spacing), never its look. It loads before the theme, so a rule that must win over a theme rule raises its specificity (`[data-slot="button"].my-class`) instead of using `!important`.
+- `main.ts` imports the synced `theme/tokens.css`, `theme/components.css`, and each used custom component's CSS first, then `app.css`, then `editor.css`, so app rules win ties with the theme.
+- `app.css` starts with `@layer ui-sdk;` and holds layout and Notebook-specific pieces. It may adjust a control's layout (width, spacing), never its look. It loads after the theme, so it wins ties with theme rules; prefer tokens and class selectors over `!important`.
 - Use tokens (`--ink`, `--muted`, `--line`, `--space-*`, `--radius-*`, `--mono`), never palette literals in app or editor styles. The editor reads semantic tokens plus the `--nb-*` tokens defined in `app.css`.
 - Use ui-sdk components for controls (`Button`, `Input`, `Menu`, `SegmentedControl`, `Toolbar`, `Dialog`, `AlertDialog`, `Command`, `Drawer`, `Resizable`, `Toast`). Do not hand-roll a `role=` pattern the library ships. Local components (`Modal`, `Spinner`, `Kbd`) cover only what it does not.
 - Fonts are the system stack and `--mono`; `--mono` is for code and identifiers. Never load web fonts or embed font binaries.

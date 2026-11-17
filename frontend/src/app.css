@@ -1,6 +1,5 @@
 /* App layout and notebook-specific pieces. Theme and controls come from design-system/,
-   which is synced and never edited here. Loaded before the theme, so rules that must beat
-   a theme rule of equal weight raise their specificity. */
+   which is synced and never edited here. Loaded after the theme, so app rules win ties with it. */
 @layer ui-sdk;
 
 :root {
